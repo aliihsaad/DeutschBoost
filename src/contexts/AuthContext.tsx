@@ -81,13 +81,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initializeAuth = async () => {
       try {
-        // Set a timeout to force loading to false after 10 seconds
+        // Set a timeout to force loading to false after 30 seconds
         loadingTimeout = setTimeout(() => {
           if (isMounted) {
             console.warn('Auth initialization timeout - forcing loading to false');
             setLoading(false);
           }
-        }, 10000);
+        }, 30000);
 
         const { data: { session }, error } = await supabase.auth.getSession();
 
