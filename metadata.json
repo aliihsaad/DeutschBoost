@@ -1,0 +1,7 @@
+{
+  "name": "DeutschBoost",
+  "description": "An intelligent, adaptive app designed to help users learn and master the German language from A1 to C2 levels using AI-powered tests, personalized learning plans, and real-time conversation practice.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
