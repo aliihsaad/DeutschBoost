@@ -6,7 +6,7 @@ if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable is not set");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+export const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Generate reading comprehension question
 export const generateReadingQuestion = async (level: CEFRLevel): Promise<GenerateContentResponse> => {
