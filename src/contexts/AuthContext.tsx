@@ -17,6 +17,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>;
+  updateUserData: (updates: Partial<UserData>) => Promise<{ error: Error | null }>;
   refreshUserData: () => Promise<void>;
 }
 
@@ -235,6 +236,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Update user data (users table)
+  const updateUserData = async (updates: Partial<UserData>) => {
+    if (!user) return { error: new Error('No user logged in') };
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Refresh user data
+      await fetchUserData(user.id);
+
+      return { error: null };
+    } catch (error) {
+      return { error: error as Error };
+    }
+  };
+
   // Refresh user data manually
   const refreshUserData = async () => {
     if (user) {
@@ -253,6 +275,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signInWithGoogle,
     signOut,
     updateProfile,
+    updateUserData,
     refreshUserData,
   };
 
