@@ -351,7 +351,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userLevel }) => {
       {/* Edit Profile Modal */}
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowEditModal(false)}>
-          <Card glass className="w-full max-w-2xl backdrop-blur-2xl border-2 border-white/30 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl">
+            <Card glass className="backdrop-blur-2xl border-2 border-white/30 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
                 Edit Profile
@@ -501,6 +502,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userLevel }) => {
               </div>
             </div>
           </Card>
+          </div>
         </div>
       )}
 
