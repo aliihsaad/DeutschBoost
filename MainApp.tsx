@@ -8,8 +8,8 @@ import ConversationPage from './pages/ConversationPage';
 import ProfilePage from './pages/ProfilePage';
 import { Page, CEFRLevel, TestResult, LearningPlan } from './types';
 import { generateLearningPlan } from './services/geminiService';
-import { useAuth } from './contexts/AuthContext';
-import { supabase } from './lib/supabase';
+import { useAuth } from './src/contexts/AuthContext';
+import { supabase } from './src/lib/supabase';
 import toast from 'react-hot-toast';
 
 const MainApp: React.FC = () => {

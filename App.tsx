@@ -1,10 +1,10 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from './contexts/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
+import { AuthProvider } from './src/contexts/AuthContext';
+import ProtectedRoute from './src/components/ProtectedRoute';
+import LoginPage from './src/pages/LoginPage';
+import SignupPage from './src/pages/SignupPage';
 import MainApp from './MainApp';
 
 const App: React.FC = () => {
