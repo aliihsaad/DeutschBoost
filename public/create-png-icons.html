@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate PNG Icons</title>
+</head>
+<body>
+    <h1>PWA Icon Generator</h1>
+    <p>Right-click and save the images below:</p>
+
+    <h2>192x192</h2>
+    <canvas id="icon192" width="192" height="192"></canvas>
+
+    <h2>512x512</h2>
+    <canvas id="icon512" width="512" height="512"></canvas>
+
+    <script>
+        function createIcon(canvas) {
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width;
+
+            // Background circle with gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#2563eb'); // blue-600
+            gradient.addColorStop(1, '#4f46e5'); // indigo-600
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // White circle for text background
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(size / 2, size / 2, size / 2.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw "DB" text
+            ctx.fillStyle = '#2563eb';
+            ctx.font = `bold ${size / 3}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('DB', size / 2, size / 2);
+        }
+
+        createIcon(document.getElementById('icon192'));
+        createIcon(document.getElementById('icon512'));
+
+        // Auto-download
+        setTimeout(() => {
+            ['icon192', 'icon512'].forEach(id => {
+                const canvas = document.getElementById(id);
+                const size = id === 'icon192' ? '192x192' : '512x512';
+                canvas.toBlob(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `pwa-${size}.png`;
+                    a.click();
+                });
+            });
+        }, 100);
+    </script>
+</body>
+</html>
