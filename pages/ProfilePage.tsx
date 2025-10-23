@@ -49,13 +49,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userLevel }) => {
   // Check if profile is incomplete
   const isProfileIncomplete = !userData?.full_name || !userProfile?.target_level || !userProfile?.daily_goal_minutes;
 
-  // Debug logging
-  useEffect(() => {
-    console.log('ProfilePage - userData:', userData);
-    console.log('ProfilePage - userProfile:', userProfile);
-    console.log('ProfilePage - isProfileIncomplete:', isProfileIncomplete);
-  }, [userData, userProfile, isProfileIncomplete]);
-
   const handleToggleNotifications = async (checked: boolean) => {
     setEmailNotifications(checked);
     const { error } = await updateProfile({

@@ -41,15 +41,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch user data and profile from database
   const fetchUserData = async (userId: string) => {
     try {
-      console.log('fetchUserData called for userId:', userId);
-
       // Create timeout promise
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Fetch timeout after 10 seconds')), 10000);
       });
 
       // Fetch user data with timeout
-      console.log('Fetching user data from users table...');
       const userDataPromise = supabase
         .from('users')
         .select('*')
@@ -65,12 +62,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error fetching user data:', userError);
         // Don't throw, just continue - user might not have profile yet
       } else {
-        console.log('Fetched user data:', userDataResult);
         setUserData(userDataResult);
       }
 
       // Fetch user profile with timeout
-      console.log('Fetching user profile from user_profiles table...');
       const profilePromise = supabase
         .from('user_profiles')
         .select('*')
@@ -86,7 +81,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error fetching user profile:', profileError);
         // Don't throw, just continue - profile might not exist yet
       } else {
-        console.log('Fetched user profile:', profileData);
         setUserProfile(profileData);
       }
     } catch (error) {
