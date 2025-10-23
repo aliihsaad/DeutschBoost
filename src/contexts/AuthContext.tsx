@@ -47,8 +47,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .single();
 
-      if (userError) throw userError;
-      setUserData(userDataResult);
+      if (userError) {
+        console.error('Error fetching user data:', userError);
+        // Don't throw, just continue - user might not have profile yet
+      } else {
+        setUserData(userDataResult);
+      }
 
       // Fetch user profile
       const { data: profileData, error: profileError } = await supabase
@@ -57,19 +61,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .single();
 
-      if (profileError) throw profileError;
-      setUserProfile(profileData);
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        // Don't throw, just continue - profile might not exist yet
+      } else {
+        setUserProfile(profileData);
+      }
     } catch (error) {
       console.error('Error fetching user data:', error);
+      // Don't rethrow - we want to continue loading the app
     }
   };
 
   // Initialize auth state
   useEffect(() => {
     let isMounted = true;
+    let loadingTimeout: NodeJS.Timeout;
 
     const initializeAuth = async () => {
       try {
+        // Set a timeout to force loading to false after 10 seconds
+        loadingTimeout = setTimeout(() => {
+          if (isMounted) {
+            console.warn('Auth initialization timeout - forcing loading to false');
+            setLoading(false);
+          }
+        }, 10000);
+
         const { data: { session }, error } = await supabase.auth.getSession();
 
         if (!isMounted) return;
@@ -77,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error) {
           console.error('Error getting session:', error);
           setLoading(false);
+          clearTimeout(loadingTimeout);
           return;
         }
 
@@ -90,6 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error initializing auth:', error);
       } finally {
         if (isMounted) {
+          clearTimeout(loadingTimeout);
           setLoading(false);
         }
       }
@@ -116,6 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       isMounted = false;
+      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
   }, []);
