@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Icon Converter</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    canvas { border: 1px solid #ccc; margin: 10px; }
+  </style>
+</head>
+<body>
+  <h1>DeutschBoost Icon Generator</h1>
+  <p>Open browser DevTools Console to save the icons as PNG</p>
+
+  <h2>192x192 Icon</h2>
+  <canvas id="canvas192" width="192" height="192"></canvas>
+
+  <h2>512x512 Icon</h2>
+  <canvas id="canvas512" width="512" height="512"></canvas>
+
+  <script>
+    function drawIcon(canvas, size) {
+      const ctx = canvas.getContext('2d');
+
+      // Background
+      ctx.fillStyle = '#2563eb';
+      ctx.fillRect(0, 0, size, size);
+
+      // Text
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold ' + (size * 0.4) + 'px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('DB', size / 2, size / 2);
+
+      // Download link
+      canvas.style.cursor = 'pointer';
+      canvas.onclick = function() {
+        const link = document.createElement('a');
+        link.download = 'pwa-' + size + 'x' + size + '.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      };
+    }
+
+    drawIcon(document.getElementById('canvas192'), 192);
+    drawIcon(document.getElementById('canvas512'), 512);
+
+    console.log('Click on each canvas to download the PNG file');
+  </script>
+</body>
+</html>
