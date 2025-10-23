@@ -2,7 +2,10 @@
 
 ## Phase 1 Implementation Complete ✅
 
-Congratulations! The foundation of DeutschBoost with Supabase integration and authentication is now ready.
+Congratulations! The foundation of DeutschBoost with Supabase integration and authentication is now ready and deployed to production!
+
+**🌐 Live Demo:** https://deutsch-boost.vercel.app
+**📦 GitHub:** https://github.com/aliihsaad/DeutschBoost
 
 ---
 
@@ -103,6 +106,36 @@ npm run dev
 ```
 
 The app will start at `http://localhost:5173`
+
+---
+
+## Deployment to Vercel (Already Done! ✅)
+
+The app is already deployed and live at **https://deutsch-boost.vercel.app**
+
+### To Deploy Your Own Instance:
+
+1. Push your code to GitHub
+2. Go to [vercel.com](https://vercel.com) and sign in
+3. Click "Add New Project"
+4. Import your GitHub repository
+5. Configure environment variables in Vercel:
+   - `GEMINI_API_KEY`
+   - `API_KEY`
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_APP_URL=https://your-app.vercel.app`
+6. Deploy!
+
+### Important: Update Supabase Auth Settings
+
+After deploying to Vercel, add your production URL to Supabase:
+
+1. Go to Supabase Dashboard → **Authentication** → **URL Configuration**
+2. Add to **Redirect URLs**:
+   - `https://deutsch-boost.vercel.app`
+   - `https://deutsch-boost.vercel.app/**`
+3. This allows OAuth (Google login) to work in production
 
 ---
 

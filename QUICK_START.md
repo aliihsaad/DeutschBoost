@@ -2,6 +2,9 @@
 
 ## 🚀 Get DeutschBoost Running in 5 Minutes
 
+**🌐 Try it live:** https://deutsch-boost.vercel.app
+**📦 GitHub:** https://github.com/aliihsaad/DeutschBoost
+
 ### Prerequisites
 - Node.js installed
 - A Supabase account (free tier is fine)
@@ -113,6 +116,26 @@ After signup, check Supabase → **Table Editor**:
 
 **Learning plan not saving**
 → Check browser console. Verify database migration ran successfully.
+
+---
+
+## Deployment to Vercel
+
+The app is already deployed at **https://deutsch-boost.vercel.app**!
+
+To deploy your own instance:
+```bash
+# 1. Push to GitHub
+git push origin master
+
+# 2. Import on Vercel
+# - Go to vercel.com
+# - Import GitHub repository
+# - Add environment variables
+# - Deploy!
+```
+
+Don't forget to add your Vercel URL to Supabase's allowed redirect URLs!
 
 ---
 
