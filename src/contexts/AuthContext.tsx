@@ -41,6 +41,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch user data and profile from database
   const fetchUserData = async (userId: string) => {
     try {
+      console.log('fetchUserData called for userId:', userId);
+
       // Fetch user data
       const { data: userDataResult, error: userError } = await supabase
         .from('users')
@@ -52,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error fetching user data:', userError);
         // Don't throw, just continue - user might not have profile yet
       } else {
+        console.log('Fetched user data:', userDataResult);
         setUserData(userDataResult);
       }
 
@@ -66,6 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error fetching user profile:', profileError);
         // Don't throw, just continue - profile might not exist yet
       } else {
+        console.log('Fetched user profile:', profileData);
         setUserProfile(profileData);
       }
     } catch (error) {
