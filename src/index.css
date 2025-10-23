@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom fonts */
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
