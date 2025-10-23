@@ -41,47 +41,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch user data and profile from database
   const fetchUserData = async (userId: string) => {
     try {
-      // Create timeout promise
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Fetch timeout after 10 seconds')), 10000);
-      });
+      // Fetch both in parallel without timeout (Supabase has its own timeout)
+      const [userDataResult, profileResult] = await Promise.all([
+        supabase.from('users').select('*').eq('id', userId).single(),
+        supabase.from('user_profiles').select('*').eq('id', userId).single()
+      ]);
 
-      // Fetch user data with timeout
-      const userDataPromise = supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      const { data: userDataResult, error: userError } = await Promise.race([
-        userDataPromise,
-        timeoutPromise
-      ]) as any;
-
-      if (userError) {
-        console.error('Error fetching user data:', userError);
+      if (userDataResult.error) {
+        console.error('Error fetching user data:', userDataResult.error);
         // Don't throw, just continue - user might not have profile yet
       } else {
-        setUserData(userDataResult);
+        setUserData(userDataResult.data);
       }
 
-      // Fetch user profile with timeout
-      const profilePromise = supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      const { data: profileData, error: profileError } = await Promise.race([
-        profilePromise,
-        timeoutPromise
-      ]) as any;
-
-      if (profileError) {
-        console.error('Error fetching user profile:', profileError);
+      if (profileResult.error) {
+        console.error('Error fetching user profile:', profileResult.error);
         // Don't throw, just continue - profile might not exist yet
       } else {
-        setUserProfile(profileData);
+        setUserProfile(profileResult.data);
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
