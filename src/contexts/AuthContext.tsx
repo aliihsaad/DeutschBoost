@@ -43,12 +43,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('fetchUserData called for userId:', userId);
 
-      // Fetch user data
-      const { data: userDataResult, error: userError } = await supabase
+      // Create timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Fetch timeout after 10 seconds')), 10000);
+      });
+
+      // Fetch user data with timeout
+      console.log('Fetching user data from users table...');
+      const userDataPromise = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
+
+      const { data: userDataResult, error: userError } = await Promise.race([
+        userDataPromise,
+        timeoutPromise
+      ]) as any;
 
       if (userError) {
         console.error('Error fetching user data:', userError);
@@ -58,12 +69,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserData(userDataResult);
       }
 
-      // Fetch user profile
-      const { data: profileData, error: profileError } = await supabase
+      // Fetch user profile with timeout
+      console.log('Fetching user profile from user_profiles table...');
+      const profilePromise = supabase
         .from('user_profiles')
         .select('*')
         .eq('id', userId)
         .single();
+
+      const { data: profileData, error: profileError } = await Promise.race([
+        profilePromise,
+        timeoutPromise
+      ]) as any;
 
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
