@@ -3,8 +3,11 @@ import { LiveConnectSession, LiveServerMessage } from '@google/genai';
 import { startConversationSession, decode, decodeAudioData, createPcmBlob } from '../services/geminiService';
 import { Transcript } from '../types';
 import Card from '../components/Card';
+import { useAuth } from '../src/contexts/AuthContext';
+import { CEFRLevel } from '../types';
 
 const ConversationPage: React.FC = () => {
+    const { userData, userProfile } = useAuth();
     const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
     const [transcripts, setTranscripts] = useState<Transcript[]>([]);
     
@@ -106,6 +109,10 @@ const ConversationPage: React.FC = () => {
 
             mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
             
+            // Get user's level and name for personalized conversation
+            const userLevel = userProfile?.current_level || CEFRLevel.A2;
+            const userName = userData?.full_name?.split(' ')[0]; // First name only
+
             sessionPromiseRef.current = startConversationSession({
                 onopen: () => {
                     setStatus('connected');
@@ -130,7 +137,7 @@ const ConversationPage: React.FC = () => {
                 onclose: () => {
                     // This can be handled if needed, but stopping handles cleanup.
                 },
-            });
+            }, userLevel, userName);
 
         } catch (err) {
             console.error("Failed to start conversation:", err);
@@ -174,12 +181,40 @@ const ConversationPage: React.FC = () => {
         };
     }, [stopConversation]);
 
+    // Get level info for display
+    const userLevel = userProfile?.current_level || CEFRLevel.A2;
+    const levelDescriptions: Record<CEFRLevel, string> = {
+        [CEFRLevel.A1]: "Alex will speak slowly with simple sentences and basic vocabulary. Perfect for beginners!",
+        [CEFRLevel.A2]: "Alex will use everyday expressions and simple past tense. Great for elementary learners!",
+        [CEFRLevel.B1]: "Alex will engage in natural conversations about various topics with some complex grammar.",
+        [CEFRLevel.B2]: "Alex will discuss complex topics at near-native speed with idiomatic expressions.",
+        [CEFRLevel.C1]: "Alex will engage in sophisticated discussions with advanced vocabulary and nuanced topics.",
+        [CEFRLevel.C2]: "Alex will converse as an equal partner at native level on any topic."
+    };
+
     return (
         <div className="container mx-auto p-8">
             <header className="mb-8 text-center">
                 <h1 className="text-4xl font-bold">AI Conversation Partner</h1>
                 <p className="text-gray-600 mt-2">Practice your German by speaking with our AI tutor, Alex.</p>
             </header>
+
+            {/* Level Info Card */}
+            <Card className="max-w-3xl mx-auto mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
+                <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                        {userLevel}
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="text-lg font-bold text-gray-800">Your Conversation Level</h3>
+                        <p className="text-gray-600 text-sm">{levelDescriptions[userLevel]}</p>
+                    </div>
+                    <div className="hidden md:block text-4xl">
+                        💬
+                    </div>
+                </div>
+            </Card>
+
             <Card className="max-w-3xl mx-auto">
                 <div className="flex justify-center items-center mb-6 space-x-4">
                     {status === 'idle' || status === 'error' ? (
