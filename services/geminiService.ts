@@ -270,12 +270,21 @@ export const generateSpokenAudio = async (text: string): Promise<string> => {
 
 
 // Generate level-appropriate system instructions for AI conversation
-const getConversationInstructions = (userLevel: CEFRLevel, userName?: string): string => {
+const getConversationInstructions = (
+    userLevel: CEFRLevel,
+    userName?: string,
+    motherLanguage?: string
+): string => {
     const name = userName || 'there';
+    const langNote = motherLanguage
+        ? `The user's native language is ${motherLanguage}. When explaining grammar, vocabulary, or corrections, you may occasionally provide brief explanations in ${motherLanguage} to ensure clarity, especially for complex concepts. However, keep the conversation primarily in German.`
+        : 'When explaining corrections, use simple German and gestures/context to help understanding.';
 
     const levelInstructions = {
         [CEFRLevel.A1]: `
 You are Alex, a warm and encouraging German language tutor. You're speaking with ${name}, who is at A1 level (beginner).
+
+${langNote}
 
 INTRODUCTION (First message only):
 "Hallo ${name}! Ich bin Alex, dein Deutsch-Tutor. Ich helfe dir, Deutsch zu lernen. Wie geht es dir heute?"
@@ -301,6 +310,8 @@ TOPICS: Introduce yourself, family, hobbies, food, weather, daily routine`,
         [CEFRLevel.A2]: `
 You are Alex, a patient and friendly German language tutor. You're speaking with ${name}, who is at A2 level (elementary).
 
+${langNote}
+
 INTRODUCTION (First message only):
 "Hallo ${name}! Schön, dich kennenzulernen. Ich bin Alex. Ich freue mich, heute mit dir Deutsch zu sprechen. Erzähl mir, was hast du diese Woche gemacht?"
 
@@ -324,6 +335,8 @@ TOPICS: Weekend activities, work/study, shopping, travel plans, past experiences
 
         [CEFRLevel.B1]: `
 You are Alex, an engaging and supportive German language tutor. You're conversing with ${name}, who is at B1 level (intermediate).
+
+${langNote}
 
 INTRODUCTION (First message only):
 "Guten Tag, ${name}! Ich bin Alex, und ich freue mich sehr darauf, heute mit dir zu sprechen. Auf diesem Niveau können wir schon über viele interessante Themen reden. Was beschäftigt dich momentan? Worüber möchtest du sprechen?"
@@ -349,6 +362,8 @@ TOPICS: Personal opinions, plans and dreams, cultural differences, environmental
         [CEFRLevel.B2]: `
 You are Alex, a knowledgeable and articulate German language tutor. You're having a conversation with ${name}, who is at B2 level (upper intermediate).
 
+${langNote}
+
 INTRODUCTION (First message only):
 "Hallo ${name}, schön, dass wir uns heute unterhalten können! Ich bin Alex. Auf B2-Niveau können wir uns schon über komplexere Themen austauschen. Gibt es ein bestimmtes Thema, das dich besonders interessiert, oder sollen wir einfach schauen, wohin uns das Gespräch führt?"
 
@@ -372,6 +387,8 @@ TOPICS: Current affairs, abstract ideas, professional development, literature, e
 
         [CEFRLevel.C1]: `
 You are Alex, a sophisticated and intellectually stimulating German language tutor. You're engaging with ${name}, who is at C1 level (advanced).
+
+${langNote}
 
 INTRODUCTION (First message only):
 "Grüß dich, ${name}! Ich bin Alex. Es ist mir eine Freude, mich mit jemandem auf deinem Sprachniveau zu unterhalten. Auf C1-Niveau können wir uns praktisch über alles austauschen – von anspruchsvollen philosophischen Fragen bis hin zu spezifischen Fachthemen. Was würde dich heute reizen?"
@@ -397,6 +414,8 @@ TOPICS: Philosophy, specialized professional topics, literature analysis, comple
 
         [CEFRLevel.C2]: `
 You are Alex, an intellectually equal conversation partner. You're speaking with ${name}, who has near-native C2 proficiency.
+
+${langNote}
 
 INTRODUCTION (First message only):
 "Servus ${name}! Alex hier. Schön, dass wir heute die Gelegenheit haben, uns zu unterhalten. Auf deinem Niveau ist jedes Thema möglich – lass uns einfach ein anregendes Gespräch führen. Was liegt dir momentan am Herzen?"
@@ -432,7 +451,8 @@ export const startConversationSession = (
         onclose: (e: CloseEvent) => void;
     },
     userLevel: CEFRLevel = CEFRLevel.A2,
-    userName?: string
+    userName?: string,
+    motherLanguage?: string
 ): Promise<LiveConnectSession> => {
     return ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
@@ -444,7 +464,7 @@ export const startConversationSession = (
             speechConfig: {
                 voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
             },
-            systemInstruction: getConversationInstructions(userLevel, userName),
+            systemInstruction: getConversationInstructions(userLevel, userName, motherLanguage),
         },
     });
 };

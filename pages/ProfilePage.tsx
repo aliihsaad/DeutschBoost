@@ -19,6 +19,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userLevel }) => {
   const [editForm, setEditForm] = useState({
     full_name: '',
     avatar_url: '',
+    mother_language: '',
     target_level: '' as CEFRLevel | '',
     target_exam_date: '',
     daily_goal_minutes: 30,
@@ -39,6 +40,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userLevel }) => {
       setEditForm({
         full_name: userData?.full_name || '',
         avatar_url: userData?.avatar_url || '',
+        mother_language: userProfile?.mother_language || '',
         target_level: (userProfile?.target_level as CEFRLevel) || '',
         target_exam_date: userProfile?.target_exam_date || '',
         daily_goal_minutes: userProfile?.daily_goal_minutes || 30,
@@ -110,18 +112,20 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userLevel }) => {
         console.log('User data updated successfully');
       }
 
-      // Update user_profiles table (target_level, target_exam_date, daily_goal_minutes) - skip auto-refresh
-      if (editForm.target_level || editForm.target_exam_date || editForm.daily_goal_minutes !== 30) {
+      // Update user_profiles table (target_level, target_exam_date, daily_goal_minutes, mother_language) - skip auto-refresh
+      if (editForm.target_level || editForm.target_exam_date || editForm.daily_goal_minutes !== 30 || editForm.mother_language) {
         console.log('Updating profile:', {
           target_level: editForm.target_level,
           target_exam_date: editForm.target_exam_date,
-          daily_goal_minutes: editForm.daily_goal_minutes
+          daily_goal_minutes: editForm.daily_goal_minutes,
+          mother_language: editForm.mother_language
         });
 
         const { error: profileError } = await updateProfile({
           target_level: editForm.target_level || null,
           target_exam_date: editForm.target_exam_date || null,
           daily_goal_minutes: editForm.daily_goal_minutes,
+          mother_language: editForm.mother_language || null,
         }, true); // Skip refresh
 
         if (profileError) {
@@ -438,6 +442,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userLevel }) => {
                         <span className="text-sm text-gray-500 font-medium">Avatar preview</span>
                       </div>
                     )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      Mother Language (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.mother_language}
+                      onChange={(e) => setEditForm({ ...editForm, mother_language: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 font-medium"
+                      placeholder="e.g., English, Arabic, Spanish..."
+                    />
+                    <p className="mt-2 text-xs text-gray-500 font-medium">
+                      Your native language - Alex will use this to explain grammar and vocabulary when needed during conversations
+                    </p>
                   </div>
                 </div>
               </div>

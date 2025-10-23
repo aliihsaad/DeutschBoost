@@ -109,9 +109,10 @@ const ConversationPage: React.FC = () => {
 
             mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
             
-            // Get user's level and name for personalized conversation
+            // Get user's level, name, and mother language for personalized conversation
             const userLevel = userProfile?.current_level || CEFRLevel.A2;
             const userName = userData?.full_name?.split(' ')[0]; // First name only
+            const motherLanguage = userProfile?.mother_language;
 
             sessionPromiseRef.current = startConversationSession({
                 onopen: () => {
@@ -137,7 +138,7 @@ const ConversationPage: React.FC = () => {
                 onclose: () => {
                     // This can be handled if needed, but stopping handles cleanup.
                 },
-            }, userLevel, userName);
+            }, userLevel, userName, motherLanguage);
 
         } catch (err) {
             console.error("Failed to start conversation:", err);

@@ -51,6 +51,7 @@ export interface Database {
           target_level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | null
           target_exam_date: string | null
           daily_goal_minutes: number
+          mother_language: string | null
           notification_preferences: Json | null
           study_streak: number
           total_study_time: number
@@ -62,6 +63,7 @@ export interface Database {
           target_level?: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | null
           target_exam_date?: string | null
           daily_goal_minutes?: number
+          mother_language?: string | null
           notification_preferences?: Json | null
           study_streak?: number
           total_study_time?: number
@@ -73,6 +75,7 @@ export interface Database {
           target_level?: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | null
           target_exam_date?: string | null
           daily_goal_minutes?: number
+          mother_language?: string | null
           notification_preferences?: Json | null
           study_streak?: number
           total_study_time?: number
