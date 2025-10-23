@@ -6,6 +6,7 @@ import EnhancedPlacementTestPage from './pages/EnhancedPlacementTestPage';
 import LearningPlanPage from './pages/LearningPlanPage';
 import ConversationPage from './pages/ConversationPage';
 import ProfilePage from './pages/ProfilePage';
+import ActivityPage from './pages/ActivityPage';
 import { Page, CEFRLevel, TestResult, LearningPlan } from './types';
 import { generateLearningPlan } from './services/geminiService';
 import { loadActiveLearningPlan, saveLearningPlan, updatePlanItemCompletion } from './services/learningPlanService';
@@ -133,6 +134,7 @@ const MainApp: React.FC = () => {
           <Route path="/" element={<HomePage setPage={setCurrentPage} learningPlan={learningPlan} userLevel={userLevel} />} />
           <Route path="/placement-test" element={<EnhancedPlacementTestPage onTestComplete={handleTestComplete} />} />
           <Route path="/learning-plan" element={<LearningPlanPage learningPlan={learningPlan} loading={loadingPlan} onToggleItem={handleTogglePlanItem} />} />
+          <Route path="/activity" element={<ActivityPage />} />
           <Route path="/conversation" element={<ConversationPage />} />
           <Route path="/profile" element={<ProfilePage userLevel={userLevel} />} />
         </Routes>

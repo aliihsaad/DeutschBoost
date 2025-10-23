@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LearningPlan, LearningPlanItem } from '../types';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -21,6 +22,36 @@ const getIconForSkill = (skill: string) => {
 }
 
 const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loading, onToggleItem }) => {
+  const navigate = useNavigate();
+
+  const handleStartActivity = (
+    skill: string,
+    topic: string,
+    description: string,
+    level: string,
+    weekNumber: number,
+    itemIndex: number
+  ) => {
+    const activityType = skill.toLowerCase();
+
+    // Special handling for speaking - redirect to conversation page
+    if (activityType === 'speaking') {
+      navigate('/conversation');
+      return;
+    }
+
+    // Navigate to activity page with params
+    const params = new URLSearchParams({
+      type: activityType,
+      topic,
+      description,
+      level,
+      week: weekNumber.toString(),
+      item: itemIndex.toString(),
+    });
+
+    navigate(`/activity?${params.toString()}`);
+  };
 
   if (loading) {
     return (
@@ -185,6 +216,15 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
                           {item.description}
                         </p>
                       </div>
+
+                      {!item.completed && (
+                        <button
+                          onClick={() => handleStartActivity(item.skill, item.topic, item.description, learningPlan.level, week.week, itemIndex)}
+                          className="flex-shrink-0 mr-3 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-bold text-sm hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                        >
+                          Start Activity
+                        </button>
+                      )}
 
                       <button
                         onClick={() => onToggleItem(weekIndex, itemIndex)}
