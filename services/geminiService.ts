@@ -8,23 +8,44 @@ if (!process.env.API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-export const generatePlacementTest = async (level: CEFRLevel): Promise<GenerateContentResponse> => {
+// Generate reading comprehension question
+export const generateReadingQuestion = async (level: CEFRLevel): Promise<GenerateContentResponse> => {
+    const levelGuidance = {
+        [CEFRLevel.A1]: 'very simple text with basic vocabulary (family, food, numbers), present tense only, 2-3 sentences',
+        [CEFRLevel.A2]: 'simple text about everyday topics (shopping, work, hobbies), present and perfect tense, 3-4 sentences',
+        [CEFRLevel.B1]: 'text about opinions, travel, or experiences with some complex sentences, 4-5 sentences',
+        [CEFRLevel.B2]: 'text with abstract concepts, idiomatic expressions, and complex structures, 5-6 sentences',
+        [CEFRLevel.C1]: 'sophisticated text with nuanced arguments and advanced vocabulary, 6-7 sentences',
+        [CEFRLevel.C2]: 'highly complex text with subtle meanings and native-level expressions, 7-8 sentences'
+    };
+
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
-        contents: `Generate a single multiple-choice German reading comprehension (Lesen) question for a ${level} CEFR level exam. The question should resemble a Goethe-Zertifikat or TELC exam format. Provide a short text (2-3 sentences), a question about the text, and three possible answers (A, B, C).`,
+        contents: `Generate a multiple-choice German reading comprehension question for ${level} CEFR level.
+
+Guidelines for ${level}:
+${levelGuidance[level]}
+
+The question should test reading comprehension authentically. Provide:
+- A German text appropriate for the level
+- A question in German about the text (asking about main idea, detail, or inference)
+- Four possible answers in German
+- Make sure only ONE answer is clearly correct
+
+Format like Goethe-Zertifikat exams.`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
                     text: { type: Type.STRING, description: 'The German text for reading comprehension.' },
-                    question: { type: Type.STRING, description: 'The question about the text.' },
+                    question: { type: Type.STRING, description: 'The question about the text in German.' },
                     options: {
                         type: Type.ARRAY,
                         items: { type: Type.STRING },
-                        description: 'An array of three possible answers (A, B, C).'
+                        description: 'An array of four possible answers in German.'
                     },
-                    correctOptionIndex: { type: Type.INTEGER, description: 'The 0-based index of the correct answer in the options array.' }
+                    correctOptionIndex: { type: Type.INTEGER, description: 'The 0-based index of the correct answer.' }
                 },
                 required: ['text', 'question', 'options', 'correctOptionIndex']
             }
@@ -33,13 +54,118 @@ export const generatePlacementTest = async (level: CEFRLevel): Promise<GenerateC
     return response;
 };
 
+// Generate grammar question
+export const generateGrammarQuestion = async (level: CEFRLevel): Promise<GenerateContentResponse> => {
+    const grammarTopics = {
+        [CEFRLevel.A1]: 'present tense, articles (der/die/das), basic word order, or simple pronouns',
+        [CEFRLevel.A2]: 'perfect tense, dative/accusative prepositions, modal verbs, or possessive pronouns',
+        [CEFRLevel.B1]: 'past tense (Präteritum), subordinate clauses (weil, dass), or two-way prepositions',
+        [CEFRLevel.B2]: 'subjunctive II (Konjunktiv II), passive voice, or relative clauses',
+        [CEFRLevel.C1]: 'Plusquamperfekt, participle constructions, or subjunctive I',
+        [CEFRLevel.C2]: 'subtle modal particles, advanced conjunctions, or stylistic variations'
+    };
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Generate a multiple-choice German grammar question for ${level} CEFR level.
+
+Topic for ${level}: ${grammarTopics[level]}
+
+Provide:
+- A German sentence with a blank (use _____ for the blank)
+- A question asking what belongs in the blank
+- Four possible answers
+- Make sure only ONE answer is grammatically correct
+
+The question should test authentic grammar usage, not just memorization.`,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    sentence: { type: Type.STRING, description: 'German sentence with a blank (_____)'  },
+                    question: { type: Type.STRING, description: 'Question asking what belongs in the blank' },
+                    options: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING },
+                        description: 'Four possible answers'
+                    },
+                    correctOptionIndex: { type: Type.INTEGER, description: '0-based index of correct answer' }
+                },
+                required: ['sentence', 'question', 'options', 'correctOptionIndex']
+            }
+        }
+    });
+    return response;
+};
+
+// Legacy function for backward compatibility
+export const generatePlacementTest = generateReadingQuestion;
+
+// Evaluate comprehensive placement test
+export const evaluateComprehensivePlacementTest = async (
+    readingScore: number,
+    grammarScore: number,
+    writingText: string,
+    writingPrompt: string
+): Promise<TestResult> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-pro',
+        contents: `As a certified German language examiner following CEFR guidelines, evaluate this student's comprehensive placement test.
+
+READING COMPREHENSION: ${readingScore}/5 questions correct
+GRAMMAR: ${grammarScore}/5 questions correct
+WRITING SAMPLE:
+Prompt: "${writingPrompt}"
+Student's text: "${writingText}"
+
+Analyze all three sections to determine the student's overall CEFR level (A1, A2, B1, B2, C1, or C2).
+
+Consider:
+- Reading/Grammar scores indicate receptive skills
+- Writing quality indicates productive skills
+- Final level should reflect consistent performance across all areas
+- Be accurate and realistic - don't over-inflate the level
+
+Provide detailed feedback on strengths, weaknesses, and specific recommendations for improvement.`,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    level: { type: Type.STRING, description: "The assessed CEFR level (A1, A2, B1, B2, C1, or C2)" },
+                    strengths: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING },
+                        description: "3-5 specific strengths across all test sections"
+                    },
+                    weaknesses: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING },
+                        description: "3-5 specific areas needing improvement"
+                    },
+                    recommendations: {
+                        type: Type.STRING,
+                        description: "Detailed recommendations for reaching the next level"
+                    }
+                },
+                required: ['level', 'strengths', 'weaknesses', 'recommendations']
+            },
+            thinkingConfig: { thinkingBudget: 32768 }
+        }
+    });
+    const resultJson = JSON.parse(response.text);
+    return resultJson as TestResult;
+};
+
+// Legacy function for simple writing evaluation
 export const evaluateWriting = async (prompt: string, userText: string): Promise<TestResult> => {
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-pro',
         contents: `As a certified German language examiner, please evaluate the following text written by a student.
         Writing Prompt: "${prompt}"
         Student's text: "${userText}"
-        
+
         Analyze the text based on CEFR criteria (grammar, vocabulary, coherence, task achievement).
         Provide a detailed evaluation and assign a CEFR level.
         `,
