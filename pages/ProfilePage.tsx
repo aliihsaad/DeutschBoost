@@ -9,7 +9,7 @@ interface ProfilePageProps {
 }
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ userLevel }) => {
-  const { user, userData, userProfile, updateProfile, updateUserData } = useAuth();
+  const { user, userData, userProfile, updateProfile, updateUserData, refreshUserData } = useAuth();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -94,27 +94,53 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userLevel }) => {
     setIsSaving(true);
 
     try {
-      // Update users table (full_name, avatar_url)
-      const { error: userError } = await updateUserData({
-        full_name: editForm.full_name || null,
-        avatar_url: editForm.avatar_url || null,
-      });
+      // Update users table (full_name, avatar_url) - skip auto-refresh
+      if (editForm.full_name || editForm.avatar_url) {
+        console.log('Updating user data:', { full_name: editForm.full_name, avatar_url: editForm.avatar_url });
 
-      if (userError) throw userError;
+        const { error: userError } = await updateUserData({
+          full_name: editForm.full_name || null,
+          avatar_url: editForm.avatar_url || null,
+        }, true); // Skip refresh
 
-      // Update user_profiles table (target_level, target_exam_date, daily_goal_minutes)
-      const { error: profileError } = await updateProfile({
-        target_level: editForm.target_level || null,
-        target_exam_date: editForm.target_exam_date || null,
-        daily_goal_minutes: editForm.daily_goal_minutes,
-      });
+        if (userError) {
+          console.error('User data update error:', userError);
+          throw userError;
+        }
+        console.log('User data updated successfully');
+      }
 
-      if (profileError) throw profileError;
+      // Update user_profiles table (target_level, target_exam_date, daily_goal_minutes) - skip auto-refresh
+      if (editForm.target_level || editForm.target_exam_date || editForm.daily_goal_minutes !== 30) {
+        console.log('Updating profile:', {
+          target_level: editForm.target_level,
+          target_exam_date: editForm.target_exam_date,
+          daily_goal_minutes: editForm.daily_goal_minutes
+        });
+
+        const { error: profileError } = await updateProfile({
+          target_level: editForm.target_level || null,
+          target_exam_date: editForm.target_exam_date || null,
+          daily_goal_minutes: editForm.daily_goal_minutes,
+        }, true); // Skip refresh
+
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+          throw profileError;
+        }
+        console.log('Profile updated successfully');
+      }
+
+      // Manually refresh data once at the end
+      console.log('Refreshing user data...');
+      await refreshUserData();
+      console.log('User data refreshed');
 
       toast.success('Profile updated successfully!');
       setShowEditModal(false);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to update profile');
+      console.error('Save profile error:', error);
+      toast.error(error.message || 'Failed to update profile. Check console for details.');
     } finally {
       setIsSaving(false);
     }

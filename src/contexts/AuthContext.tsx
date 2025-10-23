@@ -216,7 +216,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Update user profile
-  const updateProfile = async (updates: Partial<UserProfile>) => {
+  const updateProfile = async (updates: Partial<UserProfile>, skipRefresh = false) => {
     if (!user) return { error: new Error('No user logged in') };
 
     try {
@@ -227,8 +227,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
 
-      // Refresh user data
-      await fetchUserData(user.id);
+      // Refresh user data unless skipped
+      if (!skipRefresh) {
+        await fetchUserData(user.id);
+      }
 
       return { error: null };
     } catch (error) {
@@ -237,7 +239,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Update user data (users table)
-  const updateUserData = async (updates: Partial<UserData>) => {
+  const updateUserData = async (updates: Partial<UserData>, skipRefresh = false) => {
     if (!user) return { error: new Error('No user logged in') };
 
     try {
@@ -248,8 +250,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
 
-      // Refresh user data
-      await fetchUserData(user.id);
+      // Refresh user data unless skipped
+      if (!skipRefresh) {
+        await fetchUserData(user.id);
+      }
 
       return { error: null };
     } catch (error) {
