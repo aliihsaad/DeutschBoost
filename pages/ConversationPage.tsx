@@ -111,6 +111,12 @@ const ConversationPage: React.FC = () => {
     const startConversation = async () => {
         console.log('🎙️ Starting conversation...');
 
+        // Prevent multiple simultaneous starts
+        if (status === 'connecting' || status === 'connected') {
+            console.log('⚠️ Conversation already starting/started, ignoring');
+            return;
+        }
+
         if (!user) {
             console.error('❌ No user logged in');
             toast.error('Please log in to start a conversation');
@@ -318,12 +324,27 @@ const ConversationPage: React.FC = () => {
             <Card className="max-w-3xl mx-auto">
                 <div className="flex justify-center items-center mb-6 space-x-4">
                     {status === 'idle' || status === 'error' ? (
-                         <button onClick={startConversation} className="bg-green-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-green-700 transition shadow-lg flex items-center space-x-2">
+                         <button
+                            onClick={startConversation}
+                            disabled={status === 'connecting'}
+                            className="bg-green-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-green-700 transition shadow-lg flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                         >
                              <i className="fa-solid fa-microphone-alt"></i>
                              <span>Start Conversation</span>
                          </button>
-                    ): (
-                        <button onClick={stopConversation} className="bg-red-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-red-700 transition shadow-lg flex items-center space-x-2">
+                    ) : status === 'connecting' ? (
+                        <button
+                            disabled
+                            className="bg-yellow-600 text-white px-8 py-4 rounded-full font-bold text-lg opacity-75 cursor-not-allowed shadow-lg flex items-center space-x-2"
+                        >
+                            <i className="fa-solid fa-spinner fa-spin"></i>
+                            <span>Connecting...</span>
+                        </button>
+                    ) : (
+                        <button
+                            onClick={stopConversation}
+                            className="bg-red-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-red-700 transition shadow-lg flex items-center space-x-2"
+                        >
                             <i className="fa-solid fa-phone-slash"></i>
                             <span>End Conversation</span>
                         </button>
