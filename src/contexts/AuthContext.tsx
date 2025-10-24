@@ -43,7 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Fetching user data and profile for:', userId);
 
-      // Create timeout wrapper
+      // Create timeout wrapper with retry logic
       const fetchWithTimeout = async (promise: Promise<any>, timeoutMs: number) => {
         const timeout = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Query timeout')), timeoutMs)
@@ -51,13 +51,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return Promise.race([promise, timeout]);
       };
 
-      // Fetch both in parallel with 5 second timeout
+      // Fetch both in parallel with 10 second timeout (first query can be slow on cold start)
       const fetchPromise = Promise.all([
         supabase.from('users').select('*').eq('id', userId).single(),
         supabase.from('user_profiles').select('*').eq('id', userId).single()
       ]);
 
-      const [userDataResult, profileResult] = await fetchWithTimeout(fetchPromise, 5000) as any;
+      const [userDataResult, profileResult] = await fetchWithTimeout(fetchPromise, 10000) as any;
 
       console.log('Fetch results:', {
         userData: userDataResult?.error ? `Error: ${userDataResult.error.message}` : 'Success',

@@ -91,6 +91,8 @@ export const loadActiveLearningPlan = async (
   userId: string
 ): Promise<{ plan: LearningPlan | null; error: Error | null }> => {
   try {
+    console.log('Loading active learning plan for user:', userId);
+
     // 1. Get the active learning plan
     const { data: planData, error: planError } = await supabase
       .from('learning_plans')
@@ -104,6 +106,7 @@ export const loadActiveLearningPlan = async (
     if (planError) {
       if (planError.code === 'PGRST116') {
         // No rows returned - user doesn't have an active plan
+        console.log('No active learning plan found for user');
         return { plan: null, error: null };
       }
       console.error('Error loading learning plan:', planError);
@@ -111,8 +114,11 @@ export const loadActiveLearningPlan = async (
     }
 
     if (!planData) {
+      console.log('No plan data returned');
       return { plan: null, error: null };
     }
+
+    console.log('Found active learning plan:', planData);
 
     // 2. Get all items for this plan
     const { data: itemsData, error: itemsError } = await supabase
@@ -125,6 +131,8 @@ export const loadActiveLearningPlan = async (
       console.error('Error loading learning plan items:', itemsError);
       return { plan: null, error: itemsError };
     }
+
+    console.log(`Loaded ${itemsData?.length || 0} learning plan items`);
 
     // 3. Transform database data into LearningPlan format
     const weekMap = new Map<number, {
@@ -158,6 +166,7 @@ export const loadActiveLearningPlan = async (
       weeks,
     };
 
+    console.log('Successfully loaded learning plan with', weeks.length, 'weeks');
     return { plan: learningPlan, error: null };
   } catch (err) {
     console.error('Unexpected error loading learning plan:', err);
