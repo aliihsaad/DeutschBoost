@@ -282,10 +282,32 @@ const ConversationPage: React.FC = () => {
     }, [transcripts, userProfile]);
 
     useEffect(() => {
+        // Cleanup function that runs ONLY when component unmounts
         return () => {
-            stopConversation();
+            // Close the live session without saving feedback on unmount
+            if (sessionPromiseRef.current) {
+                sessionPromiseRef.current.then((session) => {
+                    session.close();
+                });
+            }
+
+            if (mediaStreamRef.current) {
+                mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            }
+
+            if (scriptProcessorRef.current) {
+                scriptProcessorRef.current.disconnect();
+            }
+            if (mediaStreamSourceRef.current) {
+                mediaStreamSourceRef.current.disconnect();
+            }
+
+            for (const source of audioPlaybackSources.current.values()) {
+                source.stop();
+            }
+            audioPlaybackSources.current.clear();
         };
-    }, [stopConversation]);
+    }, []); // Empty dependency array - only run on mount/unmount
 
     // Get level info for display
     const userLevel = userProfile?.current_level || CEFRLevel.A2;
