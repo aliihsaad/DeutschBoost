@@ -5,11 +5,23 @@ import { Transcript } from '../types';
 import Card from '../components/Card';
 import { useAuth } from '../src/contexts/AuthContext';
 import { CEFRLevel } from '../types';
+import {
+    startConversationSession as startDBSession,
+    endConversationSession,
+    ConversationFeedback
+} from '../services/conversationService';
+import toast from 'react-hot-toast';
 
 const ConversationPage: React.FC = () => {
-    const { userData, userProfile } = useAuth();
+    const { user, userData, userProfile } = useAuth();
     const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
     const [transcripts, setTranscripts] = useState<Transcript[]>([]);
+    const [feedback, setFeedback] = useState<ConversationFeedback | null>(null);
+    const [showFeedback, setShowFeedback] = useState(false);
+    const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
+
+    const sessionIdRef = useRef<string | null>(null);
+    const sessionStartTimeRef = useRef<Date | null>(null);
     
     const sessionPromiseRef = useRef<Promise<LiveConnectSession> | null>(null);
     const inputAudioContextRef = useRef<AudioContext | null>(null);
@@ -97,9 +109,30 @@ const ConversationPage: React.FC = () => {
     }, []);
 
     const startConversation = async () => {
+        if (!user) {
+            toast.error('Please log in to start a conversation');
+            return;
+        }
+
         setStatus('connecting');
         setTranscripts([]);
+        setFeedback(null);
+        setShowFeedback(false);
+
         try {
+            // Start database session
+            sessionStartTimeRef.current = new Date();
+            const { sessionId, error: dbError } = await startDBSession(user.id);
+
+            if (dbError || !sessionId) {
+                console.error('Failed to start DB session:', dbError);
+                toast.error('Failed to start conversation session');
+                setStatus('error');
+                return;
+            }
+
+            sessionIdRef.current = sessionId;
+
             if (!outputAudioContextRef.current) {
                 outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
             }
@@ -108,7 +141,7 @@ const ConversationPage: React.FC = () => {
             }
 
             mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
+
             // Get user's level, name, and mother language for personalized conversation
             const userLevel = userProfile?.current_level || CEFRLevel.A2;
             const userName = userData?.full_name?.split(' ')[0]; // First name only
@@ -147,6 +180,7 @@ const ConversationPage: React.FC = () => {
     };
     
     const stopConversation = useCallback(async () => {
+        // Close the live session
         if (sessionPromiseRef.current) {
             const session = await sessionPromiseRef.current;
             session.close();
@@ -172,9 +206,62 @@ const ConversationPage: React.FC = () => {
         }
         audioPlaybackSources.current.clear();
         nextOutputStartTime.current = 0;
-        
+
         setStatus('idle');
-    }, []);
+
+        // Save session and generate feedback if we have a session ID
+        if (sessionIdRef.current && sessionStartTimeRef.current && transcripts.length > 0) {
+            setIsGeneratingFeedback(true);
+            toast.loading('Generating your feedback...');
+
+            try {
+                const userLevel = userProfile?.current_level || CEFRLevel.A2;
+                const motherLanguage = userProfile?.mother_language || 'English';
+
+                const { error } = await endConversationSession(
+                    sessionIdRef.current,
+                    transcripts,
+                    sessionStartTimeRef.current,
+                    userLevel,
+                    motherLanguage
+                );
+
+                if (error) {
+                    console.error('Error saving conversation session:', error);
+                    toast.error('Failed to save conversation');
+                } else {
+                    // Load the feedback from the saved session
+                    // The feedback was generated in endConversationSession
+                    toast.dismiss();
+                    toast.success('Conversation saved successfully!');
+
+                    // Import the function to load feedback
+                    const { supabase } = await import('../src/lib/supabase');
+                    const { data } = await supabase
+                        .from('conversation_sessions')
+                        .select('feedback')
+                        .eq('id', sessionIdRef.current)
+                        .single();
+
+                    if (data?.feedback) {
+                        const parsedFeedback = typeof data.feedback === 'string'
+                            ? JSON.parse(data.feedback)
+                            : data.feedback;
+                        setFeedback(parsedFeedback);
+                        setShowFeedback(true);
+                    }
+                }
+            } catch (err) {
+                console.error('Error in stopConversation:', err);
+                toast.dismiss();
+                toast.error('Failed to generate feedback');
+            } finally {
+                setIsGeneratingFeedback(false);
+                sessionIdRef.current = null;
+                sessionStartTimeRef.current = null;
+            }
+        }
+    }, [transcripts, userProfile]);
 
     useEffect(() => {
         return () => {
@@ -264,6 +351,152 @@ const ConversationPage: React.FC = () => {
                     ))}
                 </div>
             </Card>
+
+            {/* Feedback Modal */}
+            {showFeedback && feedback && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowFeedback(false)}>
+                    <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-2xl">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h2 className="text-3xl font-bold mb-2">Conversation Feedback</h2>
+                                    <p className="text-blue-100">Here's how you did!</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowFeedback(false)}
+                                    className="text-white hover:bg-white/20 rounded-full p-2 transition"
+                                >
+                                    <i className="fa-solid fa-times text-xl"></i>
+                                </button>
+                            </div>
+                            {/* Overall Score */}
+                            <div className="mt-6 flex items-center gap-4">
+                                <div className="text-6xl font-bold">{feedback.overall_score}</div>
+                                <div className="flex-1">
+                                    <div className="text-sm text-blue-100 mb-1">Overall Score</div>
+                                    <div className="bg-white/20 rounded-full h-3 overflow-hidden">
+                                        <div
+                                            className="bg-white h-full rounded-full transition-all"
+                                            style={{ width: `${feedback.overall_score}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            {/* Encouragement */}
+                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="text-3xl">🎉</div>
+                                    <p className="text-gray-700 flex-1">{feedback.encouragement}</p>
+                                </div>
+                            </div>
+
+                            {/* Strengths */}
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                    <i className="fa-solid fa-star text-yellow-500"></i>
+                                    Strengths
+                                </h3>
+                                <ul className="space-y-2">
+                                    {feedback.strengths.map((strength, idx) => (
+                                        <li key={idx} className="flex items-start gap-3">
+                                            <i className="fa-solid fa-check-circle text-green-500 mt-1"></i>
+                                            <span className="text-gray-700">{strength}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+
+                            {/* Areas for Improvement */}
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                    <i className="fa-solid fa-arrow-up text-blue-500"></i>
+                                    Areas for Improvement
+                                </h3>
+                                <ul className="space-y-2">
+                                    {feedback.areas_for_improvement.map((area, idx) => (
+                                        <li key={idx} className="flex items-start gap-3">
+                                            <i className="fa-solid fa-lightbulb text-amber-500 mt-1"></i>
+                                            <span className="text-gray-700">{area}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+
+                            {/* Grammar Corrections */}
+                            {feedback.grammar_corrections && feedback.grammar_corrections.length > 0 && (
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                        <i className="fa-solid fa-spell-check text-purple-500"></i>
+                                        Grammar Corrections
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {feedback.grammar_corrections.map((correction, idx) => (
+                                            <div key={idx} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                                <div className="grid md:grid-cols-2 gap-3 mb-2">
+                                                    <div>
+                                                        <div className="text-xs text-gray-500 mb-1">You said:</div>
+                                                        <div className="text-red-600 line-through">{correction.original}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs text-gray-500 mb-1">Should be:</div>
+                                                        <div className="text-green-600 font-medium">{correction.corrected}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-sm text-gray-600 mt-2">
+                                                    <i className="fa-solid fa-info-circle text-blue-500 mr-1"></i>
+                                                    {correction.explanation}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Vocabulary Suggestions */}
+                            {feedback.vocabulary_suggestions && feedback.vocabulary_suggestions.length > 0 && (
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                        <i className="fa-solid fa-book text-indigo-500"></i>
+                                        Vocabulary Suggestions
+                                    </h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {feedback.vocabulary_suggestions.map((word, idx) => (
+                                            <span key={idx} className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
+                                                {word}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Fluency Notes */}
+                            {feedback.fluency_notes && (
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                        <i className="fa-solid fa-comments text-teal-500"></i>
+                                        Fluency Assessment
+                                    </h3>
+                                    <p className="text-gray-700 leading-relaxed">{feedback.fluency_notes}</p>
+                                </div>
+                            )}
+
+                            {/* Close Button */}
+                            <div className="flex justify-center pt-4">
+                                <button
+                                    onClick={() => setShowFeedback(false)}
+                                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-3 rounded-full font-bold hover:shadow-lg transition"
+                                >
+                                    Got it! Thanks!
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
