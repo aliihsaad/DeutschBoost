@@ -43,34 +43,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Fetching user data and profile for:', userId);
 
-      // Fetch both in parallel without timeout (Supabase has its own timeout)
-      const [userDataResult, profileResult] = await Promise.all([
+      // Create timeout wrapper
+      const fetchWithTimeout = async (promise: Promise<any>, timeoutMs: number) => {
+        const timeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Query timeout')), timeoutMs)
+        );
+        return Promise.race([promise, timeout]);
+      };
+
+      // Fetch both in parallel with 5 second timeout
+      const fetchPromise = Promise.all([
         supabase.from('users').select('*').eq('id', userId).single(),
         supabase.from('user_profiles').select('*').eq('id', userId).single()
       ]);
 
+      const [userDataResult, profileResult] = await fetchWithTimeout(fetchPromise, 5000) as any;
+
       console.log('Fetch results:', {
-        userData: userDataResult.error ? `Error: ${userDataResult.error.message}` : 'Success',
-        profile: profileResult.error ? `Error: ${profileResult.error.message}` : 'Success'
+        userData: userDataResult?.error ? `Error: ${userDataResult.error.message}` : 'Success',
+        profile: profileResult?.error ? `Error: ${profileResult.error.message}` : 'Success'
       });
 
-      if (userDataResult.error) {
+      if (userDataResult?.error) {
         console.error('Error fetching user data:', userDataResult.error);
         // Don't throw, just continue - user might not have profile yet
-      } else {
+      } else if (userDataResult?.data) {
         console.log('User data loaded:', userDataResult.data);
         setUserData(userDataResult.data);
       }
 
-      if (profileResult.error) {
+      if (profileResult?.error) {
         console.error('Error fetching user profile:', profileResult.error);
         // Don't throw, just continue - profile might not exist yet
-      } else {
+      } else if (profileResult?.data) {
         console.log('User profile loaded:', profileResult.data);
         setUserProfile(profileResult.data);
       }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
+    } catch (error: any) {
+      console.error('Error fetching user data:', error?.message || error);
       // Don't rethrow - we want to continue loading the app
     }
   };
