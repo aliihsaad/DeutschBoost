@@ -11,6 +11,9 @@ export const saveLearningPlan = async (
   testResultId?: string
 ): Promise<{ error: Error | null; planId: string | null }> => {
   try {
+    console.log('Saving learning plan for user:', userId);
+    console.log('Plan has', plan.weeks?.length || 0, 'weeks');
+
     // 1. Deactivate any existing active plans for this user
     const { error: deactivateError } = await supabase
       .from('learning_plans')
@@ -31,7 +34,7 @@ export const saveLearningPlan = async (
         test_result_id: testResultId || null,
         target_level: plan.level as CEFRLevel,
         goals: plan.goals,
-        duration_weeks: plan.weeks.length,
+        duration_weeks: plan.weeks?.length || 0,
         is_active: true,
       })
       .select()
@@ -41,6 +44,8 @@ export const saveLearningPlan = async (
       console.error('Error saving learning plan:', planError);
       return { error: planError, planId: null };
     }
+
+    console.log('Learning plan saved with ID:', planData.id);
 
     // 3. Insert all learning plan items
     const planItems: Array<{
@@ -53,7 +58,17 @@ export const saveLearningPlan = async (
       completed: boolean;
     }> = [];
 
+    if (!plan.weeks || plan.weeks.length === 0) {
+      console.error('ERROR: Plan has no weeks! Plan structure:', plan);
+      return { error: new Error('Plan has no weeks'), planId: null };
+    }
+
     plan.weeks.forEach((week) => {
+      if (!week.items || week.items.length === 0) {
+        console.warn('Week', week.week, 'has no items');
+        return;
+      }
+
       week.items.forEach((item) => {
         planItems.push({
           learning_plan_id: planData.id,
@@ -62,19 +77,29 @@ export const saveLearningPlan = async (
           topic: item.topic,
           skill: item.skill,
           description: item.description,
-          completed: item.completed,
+          completed: item.completed || false,
         });
       });
     });
 
-    const { error: itemsError } = await supabase
+    console.log('Attempting to insert', planItems.length, 'plan items');
+
+    if (planItems.length === 0) {
+      console.error('ERROR: No plan items to insert!');
+      return { error: new Error('No plan items to insert'), planId: null };
+    }
+
+    const { error: itemsError, data: insertedItems } = await supabase
       .from('learning_plan_items')
-      .insert(planItems);
+      .insert(planItems)
+      .select();
 
     if (itemsError) {
       console.error('Error saving learning plan items:', itemsError);
       return { error: itemsError, planId: null };
     }
+
+    console.log('Successfully inserted', insertedItems?.length || 0, 'plan items');
 
     return { error: null, planId: planData.id };
   } catch (err) {
