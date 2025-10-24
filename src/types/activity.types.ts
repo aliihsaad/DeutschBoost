@@ -31,7 +31,7 @@ export interface GrammarActivity {
 // Vocabulary Activity
 export interface VocabularyCard {
   german: string;
-  english: string;
+  translation: string; // Translation in user's mother language
   example_sentence: string;
   audio_url?: string;
 }

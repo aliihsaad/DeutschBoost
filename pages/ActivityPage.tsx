@@ -272,7 +272,7 @@ const ActivityPage: React.FC = () => {
             ) : (
               <>
                 <div className="text-4xl font-bold text-gray-800 mb-4">{card.german}</div>
-                <div className="text-3xl text-green-600 mb-6">{card.english}</div>
+                <div className="text-3xl text-green-600 mb-6">{card.translation}</div>
                 <div className="bg-blue-50 p-4 rounded-lg max-w-md">
                   <p className="text-lg text-gray-700 italic">"{card.example_sentence}"</p>
                 </div>

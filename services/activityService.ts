@@ -87,6 +87,8 @@ Generate 10 vocabulary words related to this topic. Each card should have:
 - Translation in ${motherLanguage}
 - Example sentence in German using the word in context
 
+IMPORTANT: The translation field must contain the translation in ${motherLanguage}, not English.
+
 Return a JSON object with this structure:
 {
   "topic": "${topic}",
@@ -94,7 +96,7 @@ Return a JSON object with this structure:
   "cards": [
     {
       "german": "der Apfel",
-      "english": "the apple",
+      "translation": "the apple (in ${motherLanguage})",
       "example_sentence": "Ich esse jeden Tag einen Apfel."
     }
   ]
