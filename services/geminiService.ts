@@ -253,8 +253,9 @@ export const generateSpokenAudio = async (text: string): Promise<string> => {
     try {
         console.log('🎵 Generating audio for text:', text);
 
+        // Try using gemini-1.5-flash with audio modality
         const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash-exp-tts",
+            model: "gemini-1.5-flash",
             contents: [{ parts: [{ text }] }],
             config: {
                 responseModalities: [Modality.AUDIO],
