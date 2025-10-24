@@ -80,6 +80,35 @@ export const generateConversationFeedback = async (
       };
     }
 
+    // Validate conversation quality - must have meaningful exchanges
+    const userMessages = transcripts.filter(t => t.speaker === 'user' && t.text.trim().length > 0);
+    const modelMessages = transcripts.filter(t => t.speaker === 'model' && t.text.trim().length > 0);
+
+    // Count meaningful user messages (more than just single words like "ja", "nein", "hallo")
+    const meaningfulUserMessages = userMessages.filter(t => {
+      const words = t.text.trim().split(/\s+/);
+      return words.length >= 2 || t.text.trim().length > 15; // At least 2 words or 15+ characters
+    });
+
+    // Need at least 3 meaningful exchanges from the user AND 3 responses from the model
+    const MIN_USER_EXCHANGES = 3;
+    const MIN_MODEL_EXCHANGES = 3;
+
+    if (meaningfulUserMessages.length < MIN_USER_EXCHANGES || modelMessages.length < MIN_MODEL_EXCHANGES) {
+      return {
+        feedback: {
+          overall_score: 0,
+          strengths: ['You started a conversation - great first step!'],
+          areas_for_improvement: ['Try to have a longer conversation next time'],
+          grammar_corrections: [],
+          vocabulary_suggestions: [],
+          fluency_notes: 'This conversation was too short to provide detailed feedback. Try speaking for at least 2-3 minutes and engaging in meaningful exchanges.',
+          encouragement: 'Keep practicing! The more you speak, the better feedback I can give you. Try to have a real conversation with complete sentences next time.',
+        },
+        error: null,
+      };
+    }
+
     const prompt = `You are an experienced German language teacher evaluating a conversation practice session.
 
 STUDENT LEVEL: ${userLevel} (CEFR scale)
