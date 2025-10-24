@@ -8,9 +8,12 @@ import { CEFRLevel } from '../types';
 import {
     startConversationSession as startDBSession,
     endConversationSession,
-    ConversationFeedback
+    ConversationFeedback,
+    loadConversationHistory,
+    getLastConversationFeedback
 } from '../services/conversationService';
 import toast from 'react-hot-toast';
+import ConversationHistoryCard from '../components/ConversationHistoryCard';
 
 const ConversationPage: React.FC = () => {
     const { user, userData, userProfile } = useAuth();
@@ -19,6 +22,9 @@ const ConversationPage: React.FC = () => {
     const [feedback, setFeedback] = useState<ConversationFeedback | null>(null);
     const [showFeedback, setShowFeedback] = useState(false);
     const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
+    const [conversationHistory, setConversationHistory] = useState<any[]>([]);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [previousFeedback, setPreviousFeedback] = useState<ConversationFeedback | null>(null);
 
     const sessionIdRef = useRef<string | null>(null);
     const sessionStartTimeRef = useRef<Date | null>(null);
@@ -42,6 +48,25 @@ const ConversationPage: React.FC = () => {
             transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight;
         }
     }, [transcripts]);
+
+    // Load conversation history on mount
+    useEffect(() => {
+        const loadHistory = async () => {
+            if (!user) return;
+
+            setIsLoadingHistory(true);
+            const { sessions, error } = await loadConversationHistory(user.id, 5);
+
+            if (error) {
+                console.error('Error loading conversation history:', error);
+            } else if (sessions) {
+                setConversationHistory(sessions);
+            }
+            setIsLoadingHistory(false);
+        };
+
+        loadHistory();
+    }, [user]);
 
     const handleMessage = useCallback(async (message: LiveServerMessage) => {
         let inputTranscriptPart = '';
@@ -130,6 +155,20 @@ const ConversationPage: React.FC = () => {
         setShowFeedback(false);
 
         try {
+            // Load previous feedback for AI context
+            console.log('📚 Loading previous feedback...');
+            const { feedback: lastFeedback, error: feedbackError } = await getLastConversationFeedback(user.id);
+
+            if (feedbackError) {
+                console.warn('⚠️ Could not load previous feedback:', feedbackError);
+            } else if (lastFeedback) {
+                console.log('✅ Previous feedback loaded, score:', lastFeedback.overall_score);
+                setPreviousFeedback(lastFeedback);
+            } else {
+                console.log('ℹ️ No previous feedback found');
+                setPreviousFeedback(null);
+            }
+
             // Start database session
             console.log('💾 Starting database session...');
             sessionStartTimeRef.current = new Date();
@@ -161,7 +200,7 @@ const ConversationPage: React.FC = () => {
             const userName = userData?.full_name?.split(' ')[0]; // First name only
             const motherLanguage = userProfile?.mother_language;
 
-            console.log('🤖 Starting Gemini session with:', { userLevel, userName, motherLanguage });
+            console.log('🤖 Starting Gemini session with:', { userLevel, userName, motherLanguage, hasPreviousFeedback: !!lastFeedback });
             sessionPromiseRef.current = startGeminiSession({
                 onopen: () => {
                     console.log('✅ Gemini session opened - connected!');
@@ -188,7 +227,7 @@ const ConversationPage: React.FC = () => {
                 onclose: () => {
                     // This can be handled if needed, but stopping handles cleanup.
                 },
-            }, userLevel, userName, motherLanguage);
+            }, userLevel, userName, motherLanguage, lastFeedback);
 
         } catch (err) {
             console.error("❌ Failed to start conversation:", err);
@@ -268,6 +307,14 @@ const ConversationPage: React.FC = () => {
                         setFeedback(parsedFeedback);
                         setShowFeedback(true);
                     }
+
+                    // Reload conversation history to show the new session
+                    if (user) {
+                        const { sessions } = await loadConversationHistory(user.id, 5);
+                        if (sessions) {
+                            setConversationHistory(sessions);
+                        }
+                    }
                 }
             } catch (err) {
                 console.error('Error in stopConversation:', err);
@@ -279,7 +326,7 @@ const ConversationPage: React.FC = () => {
                 sessionStartTimeRef.current = null;
             }
         }
-    }, [transcripts, userProfile]);
+    }, [transcripts, userProfile, user]);
 
     useEffect(() => {
         // Cleanup function that runs ONLY when component unmounts
@@ -552,6 +599,32 @@ const ConversationPage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Conversation History Section */}
+            <div className="max-w-3xl mx-auto mt-12">
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                    <i className="fa-solid fa-history text-blue-600"></i>
+                    Conversation History
+                </h2>
+
+                {isLoadingHistory ? (
+                    <div className="flex justify-center items-center py-12">
+                        <i className="fa-solid fa-spinner fa-spin text-3xl text-blue-600"></i>
+                    </div>
+                ) : conversationHistory.length === 0 ? (
+                    <Card className="bg-gray-50 text-center py-12">
+                        <i className="fa-solid fa-folder-open text-5xl text-gray-400 mb-4"></i>
+                        <p className="text-gray-600 text-lg">No past conversations yet.</p>
+                        <p className="text-gray-500 text-sm mt-2">Start your first conversation to see your progress!</p>
+                    </Card>
+                ) : (
+                    <div className="space-y-4">
+                        {conversationHistory.map((session) => (
+                            <ConversationHistoryCard key={session.id} session={session} />
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

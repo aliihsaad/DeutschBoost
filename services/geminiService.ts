@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, LiveConnectSession, LiveServerMessage, Modality, Type, GenerateContentResponse, Blob } from "@google/genai";
 import { CEFRLevel, LearningPlan, TestResult } from '../types';
+import { ConversationFeedback } from './conversationService';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable is not set");
@@ -273,18 +274,47 @@ export const generateSpokenAudio = async (text: string): Promise<string> => {
 const getConversationInstructions = (
     userLevel: CEFRLevel,
     userName?: string,
-    motherLanguage?: string
+    motherLanguage?: string,
+    previousFeedback?: ConversationFeedback | null
 ): string => {
     const name = userName || 'there';
     const langNote = motherLanguage
         ? `The user's native language is ${motherLanguage}. When explaining grammar, vocabulary, or corrections, you may occasionally provide brief explanations in ${motherLanguage} to ensure clarity, especially for complex concepts. However, keep the conversation primarily in German.`
         : 'When explaining corrections, use simple German and gestures/context to help understanding.';
 
+    // Build context from previous feedback if available
+    let previousSessionContext = '';
+    if (previousFeedback) {
+        const strengths = previousFeedback.strengths.slice(0, 3).join(', ');
+        const improvements = previousFeedback.areas_for_improvement.slice(0, 3).join(', ');
+        const grammarIssues = previousFeedback.grammar_corrections
+            .slice(0, 2)
+            .map(c => c.explanation)
+            .join('; ');
+        const vocabSuggestions = previousFeedback.vocabulary_suggestions.slice(0, 3).join(', ');
+
+        previousSessionContext = `\n\nPREVIOUS SESSION CONTEXT:
+Last conversation score: ${previousFeedback.overall_score}/100
+Recent strengths: ${strengths}
+Areas needing improvement: ${improvements}
+${grammarIssues ? `Common grammar issues: ${grammarIssues}` : ''}
+${vocabSuggestions ? `Vocabulary to encourage: ${vocabSuggestions}` : ''}
+
+PERSONALIZATION STRATEGY:
+- Acknowledge their progress since last time if appropriate
+- Gently reinforce correct usage of previously problematic grammar
+- Naturally incorporate suggested vocabulary when relevant
+- Watch for recurring patterns from last session
+- Build on their strengths while addressing weak areas
+- Keep encouragement genuine and specific to their progress`;
+    }
+
     const levelInstructions = {
         [CEFRLevel.A1]: `
 You are Alex, a warm and encouraging German language tutor. You're speaking with ${name}, who is at A1 level (beginner).
 
 ${langNote}
+${previousSessionContext}
 
 INTRODUCTION (First message only):
 "Hallo ${name}! Ich bin Alex, dein Deutsch-Tutor. Ich helfe dir, Deutsch zu lernen. Wie geht es dir heute?"
@@ -311,6 +341,7 @@ TOPICS: Introduce yourself, family, hobbies, food, weather, daily routine`,
 You are Alex, a patient and friendly German language tutor. You're speaking with ${name}, who is at A2 level (elementary).
 
 ${langNote}
+${previousSessionContext}
 
 INTRODUCTION (First message only):
 "Hallo ${name}! Schön, dich kennenzulernen. Ich bin Alex. Ich freue mich, heute mit dir Deutsch zu sprechen. Erzähl mir, was hast du diese Woche gemacht?"
@@ -337,6 +368,7 @@ TOPICS: Weekend activities, work/study, shopping, travel plans, past experiences
 You are Alex, an engaging and supportive German language tutor. You're conversing with ${name}, who is at B1 level (intermediate).
 
 ${langNote}
+${previousSessionContext}
 
 INTRODUCTION (First message only):
 "Guten Tag, ${name}! Ich bin Alex, und ich freue mich sehr darauf, heute mit dir zu sprechen. Auf diesem Niveau können wir schon über viele interessante Themen reden. Was beschäftigt dich momentan? Worüber möchtest du sprechen?"
@@ -363,6 +395,7 @@ TOPICS: Personal opinions, plans and dreams, cultural differences, environmental
 You are Alex, a knowledgeable and articulate German language tutor. You're having a conversation with ${name}, who is at B2 level (upper intermediate).
 
 ${langNote}
+${previousSessionContext}
 
 INTRODUCTION (First message only):
 "Hallo ${name}, schön, dass wir uns heute unterhalten können! Ich bin Alex. Auf B2-Niveau können wir uns schon über komplexere Themen austauschen. Gibt es ein bestimmtes Thema, das dich besonders interessiert, oder sollen wir einfach schauen, wohin uns das Gespräch führt?"
@@ -389,6 +422,7 @@ TOPICS: Current affairs, abstract ideas, professional development, literature, e
 You are Alex, a sophisticated and intellectually stimulating German language tutor. You're engaging with ${name}, who is at C1 level (advanced).
 
 ${langNote}
+${previousSessionContext}
 
 INTRODUCTION (First message only):
 "Grüß dich, ${name}! Ich bin Alex. Es ist mir eine Freude, mich mit jemandem auf deinem Sprachniveau zu unterhalten. Auf C1-Niveau können wir uns praktisch über alles austauschen – von anspruchsvollen philosophischen Fragen bis hin zu spezifischen Fachthemen. Was würde dich heute reizen?"
@@ -416,6 +450,7 @@ TOPICS: Philosophy, specialized professional topics, literature analysis, comple
 You are Alex, an intellectually equal conversation partner. You're speaking with ${name}, who has near-native C2 proficiency.
 
 ${langNote}
+${previousSessionContext}
 
 INTRODUCTION (First message only):
 "Servus ${name}! Alex hier. Schön, dass wir heute die Gelegenheit haben, uns zu unterhalten. Auf deinem Niveau ist jedes Thema möglich – lass uns einfach ein anregendes Gespräch führen. Was liegt dir momentan am Herzen?"
@@ -452,7 +487,8 @@ export const startConversationSession = (
     },
     userLevel: CEFRLevel = CEFRLevel.A2,
     userName?: string,
-    motherLanguage?: string
+    motherLanguage?: string,
+    previousFeedback?: ConversationFeedback | null
 ): Promise<LiveConnectSession> => {
     return ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
@@ -464,7 +500,7 @@ export const startConversationSession = (
             speechConfig: {
                 voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
             },
-            systemInstruction: getConversationInstructions(userLevel, userName, motherLanguage),
+            systemInstruction: getConversationInstructions(userLevel, userName, motherLanguage, previousFeedback),
         },
     });
 };

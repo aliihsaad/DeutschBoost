@@ -209,3 +209,45 @@ export const loadConversationHistory = async (
     return { sessions: null, error: err as Error };
   }
 };
+
+/**
+ * Get the most recent conversation feedback for a user
+ * Used to provide AI context for personalized conversations
+ */
+export const getLastConversationFeedback = async (
+  userId: string
+): Promise<{ feedback: ConversationFeedback | null; error: Error | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('conversation_sessions')
+      .select('feedback, ended_at')
+      .eq('user_id', userId)
+      .not('feedback', 'is', null)
+      .order('ended_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows returned - user doesn't have any past conversations with feedback
+        return { feedback: null, error: null };
+      }
+      console.error('Error loading last conversation feedback:', error);
+      return { feedback: null, error };
+    }
+
+    if (!data || !data.feedback) {
+      return { feedback: null, error: null };
+    }
+
+    // Parse the feedback JSON string
+    const feedbackData = typeof data.feedback === 'string'
+      ? JSON.parse(data.feedback)
+      : data.feedback;
+
+    return { feedback: feedbackData as ConversationFeedback, error: null };
+  } catch (err) {
+    console.error('Unexpected error loading last conversation feedback:', err);
+    return { feedback: null, error: err as Error };
+  }
+};
