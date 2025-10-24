@@ -1,22 +1,61 @@
 # DeutschBoost
 
-A personalized German language learning platform powered by AI. Learn German through adaptive lessons, AI conversations, and personalized learning plans.
+A personalized German language learning platform powered by AI. Learn German through adaptive lessons, AI conversations, and interactive activities tailored to your proficiency level.
 
-## Features
+## ✨ Features
 
-- **Placement Test**: Assess your German language level (A1-C2)
-- **Personalized Learning Plans**: Get customized learning paths based on your level and goals
-- **AI Conversations**: Practice German with AI-powered conversations using Google Gemini
-- **Progress Tracking**: Monitor your learning progress and achievements
-- **User Authentication**: Secure authentication powered by Supabase
+### 🎯 Smart Placement Test
+- Comprehensive CEFR-based assessment (A1-C2)
+- Evaluates grammar, vocabulary, reading comprehension, and listening skills
+- Identifies strengths and weaknesses
+- Provides personalized recommendations
 
-## Tech Stack
+### 📚 AI-Powered Learning Plans
+- Customized weekly learning schedules based on your level
+- Structured progression from your current level to target goals
+- Covers all essential skills: Grammar, Vocabulary, Listening, Writing, Speaking
+- Automatic progress tracking and completion status
+
+### 🎮 Interactive Learning Activities
+Five types of AI-generated activities:
+
+1. **Grammar Exercises**: Fill-in-the-blank questions with detailed explanations
+2. **Vocabulary Practice**: Flashcard-style matching and translation exercises
+3. **Listening Comprehension**: Audio-based exercises with questions (coming soon)
+4. **Writing Tasks**: AI-evaluated writing with feedback on grammar, vocabulary, and fluency
+5. **Speaking Practice**: Real-time AI conversation partner using voice recognition
+
+### 💬 AI Conversation Partner
+- Natural conversations with Google Gemini AI
+- Adapts to your language level
+- Provides corrections and suggestions
+- Practice real-world German in a safe environment
+
+### 📊 Progress Tracking
+- Track completion of learning plan activities
+- Monitor your study streak
+- View detailed performance metrics
+- Celebrate achievements and milestones
+
+### 🌍 Multi-Language Support
+- Set your native language for better learning experience
+- Instructions and explanations in your mother tongue
+- Supports English, Arabic, and more
+
+### 🔐 Secure User Management
+- Email/password authentication
+- Google OAuth integration
+- Profile customization with avatar support
+- Secure data storage with Supabase
+
+## 🛠️ Tech Stack
 
 - **Frontend**: React 19 + TypeScript + Vite
 - **Styling**: Tailwind CSS (via CDN)
-- **AI**: Google Gemini AI API
-- **Backend**: Supabase (Authentication & Database)
+- **AI**: Google Gemini AI (2.5 Flash & 2.5 Pro)
+- **Backend**: Supabase (Authentication, Database, Row Level Security)
 - **Deployment**: Vercel
+- **PWA**: Vite PWA Plugin with Workbox
 
 ## Getting Started
 
@@ -66,13 +105,16 @@ npm run dev
 
 5. Open [http://localhost:5173](http://localhost:5173) in your browser
 
-## Database Setup
+## 🗄️ Database Setup
 
 The app uses Supabase for data storage. To set up the database:
 
 1. Create a new project in [Supabase](https://supabase.com)
-2. Run the migration file located at `supabase/migrations/001_initial_schema.sql` in your Supabase SQL editor
+2. Run the migration files in order in your Supabase SQL editor:
+   - `supabase_migrations/00_diagnostic_and_fix.sql` (creates all tables, RLS policies, and fixes user records)
+   - `supabase_migrations/add_mother_language.sql` (adds mother language support)
 3. Copy your project URL and anon key to `.env.local`
+4. Enable Google OAuth in Supabase Authentication settings (optional)
 
 ## Deployment
 

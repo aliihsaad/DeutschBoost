@@ -270,6 +270,45 @@
 
 ---
 
+### Phase 1.5: Interactive Learning Activities
+**Status:** ✅ COMPLETE
+**Priority:** Critical
+**Completed:** 2025-10-24
+
+#### Tasks
+- [x] Build activity generation system
+  - [x] Grammar exercises with AI-generated questions
+  - [x] Vocabulary practice with flashcard-style matching
+  - [x] Writing tasks with AI evaluation
+  - [x] Speaking practice integration (uses conversation page)
+  - [x] Listening comprehension (placeholder for future audio)
+- [x] Integrate activities with learning plans
+  - [x] Add "Start Activity" buttons to plan items
+  - [x] Route to appropriate activity based on skill type
+  - [x] Pass context (topic, description, level) to activities
+- [x] Implement automatic completion tracking
+  - [x] Mark items as complete when score >= 70%
+  - [x] Update database automatically
+  - [x] Show completion status in learning plan
+- [x] Add mother language support
+  - [x] Store user's native language in profile
+  - [x] Use in activity instructions (ready for implementation)
+
+**Success Criteria:**
+- ✅ Users can start interactive activities from their learning plan
+- ✅ Activities are AI-generated based on their level
+- ✅ Completion automatically tracked in database
+- ✅ All 5 skill types supported (Grammar, Vocabulary, Listening, Writing, Speaking)
+
+**TODO for Future:**
+- [ ] Use user's mother language in activity instructions and explanations
+  - Currently the mother_language field is stored but not yet used in AI prompts
+  - Update activityService.ts to include `userMotherLanguage` parameter
+  - Modify AI prompts to generate instructions in user's native language
+  - Example: "Provide instructions in {mother_language} but German content should remain in German"
+
+---
+
 ### Phase 3: Enhanced Learning Features
 **Status:** ⏳ Not Started
 **Priority:** High

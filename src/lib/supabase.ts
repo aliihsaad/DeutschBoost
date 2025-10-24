@@ -4,18 +4,7 @@ import { Database } from '../types/database.types';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Debug logging
-console.log('Supabase Config:', {
-  url: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'MISSING',
-  hasKey: !!supabaseAnonKey,
-  env: import.meta.env.MODE
-});
-
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Environment variables:', {
-    VITE_SUPABASE_URL: supabaseUrl,
-    VITE_SUPABASE_ANON_KEY: supabaseAnonKey ? 'SET' : 'MISSING'
-  });
   throw new Error('Missing Supabase environment variables. Please check your .env.local file and Vercel environment variables.');
 }
 

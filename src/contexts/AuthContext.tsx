@@ -41,8 +41,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch user data and profile from database
   const fetchUserData = async (userId: string) => {
     try {
-      console.log('Fetching user data and profile for:', userId);
-
       // Create timeout wrapper with retry logic
       const fetchWithTimeout = async (promise: Promise<any>, timeoutMs: number) => {
         const timeout = new Promise((_, reject) =>
@@ -59,16 +57,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const [userDataResult, profileResult] = await fetchWithTimeout(fetchPromise, 10000) as any;
 
-      console.log('Fetch results:', {
-        userData: userDataResult?.error ? `Error: ${userDataResult.error.message}` : 'Success',
-        profile: profileResult?.error ? `Error: ${profileResult.error.message}` : 'Success'
-      });
-
       if (userDataResult?.error) {
         console.error('Error fetching user data:', userDataResult.error);
         // Don't throw, just continue - user might not have profile yet
       } else if (userDataResult?.data) {
-        console.log('User data loaded:', userDataResult.data);
         setUserData(userDataResult.data);
       }
 
@@ -76,7 +68,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error fetching user profile:', profileResult.error);
         // Don't throw, just continue - profile might not exist yet
       } else if (profileResult?.data) {
-        console.log('User profile loaded:', profileResult.data);
         setUserProfile(profileResult.data);
       }
     } catch (error: any) {
@@ -92,23 +83,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initializeAuth = async () => {
       try {
-        console.log('Initializing auth...');
-
         // Set a timeout to force loading to false after 10 seconds
         loadingTimeout = setTimeout(() => {
           if (isMounted) {
-            console.warn('Auth initialization timeout - forcing loading to false');
             setLoading(false);
           }
         }, 10000);
 
         const { data: { session }, error } = await supabase.auth.getSession();
-
-        console.log('Auth session result:', {
-          hasSession: !!session,
-          hasUser: !!session?.user,
-          error: error?.message
-        });
 
         if (!isMounted) return;
 
@@ -123,10 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          console.log('Fetching user data for:', session.user.id);
           await fetchUserData(session.user.id);
-        } else {
-          console.log('No session - user not logged in');
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -134,7 +113,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isMounted) {
           clearTimeout(loadingTimeout);
           setLoading(false);
-          console.log('Auth initialization complete');
         }
       }
     };
