@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { generateActivity, evaluateWriting } from '../services/activityService';
-import { generateSpokenAudio } from '../services/geminiService';
+import { speakText } from '../services/geminiService';
 import { CEFRLevel } from '../types';
 import { ActivityType, GrammarActivity, VocabularyActivity, ListeningActivity, WritingActivity, SpeakingActivity } from '../src/types/activity.types';
 import Card from '../components/Card';
@@ -423,49 +423,22 @@ const ActivityPage: React.FC = () => {
     setIsPlayingAudio(true);
 
     try {
-      const base64Audio = await generateSpokenAudio(audioText);
-      console.log('✅ Audio data received, length:', base64Audio.length);
+      // Use browser's Web Speech API - much more reliable!
+      await speakText(audioText, 'de-DE');
 
-      // Convert base64 to audio and play
-      console.log('🔧 Creating audio blob...');
-      const audioBlob = new Blob(
-        [Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0))],
-        { type: 'audio/mp3' }
-      );
-      console.log('📦 Blob created, size:', audioBlob.size, 'bytes');
+      console.log('✅ Speech completed');
 
-      const audioUrl = URL.createObjectURL(audioBlob);
-      console.log('🔗 Audio URL created:', audioUrl);
-
-      const audio = new Audio(audioUrl);
-
-      audio.onended = () => {
-        console.log('✅ Audio playback ended');
-        URL.revokeObjectURL(audioUrl);
-        setIsPlayingAudio(false);
-
-        // Mark as played
-        const newPlayed = [...audioPlayed];
-        newPlayed[questionIndex] = true;
-        setAudioPlayed(newPlayed);
-      };
-
-      audio.onerror = (e) => {
-        console.error('❌ Audio playback error:', e);
-        URL.revokeObjectURL(audioUrl);
-        setIsPlayingAudio(false);
-        toast.error('Failed to play audio - check browser console for details');
-      };
-
-      console.log('▶️ Starting audio playback...');
-      await audio.play();
-      console.log('🎵 Audio is playing');
+      // Mark as played
+      const newPlayed = [...audioPlayed];
+      newPlayed[questionIndex] = true;
+      setAudioPlayed(newPlayed);
+      setIsPlayingAudio(false);
     } catch (error) {
       console.error('❌ Error in handlePlayAudio:', error);
       if (error instanceof Error) {
         toast.error(`Audio error: ${error.message}`);
       } else {
-        toast.error('Failed to generate audio - check console for details');
+        toast.error('Failed to play audio - check console for details');
       }
       setIsPlayingAudio(false);
     } finally {

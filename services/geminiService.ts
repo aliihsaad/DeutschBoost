@@ -249,48 +249,50 @@ export const generateLearningPlan = async (evaluation: TestResult): Promise<Lear
 };
 
 
-export const generateSpokenAudio = async (text: string): Promise<string> => {
-    try {
-        console.log('🎵 Generating audio for text:', text);
-
-        // Try using gemini-1.5-flash with audio modality
-        const response = await ai.models.generateContent({
-            model: "gemini-1.5-flash",
-            contents: [{ parts: [{ text }] }],
-            config: {
-                responseModalities: [Modality.AUDIO],
-                speechConfig: {
-                    voiceConfig: {
-                        prebuiltVoiceConfig: { voiceName: 'Kore' },
-                    },
-                },
-            },
-        });
-
-        console.log('📦 Response received:', {
-            hasCandidates: !!response.candidates,
-            candidatesLength: response.candidates?.length,
-            hasContent: !!response.candidates?.[0]?.content,
-            hasParts: !!response.candidates?.[0]?.content?.parts,
-            partsLength: response.candidates?.[0]?.content?.parts?.length
-        });
-
-        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-
-        if (!base64Audio) {
-            console.error('❌ No audio data in response:', JSON.stringify(response, null, 2));
-            throw new Error("No audio data returned from API. Check console for details.");
+/**
+ * Generate spoken audio using browser's Web Speech API
+ * This is more reliable and free compared to Gemini TTS API
+ * Returns a promise that resolves when speech is ready
+ */
+export const speakText = (text: string, lang: string = 'de-DE'): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        if (!('speechSynthesis' in window)) {
+            reject(new Error('Speech synthesis not supported in this browser'));
+            return;
         }
 
-        console.log('✅ Audio generated successfully, length:', base64Audio.length);
-        return base64Audio;
-    } catch (error) {
-        console.error('❌ Error generating audio:', error);
-        if (error instanceof Error) {
-            throw new Error(`Audio generation failed: ${error.message}`);
+        console.log('🎵 Speaking text:', text, 'in language:', lang);
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = lang;
+        utterance.rate = 0.9; // Slightly slower for language learning
+        utterance.pitch = 1.0;
+
+        // Try to find a German voice
+        const voices = window.speechSynthesis.getVoices();
+        const germanVoice = voices.find(voice =>
+            voice.lang.startsWith('de') || voice.lang.startsWith('de-DE')
+        );
+
+        if (germanVoice) {
+            utterance.voice = germanVoice;
+            console.log('✅ Using German voice:', germanVoice.name);
+        } else {
+            console.log('⚠️ No German voice found, using default');
         }
-        throw new Error('Audio generation failed: Unknown error');
-    }
+
+        utterance.onend = () => {
+            console.log('✅ Speech finished');
+            resolve();
+        };
+
+        utterance.onerror = (event) => {
+            console.error('❌ Speech error:', event);
+            reject(new Error(`Speech synthesis error: ${event.error}`));
+        };
+
+        window.speechSynthesis.speak(utterance);
+    });
 };
 
 
