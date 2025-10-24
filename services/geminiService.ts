@@ -220,7 +220,7 @@ export const generateLearningPlan = async (evaluation: TestResult): Promise<Lear
                                         type: Type.OBJECT,
                                         properties: {
                                             topic: { type: Type.STRING },
-                                            skill: { type: Type.STRING, description: "e.g., Grammar, Vocabulary, Listening" },
+                                            skill: { type: Type.STRING, description: "Must be one of: Grammar, Vocabulary, Listening, Reading, Writing, Speaking" },
                                             description: { type: Type.STRING },
                                         },
                                         required: ['topic', 'skill', 'description']

@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.learning_plan_items (
   week_number INTEGER NOT NULL,
   week_focus TEXT NOT NULL,
   topic TEXT NOT NULL,
-  skill TEXT NOT NULL CHECK (skill IN ('Grammar', 'Vocabulary', 'Listening', 'Writing', 'Speaking')),
+  skill TEXT NOT NULL CHECK (skill IN ('Grammar', 'Vocabulary', 'Listening', 'Reading', 'Writing', 'Speaking')),
   description TEXT NOT NULL,
   completed BOOLEAN DEFAULT FALSE,
   completed_at TIMESTAMPTZ,
