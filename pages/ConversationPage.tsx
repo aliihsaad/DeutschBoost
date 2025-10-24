@@ -109,11 +109,15 @@ const ConversationPage: React.FC = () => {
     }, []);
 
     const startConversation = async () => {
+        console.log('🎙️ Starting conversation...');
+
         if (!user) {
+            console.error('❌ No user logged in');
             toast.error('Please log in to start a conversation');
             return;
         }
 
+        console.log('✅ User authenticated:', user.id);
         setStatus('connecting');
         setTranscripts([]);
         setFeedback(null);
@@ -121,16 +125,18 @@ const ConversationPage: React.FC = () => {
 
         try {
             // Start database session
+            console.log('💾 Starting database session...');
             sessionStartTimeRef.current = new Date();
             const { sessionId, error: dbError } = await startDBSession(user.id);
 
             if (dbError || !sessionId) {
-                console.error('Failed to start DB session:', dbError);
+                console.error('❌ Failed to start DB session:', dbError);
                 toast.error('Failed to start conversation session');
                 setStatus('error');
                 return;
             }
 
+            console.log('✅ Database session started:', sessionId);
             sessionIdRef.current = sessionId;
 
             if (!outputAudioContextRef.current) {
@@ -140,15 +146,19 @@ const ConversationPage: React.FC = () => {
                 inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
             }
 
+            console.log('🎤 Requesting microphone access...');
             mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log('✅ Microphone access granted');
 
             // Get user's level, name, and mother language for personalized conversation
             const userLevel = userProfile?.current_level || CEFRLevel.A2;
             const userName = userData?.full_name?.split(' ')[0]; // First name only
             const motherLanguage = userProfile?.mother_language;
 
+            console.log('🤖 Starting Gemini session with:', { userLevel, userName, motherLanguage });
             sessionPromiseRef.current = startGeminiSession({
                 onopen: () => {
+                    console.log('✅ Gemini session opened - connected!');
                     setStatus('connected');
                     const inputCtx = inputAudioContextRef.current!;
                     mediaStreamSourceRef.current = inputCtx.createMediaStreamSource(mediaStreamRef.current!);
@@ -165,7 +175,8 @@ const ConversationPage: React.FC = () => {
                 },
                 onmessage: handleMessage,
                 onerror: (e) => {
-                    console.error("Session error:", e);
+                    console.error("❌ Gemini session error:", e);
+                    toast.error('Connection error: ' + (e.message || 'Unknown error'));
                     setStatus('error');
                 },
                 onclose: () => {
@@ -174,7 +185,8 @@ const ConversationPage: React.FC = () => {
             }, userLevel, userName, motherLanguage);
 
         } catch (err) {
-            console.error("Failed to start conversation:", err);
+            console.error("❌ Failed to start conversation:", err);
+            toast.error('Failed to start conversation: ' + (err instanceof Error ? err.message : 'Unknown error'));
             setStatus('error');
         }
     };
