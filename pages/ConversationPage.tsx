@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { LiveConnectSession, LiveServerMessage } from '@google/genai';
-import { startConversationSession, decode, decodeAudioData, createPcmBlob } from '../services/geminiService';
+import { startConversationSession as startGeminiSession, decode, decodeAudioData, createPcmBlob } from '../services/geminiService';
 import { Transcript } from '../types';
 import Card from '../components/Card';
 import { useAuth } from '../src/contexts/AuthContext';
@@ -147,7 +147,7 @@ const ConversationPage: React.FC = () => {
             const userName = userData?.full_name?.split(' ')[0]; // First name only
             const motherLanguage = userProfile?.mother_language;
 
-            sessionPromiseRef.current = startConversationSession({
+            sessionPromiseRef.current = startGeminiSession({
                 onopen: () => {
                     setStatus('connected');
                     const inputCtx = inputAudioContextRef.current!;
