@@ -414,6 +414,8 @@ const ActivityPage: React.FC = () => {
       return;
     }
 
+    console.log('🔊 Playing audio for question', questionIndex, ':', audioText);
+
     // Update loading state
     const newLoading = [...audioLoading];
     newLoading[questionIndex] = true;
@@ -422,16 +424,23 @@ const ActivityPage: React.FC = () => {
 
     try {
       const base64Audio = await generateSpokenAudio(audioText);
+      console.log('✅ Audio data received, length:', base64Audio.length);
 
       // Convert base64 to audio and play
+      console.log('🔧 Creating audio blob...');
       const audioBlob = new Blob(
         [Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0))],
         { type: 'audio/mp3' }
       );
+      console.log('📦 Blob created, size:', audioBlob.size, 'bytes');
+
       const audioUrl = URL.createObjectURL(audioBlob);
+      console.log('🔗 Audio URL created:', audioUrl);
+
       const audio = new Audio(audioUrl);
 
       audio.onended = () => {
+        console.log('✅ Audio playback ended');
         URL.revokeObjectURL(audioUrl);
         setIsPlayingAudio(false);
 
@@ -441,16 +450,23 @@ const ActivityPage: React.FC = () => {
         setAudioPlayed(newPlayed);
       };
 
-      audio.onerror = () => {
+      audio.onerror = (e) => {
+        console.error('❌ Audio playback error:', e);
         URL.revokeObjectURL(audioUrl);
         setIsPlayingAudio(false);
-        toast.error('Failed to play audio');
+        toast.error('Failed to play audio - check browser console for details');
       };
 
+      console.log('▶️ Starting audio playback...');
       await audio.play();
+      console.log('🎵 Audio is playing');
     } catch (error) {
-      console.error('Error playing audio:', error);
-      toast.error('Failed to generate audio');
+      console.error('❌ Error in handlePlayAudio:', error);
+      if (error instanceof Error) {
+        toast.error(`Audio error: ${error.message}`);
+      } else {
+        toast.error('Failed to generate audio - check console for details');
+      }
       setIsPlayingAudio(false);
     } finally {
       const newLoading = [...audioLoading];

@@ -250,23 +250,46 @@ export const generateLearningPlan = async (evaluation: TestResult): Promise<Lear
 
 
 export const generateSpokenAudio = async (text: string): Promise<string> => {
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: `In a clear, standard German accent, please say: ${text}` }] }],
-        config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-                voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: 'Kore' },
+    try {
+        console.log('🎵 Generating audio for text:', text);
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.0-flash-exp",
+            contents: [{ parts: [{ text }] }],
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName: 'Kore' },
+                    },
                 },
             },
-        },
-    });
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) {
-        throw new Error("Failed to generate audio.");
+        });
+
+        console.log('📦 Response received:', {
+            hasCandidates: !!response.candidates,
+            candidatesLength: response.candidates?.length,
+            hasContent: !!response.candidates?.[0]?.content,
+            hasParts: !!response.candidates?.[0]?.content?.parts,
+            partsLength: response.candidates?.[0]?.content?.parts?.length
+        });
+
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+        if (!base64Audio) {
+            console.error('❌ No audio data in response:', JSON.stringify(response, null, 2));
+            throw new Error("No audio data returned from API. Check console for details.");
+        }
+
+        console.log('✅ Audio generated successfully, length:', base64Audio.length);
+        return base64Audio;
+    } catch (error) {
+        console.error('❌ Error generating audio:', error);
+        if (error instanceof Error) {
+            throw new Error(`Audio generation failed: ${error.message}`);
+        }
+        throw new Error('Audio generation failed: Unknown error');
     }
-    return base64Audio;
 };
 
 
