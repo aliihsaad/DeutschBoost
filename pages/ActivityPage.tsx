@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { generateActivity, evaluateWriting } from '../services/activityService';
+import { generateSpokenAudio } from '../services/geminiService';
 import { CEFRLevel } from '../types';
 import { ActivityType, GrammarActivity, VocabularyActivity, ListeningActivity, WritingActivity, SpeakingActivity } from '../src/types/activity.types';
 import Card from '../components/Card';
@@ -35,6 +36,11 @@ const ActivityPage: React.FC = () => {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
 
+  // Listening state
+  const [audioLoading, setAudioLoading] = useState<boolean[]>([]);
+  const [audioPlayed, setAudioPlayed] = useState<boolean[]>([]);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
   useEffect(() => {
     if (!activityType || !topic) {
       toast.error('Invalid activity parameters');
@@ -53,7 +59,14 @@ const ActivityPage: React.FC = () => {
 
       // Initialize answers array for question-based activities
       if (activityType === 'grammar' || activityType === 'listening') {
-        setUserAnswers(new Array((generatedActivity as any).questions.length).fill(-1));
+        const questionCount = (generatedActivity as any).questions.length;
+        setUserAnswers(new Array(questionCount).fill(-1));
+
+        // Initialize audio state for listening activities
+        if (activityType === 'listening') {
+          setAudioLoading(new Array(questionCount).fill(false));
+          setAudioPlayed(new Array(questionCount).fill(false));
+        }
       }
     } catch (error) {
       console.error('Error loading activity:', error);
@@ -392,6 +405,185 @@ const ActivityPage: React.FC = () => {
     );
   };
 
+  const handlePlayAudio = async (questionIndex: number, audioText: string) => {
+    if (isPlayingAudio) {
+      toast.error('Please wait for current audio to finish');
+      return;
+    }
+
+    // Update loading state
+    const newLoading = [...audioLoading];
+    newLoading[questionIndex] = true;
+    setAudioLoading(newLoading);
+    setIsPlayingAudio(true);
+
+    try {
+      const base64Audio = await generateSpokenAudio(audioText);
+
+      // Convert base64 to audio and play
+      const audioBlob = new Blob(
+        [Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0))],
+        { type: 'audio/mp3' }
+      );
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        setIsPlayingAudio(false);
+
+        // Mark as played
+        const newPlayed = [...audioPlayed];
+        newPlayed[questionIndex] = true;
+        setAudioPlayed(newPlayed);
+      };
+
+      audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        setIsPlayingAudio(false);
+        toast.error('Failed to play audio');
+      };
+
+      await audio.play();
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      toast.error('Failed to generate audio');
+      setIsPlayingAudio(false);
+    } finally {
+      const newLoading = [...audioLoading];
+      newLoading[questionIndex] = false;
+      setAudioLoading(newLoading);
+    }
+  };
+
+  const renderListeningActivity = () => {
+    if (!activity || !activity.questions) return null;
+
+    const question = activity.questions[currentQuestionIndex];
+    const isLastQuestion = currentQuestionIndex === activity.questions.length - 1;
+
+    if (showResults) {
+      return (
+        <div className="space-y-6">
+          <div className="text-center mb-8">
+            <div className={`text-8xl font-bold mb-4 ${score >= 70 ? 'text-green-600' : 'text-orange-600'}`}>
+              {score}%
+            </div>
+            <h2 className="text-3xl font-bold mb-2">
+              {score >= 90 ? 'Excellent!' : score >= 70 ? 'Good Job!' : 'Keep Practicing!'}
+            </h2>
+            <p className="text-gray-600 text-lg">
+              You got {userAnswers.filter((a, i) => a === activity.questions[i].correct_option).length} out of {activity.questions.length} correct
+            </p>
+          </div>
+
+          {/* Review answers */}
+          <div className="space-y-4">
+            <h3 className="text-2xl font-bold mb-4">Review Your Answers</h3>
+            {activity.questions.map((q: any, index: number) => (
+              <Card key={index} className={userAnswers[index] === q.correct_option ? 'border-2 border-green-500' : 'border-2 border-red-500'}>
+                <div className="mb-3">
+                  <button
+                    onClick={() => handlePlayAudio(index, q.audio_text)}
+                    disabled={audioLoading[index] || isPlayingAudio}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <i className={`fa-solid ${audioLoading[index] ? 'fa-spinner fa-spin' : 'fa-volume-up'}`}></i>
+                    Replay Audio
+                  </button>
+                </div>
+                <p className="font-bold text-lg mb-3">{q.question}</p>
+                <p className="text-sm text-gray-600 mb-2">Your answer: <span className={userAnswers[index] === q.correct_option ? 'text-green-600' : 'text-red-600'}>{q.options[userAnswers[index]]}</span></p>
+                {userAnswers[index] !== q.correct_option && (
+                  <p className="text-sm text-green-600 mb-2">Correct answer: {q.options[q.correct_option]}</p>
+                )}
+              </Card>
+            ))}
+          </div>
+
+          <button
+            onClick={() => navigate('/learning-plan')}
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg"
+          >
+            Back to Learning Plan
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold">Question {currentQuestionIndex + 1} of {activity.questions.length}</h2>
+          <div className="text-sm text-gray-600">
+            Progress: {Math.round(((currentQuestionIndex + 1) / activity.questions.length) * 100)}%
+          </div>
+        </div>
+
+        {/* Audio Player Card */}
+        <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200">
+          <div className="text-center py-8">
+            <div className="text-6xl mb-4">
+              <i className="fa-solid fa-headphones text-indigo-600"></i>
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Listen to the audio</h3>
+            <button
+              onClick={() => handlePlayAudio(currentQuestionIndex, question.audio_text)}
+              disabled={audioLoading[currentQuestionIndex] || isPlayingAudio}
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 mx-auto"
+            >
+              <i className={`fa-solid ${audioLoading[currentQuestionIndex] ? 'fa-spinner fa-spin' : isPlayingAudio ? 'fa-circle-pause' : 'fa-circle-play'} text-2xl`}></i>
+              <span>{audioLoading[currentQuestionIndex] ? 'Loading...' : isPlayingAudio ? 'Playing...' : audioPlayed[currentQuestionIndex] ? 'Play Again' : 'Play Audio'}</span>
+            </button>
+            {audioPlayed[currentQuestionIndex] && (
+              <p className="text-sm text-green-600 mt-3">
+                <i className="fa-solid fa-check-circle"></i> Audio played
+              </p>
+            )}
+          </div>
+        </Card>
+
+        {/* Question Card */}
+        <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
+          <p className="text-2xl font-bold text-gray-800">{question.question}</p>
+        </Card>
+
+        <div className="space-y-3">
+          {question.options.map((option: string, index: number) => (
+            <button
+              key={index}
+              onClick={() => handleAnswerSelect(index)}
+              disabled={!audioPlayed[currentQuestionIndex]}
+              className={`w-full p-5 rounded-xl text-left font-medium text-lg transition-all duration-300 ${
+                userAnswers[currentQuestionIndex] === index
+                  ? 'bg-blue-600 text-white shadow-lg scale-105'
+                  : 'bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-300'
+              } ${!audioPlayed[currentQuestionIndex] ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <span className="font-bold mr-3">{String.fromCharCode(65 + index)}.</span>
+              {option}
+            </button>
+          ))}
+        </div>
+
+        {!audioPlayed[currentQuestionIndex] && (
+          <div className="text-center text-amber-600 bg-amber-50 p-4 rounded-lg border border-amber-200">
+            <i className="fa-solid fa-info-circle mr-2"></i>
+            Please listen to the audio before selecting an answer
+          </div>
+        )}
+
+        <button
+          onClick={handleNextQuestion}
+          disabled={userAnswers[currentQuestionIndex] === -1}
+          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLastQuestion ? 'Finish' : 'Next Question'}
+        </button>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
@@ -417,7 +609,7 @@ const ActivityPage: React.FC = () => {
         {activityType === 'grammar' && renderGrammarActivity()}
         {activityType === 'vocabulary' && renderVocabularyActivity()}
         {activityType === 'writing' && renderWritingActivity()}
-        {activityType === 'listening' && renderGrammarActivity()} {/* Similar to grammar */}
+        {activityType === 'listening' && renderListeningActivity()}
       </div>
     </div>
   );
