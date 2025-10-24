@@ -1,6 +1,19 @@
 import { supabase } from '../src/lib/supabase';
 import { LearningPlan, LearningPlanItem, CEFRLevel } from '../types';
 
+// Normalize skill name to match database constraint
+const normalizeSkill = (skill: string): string => {
+  const skillLower = skill.toLowerCase().trim();
+  const skillMap: Record<string, string> = {
+    'grammar': 'Grammar',
+    'vocabulary': 'Vocabulary',
+    'listening': 'Listening',
+    'writing': 'Writing',
+    'speaking': 'Speaking',
+  };
+  return skillMap[skillLower] || skill;
+};
+
 /**
  * Save a learning plan to the database
  * Creates entries in both learning_plans and learning_plan_items tables
@@ -11,7 +24,11 @@ export const saveLearningPlan = async (
   testResultId?: string
 ): Promise<{ error: Error | null; planId: string | null }> => {
   try {
+    console.log('💾 Starting saveLearningPlan for user:', userId);
+    console.log('📋 Plan structure:', JSON.stringify(plan, null, 2));
+
     // 1. Deactivate any existing active plans for this user
+    console.log('🔄 Deactivating old plans...');
     const { error: deactivateError } = await supabase
       .from('learning_plans')
       .update({ is_active: false })
@@ -19,11 +36,13 @@ export const saveLearningPlan = async (
       .eq('is_active', true);
 
     if (deactivateError) {
-      console.error('Error deactivating old plans:', deactivateError);
+      console.error('❌ Error deactivating old plans:', deactivateError);
       return { error: deactivateError, planId: null };
     }
+    console.log('✅ Old plans deactivated');
 
     // 2. Insert the new learning plan
+    console.log('📝 Inserting learning plan...');
     const { data: planData, error: planError } = await supabase
       .from('learning_plans')
       .insert({
@@ -38,11 +57,13 @@ export const saveLearningPlan = async (
       .single();
 
     if (planError || !planData) {
-      console.error('Error saving learning plan:', planError);
+      console.error('❌ Error saving learning plan:', planError);
       return { error: planError, planId: null };
     }
+    console.log('✅ Learning plan created with ID:', planData.id);
 
     // 3. Insert all learning plan items
+    console.log('📦 Processing plan items...');
     const planItems: Array<{
       learning_plan_id: string;
       week_number: number;
@@ -54,42 +75,57 @@ export const saveLearningPlan = async (
     }> = [];
 
     if (!plan.weeks || plan.weeks.length === 0) {
-      console.error('ERROR: Plan has no weeks! Plan structure:', plan);
+      console.error('❌ ERROR: Plan has no weeks! Plan structure:', plan);
       return { error: new Error('Plan has no weeks'), planId: null };
     }
 
-    plan.weeks.forEach((week) => {
+    console.log(`📅 Processing ${plan.weeks.length} weeks...`);
+
+    plan.weeks.forEach((week, weekIndex) => {
+      console.log(`  Week ${week.week} (${week.focus}): ${week.items?.length || 0} items`);
+
       if (!week.items || week.items.length === 0) {
+        console.warn(`  ⚠️ Week ${week.week} has no items - skipping`);
         return;
       }
 
-      week.items.forEach((item) => {
+      week.items.forEach((item, itemIndex) => {
+        const normalizedSkill = normalizeSkill(item.skill);
+        console.log(`    - Item ${itemIndex + 1}: ${item.topic} (${item.skill} → ${normalizedSkill})`);
+
         planItems.push({
           learning_plan_id: planData.id,
           week_number: week.week,
           week_focus: week.focus,
           topic: item.topic,
-          skill: item.skill,
+          skill: normalizedSkill as 'Grammar' | 'Vocabulary' | 'Listening' | 'Writing' | 'Speaking',
           description: item.description,
           completed: item.completed || false,
         });
       });
     });
 
+    console.log(`📊 Total items to insert: ${planItems.length}`);
+
     if (planItems.length === 0) {
-      console.error('ERROR: No plan items to insert!');
-      return { error: new Error('No plan items to insert'), planId: null };
+      console.error('❌ ERROR: No plan items to insert! All weeks were empty.');
+      return { error: new Error('No plan items to insert - all weeks are empty'), planId: null };
     }
+
+    console.log('💾 Inserting plan items...');
+    console.log('Items to insert:', JSON.stringify(planItems, null, 2));
 
     const { error: itemsError } = await supabase
       .from('learning_plan_items')
       .insert(planItems);
 
     if (itemsError) {
-      console.error('Error saving learning plan items:', itemsError);
+      console.error('❌ Error saving learning plan items:', itemsError);
+      console.error('Failed items:', planItems);
       return { error: itemsError, planId: null };
     }
 
+    console.log('✅ Successfully saved all plan items!');
     return { error: null, planId: planData.id };
   } catch (err) {
     console.error('Unexpected error saving learning plan:', err);

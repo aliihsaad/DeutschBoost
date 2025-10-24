@@ -81,20 +81,28 @@ const MainApp: React.FC = () => {
           .eq('id', user.id);
 
         // Generate learning plan
+        console.log('🤖 Generating learning plan with AI...');
         const plan = await generateLearningPlan(result);
+        console.log('✅ AI generated plan:', plan);
         setLearningPlan(plan);
 
         // Save learning plan to database using the service
-        const { error: planError } = await saveLearningPlan(user.id, plan, testResult.id);
+        console.log('💾 Saving learning plan to database...');
+        const { error: planError, planId } = await saveLearningPlan(user.id, plan, testResult.id);
 
-        if (planError) throw planError;
+        if (planError) {
+          console.error('❌ Failed to save learning plan:', planError);
+          throw new Error(`Failed to save plan: ${planError.message}`);
+        }
 
+        console.log('✅ Learning plan saved with ID:', planId);
         toast.success('Learning plan created successfully!');
         setCurrentPage(Page.LearningPlan);
         navigate('/learning-plan');
       } catch (error) {
-        console.error('Failed to generate learning plan', error);
-        toast.error("We couldn't generate your learning plan. Please try again.");
+        console.error('❌ Failed to generate/save learning plan:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        toast.error(`Couldn't create your learning plan: ${errorMessage}. Check console for details.`);
       } finally {
         setLoadingPlan(false);
       }
