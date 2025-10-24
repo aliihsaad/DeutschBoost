@@ -11,8 +11,8 @@ interface CardProps {
 
 const Card: React.FC<CardProps> = ({ children, className = '', hover = false, glass = false, onClick }) => {
   const baseClasses = glass
-    ? 'bg-white/80 backdrop-blur-xl border border-white/20'
-    : 'bg-white';
+    ? 'bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30'
+    : 'bg-white dark:bg-gray-800';
 
   const hoverClasses = hover
     ? 'transition-all duration-300 hover:shadow-2xl hover:-translate-y-1'
@@ -20,7 +20,7 @@ const Card: React.FC<CardProps> = ({ children, className = '', hover = false, gl
 
   return (
     <div
-      className={`${baseClasses} rounded-2xl shadow-lg p-6 ${hoverClasses} ${className}`}
+      className={`${baseClasses} rounded-2xl shadow-lg dark:shadow-gray-900/30 p-6 ${hoverClasses} ${className}`}
       onClick={onClick}
     >
       {children}
