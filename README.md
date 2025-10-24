@@ -1,6 +1,18 @@
-# DeutschBoost
+# DeutschBoost 🚀
 
-A personalized German language learning platform powered by AI. Learn German through adaptive lessons, AI conversations, and interactive activities tailored to your proficiency level.
+A personalized German language learning platform powered by AI. Learn German through adaptive lessons, AI conversations with memory, and interactive activities tailored to your proficiency level.
+
+> **New!** AI Conversation Partner now remembers your progress and provides personalized learning based on your previous sessions!
+
+## 🎉 What's New (Latest Updates)
+
+### Conversation History & AI Context Awareness
+- ✅ **Session Memory**: Every conversation is saved with complete transcripts and AI feedback
+- ✅ **Smart History View**: Browse past conversations with expandable cards showing scores, feedback, and full transcripts
+- ✅ **Context-Aware AI**: Alex loads your last session's feedback and adapts the conversation to your needs
+- ✅ **Continuous Learning**: AI remembers your grammar mistakes, vocabulary gaps, and strengths across sessions
+- ✅ **Multilingual Feedback**: All feedback provided in your native language for better understanding
+- ✅ **Beautiful UI**: Polished conversation history cards with color-coded scores and detailed analytics
 
 ## ✨ Features
 
@@ -25,17 +37,29 @@ Five types of AI-generated activities:
 4. **Writing Tasks**: AI-evaluated writing with feedback on grammar, vocabulary, and fluency
 5. **Speaking Practice**: Real-time AI conversation partner using voice recognition
 
-### 💬 AI Conversation Partner
-- Natural conversations with Google Gemini AI
-- Adapts to your language level
-- Provides corrections and suggestions
-- Practice real-world German in a safe environment
+### 💬 AI Conversation Partner (with Memory!)
+**Real-time voice conversations with Alex, your AI German tutor:**
+- 🎙️ **Natural Voice Conversations**: Speak and listen with Google Gemini Live AI
+- 🧠 **Context Awareness**: Alex remembers your previous conversations and builds on them
+- 📊 **Detailed Feedback**: After each session, receive comprehensive feedback including:
+  - Overall performance score (0-100)
+  - Strengths and areas for improvement
+  - Grammar corrections with explanations
+  - Vocabulary suggestions
+  - Fluency assessment
+  - Personalized encouragement in your native language
+- 📚 **Conversation History**: View all past conversations with expandable details
+- 🎯 **Adaptive Learning**: Each conversation uses feedback from previous sessions to focus on your weak areas
+- 🌐 **CEFR-Adapted**: Alex adjusts speaking style, vocabulary, and complexity based on your level (A1-C2)
+- 🔄 **Continuous Improvement**: AI tracks recurring grammar patterns and suggests vocabulary naturally
 
-### 📊 Progress Tracking
-- Track completion of learning plan activities
-- Monitor your study streak
-- View detailed performance metrics
-- Celebrate achievements and milestones
+### 📊 Progress Tracking & Analytics
+- 📈 **Conversation History**: View all past conversation sessions with scores and detailed feedback
+- ✅ **Learning Plan Progress**: Track completion of weekly learning activities
+- 📅 **Study Streak**: Monitor your daily learning consistency
+- 📊 **Performance Metrics**: Detailed analytics on your strengths and improvement areas
+- 🎯 **Score Trends**: See your progress over time across multiple conversations
+- 🏆 **Achievements**: Celebrate milestones and learning goals
 
 ### 🌍 Multi-Language Support
 - Set your native language for better learning experience
@@ -48,12 +72,31 @@ Five types of AI-generated activities:
 - Profile customization with avatar support
 - Secure data storage with Supabase
 
+## 🌟 How It Works: AI Conversation with Memory
+
+DeutschBoost's AI Conversation Partner uses advanced context awareness to provide truly personalized learning:
+
+1. **First Conversation**: Alex introduces himself and adapts to your CEFR level
+2. **AI Feedback**: After each conversation, you receive detailed analysis with a 0-100 score
+3. **Memory System**: Your feedback is saved and loaded before the next conversation
+4. **Personalized Learning**: Alex references your previous strengths, addresses recurring mistakes, and naturally incorporates suggested vocabulary
+5. **Continuous Improvement**: Watch your scores improve as Alex helps you overcome specific challenges
+
+**Example**: If your last feedback showed issues with dative prepositions, Alex will gently reinforce correct usage in your next conversation without explicitly mentioning it - making learning natural and contextual!
+
 ## 🛠️ Tech Stack
 
 - **Frontend**: React 19 + TypeScript + Vite
 - **Styling**: Tailwind CSS (via CDN)
-- **AI**: Google Gemini AI (2.5 Flash & 2.5 Pro)
-- **Backend**: Supabase (Authentication, Database, Row Level Security)
+- **AI**:
+  - Google Gemini 2.5 Flash (activities, assessments)
+  - Google Gemini 2.5 Pro (feedback generation, deep thinking)
+  - Google Gemini Live (real-time voice conversations)
+- **Backend**: Supabase
+  - PostgreSQL Database with JSONB for conversation storage
+  - Row Level Security (RLS) policies
+  - Real-time subscriptions
+  - Authentication (Email/Password + Google OAuth)
 - **Deployment**: Vercel
 - **PWA**: Vite PWA Plugin with Workbox
 
@@ -113,8 +156,20 @@ The app uses Supabase for data storage. To set up the database:
 2. Run the migration files in order in your Supabase SQL editor:
    - `supabase_migrations/00_diagnostic_and_fix.sql` (creates all tables, RLS policies, and fixes user records)
    - `supabase_migrations/add_mother_language.sql` (adds mother language support)
+   - Conversation sessions table is automatically created with JSONB fields for:
+     - Transcripts (speaker, text, timestamp)
+     - AI-generated feedback (scores, corrections, suggestions)
 3. Copy your project URL and anon key to `.env.local`
 4. Enable Google OAuth in Supabase Authentication settings (optional)
+
+### Database Schema Highlights
+
+**conversation_sessions table:**
+- Stores complete conversation transcripts
+- AI feedback as JSONB (flexible schema)
+- Duration tracking
+- Links to user profiles for RLS
+- Enables conversation history and AI context awareness
 
 ## Deployment
 
@@ -134,13 +189,17 @@ DeutschBoost/
 ├── src/
 │   ├── components/      # Reusable UI components
 │   ├── contexts/        # React contexts (Auth)
-│   ├── lib/            # Library configurations
+│   ├── lib/            # Library configurations (Supabase)
 │   ├── pages/          # Auth pages (Login, Signup)
 │   └── types/          # TypeScript type definitions
 ├── components/         # Main components
+│   └── ConversationHistoryCard.tsx  # NEW: History display component
 ├── pages/             # Application pages
-├── services/          # API services (Gemini)
-├── supabase/          # Database migrations
+│   └── ConversationPage.tsx  # UPDATED: Now with history & context
+├── services/          # API services
+│   ├── geminiService.ts        # UPDATED: Context-aware prompts
+│   └── conversationService.ts  # NEW: History & feedback management
+├── supabase_migrations/  # Database migrations
 └── public/            # Static assets
 ```
 
