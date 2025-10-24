@@ -16,7 +16,8 @@ import {
 export const generateGrammarActivity = async (
   topic: string,
   description: string,
-  level: CEFRLevel
+  level: CEFRLevel,
+  motherLanguage: string = 'English'
 ): Promise<GrammarActivity> => {
   const levelGuidance = {
     A1: 'very basic grammar (present tense, articles, simple word order)',
@@ -34,12 +35,13 @@ export const generateGrammarActivity = async (
 Topic: ${topic}
 Description: ${description}
 Grammar Level: ${levelGuidance[level]}
+User's Native Language: ${motherLanguage}
 
 Generate 5 fill-in-the-blank questions. Each question should have:
 - A German sentence with ONE blank (marked as ___)
-- 4 multiple choice options
+- 4 multiple choice options (in German)
 - The correct answer index (0-3)
-- A brief explanation of why the answer is correct
+- A brief explanation of why the answer is correct (write this explanation in ${motherLanguage})
 
 Return a JSON object with this exact structure:
 {
@@ -69,7 +71,8 @@ Return a JSON object with this exact structure:
 export const generateVocabularyActivity = async (
   topic: string,
   description: string,
-  level: CEFRLevel
+  level: CEFRLevel,
+  motherLanguage: string = 'English'
 ): Promise<VocabularyActivity> => {
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
@@ -77,10 +80,11 @@ export const generateVocabularyActivity = async (
 
 Topic: ${topic}
 Description: ${description}
+User's Native Language: ${motherLanguage}
 
 Generate 10 vocabulary words related to this topic. Each card should have:
 - German word (with article if it's a noun, e.g., "der Tisch")
-- English translation
+- Translation in ${motherLanguage}
 - Example sentence in German using the word in context
 
 Return a JSON object with this structure:
@@ -109,7 +113,8 @@ Return a JSON object with this structure:
 export const generateListeningActivity = async (
   topic: string,
   description: string,
-  level: CEFRLevel
+  level: CEFRLevel,
+  motherLanguage: string = 'English'
 ): Promise<ListeningActivity> => {
   const levelGuidance = {
     A1: 'very slow, simple sentences, basic vocabulary',
@@ -127,11 +132,12 @@ export const generateListeningActivity = async (
 Topic: ${topic}
 Description: ${description}
 Speaking Level: ${levelGuidance[level]}
+User's Native Language: ${motherLanguage}
 
 Generate 3 listening questions. Each should have:
 - A short German text (2-4 sentences) that will be read aloud to the student
-- A comprehension question in English
-- 4 multiple choice answers
+- A comprehension question in ${motherLanguage}
+- 4 multiple choice answers in ${motherLanguage}
 - The correct answer index (0-3)
 
 Return a JSON object with this structure:
@@ -161,7 +167,8 @@ Return a JSON object with this structure:
 export const generateWritingActivity = async (
   topic: string,
   description: string,
-  level: CEFRLevel
+  level: CEFRLevel,
+  motherLanguage: string = 'English'
 ): Promise<WritingActivity> => {
   const wordCounts = {
     A1: 30,
@@ -178,12 +185,15 @@ export const generateWritingActivity = async (
 
 Topic: ${topic}
 Description: ${description}
+User's Native Language: ${motherLanguage}
 
 Generate a writing prompt that:
 - Is appropriate for ${level} level
 - Relates to the topic
 - Requires ${wordCounts[level]} words minimum
 - Has clear evaluation criteria
+- The prompt should be written in ${motherLanguage} to help the student understand what to write about
+- The evaluation criteria should be in ${motherLanguage}
 
 Return a JSON object with this structure:
 {
@@ -213,11 +223,14 @@ export const evaluateWriting = async (
   studentText: string,
   prompt: string,
   level: CEFRLevel,
-  criteria: string[]
+  criteria: string[],
+  motherLanguage: string = 'English'
 ): Promise<WritingEvaluation> => {
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-pro',
     contents: `You are a German language teacher evaluating a student's writing at ${level} level.
+
+User's Native Language: ${motherLanguage}
 
 Prompt: ${prompt}
 
@@ -227,12 +240,12 @@ ${studentText}
 Evaluation Criteria:
 ${criteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
 
-Evaluate the writing and provide:
+Evaluate the writing and provide all feedback in ${motherLanguage}:
 1. Overall score (0-100)
-2. List of strengths (what the student did well)
-3. List of areas for improvement
-4. Detailed feedback with specific examples
-5. Corrected version of the text (if there are errors)
+2. List of strengths (what the student did well) - in ${motherLanguage}
+3. List of areas for improvement - in ${motherLanguage}
+4. Detailed feedback with specific examples - in ${motherLanguage}
+5. Corrected version of the text (keep this in German, only fix the errors)
 
 Return a JSON object with this structure:
 {
@@ -262,7 +275,8 @@ Return a JSON object with this structure:
 export const generateSpeakingActivity = async (
   topic: string,
   description: string,
-  level: CEFRLevel
+  level: CEFRLevel,
+  motherLanguage: string = 'English'
 ): Promise<SpeakingActivity> => {
   const durations = {
     A1: 60,
@@ -279,10 +293,11 @@ export const generateSpeakingActivity = async (
 
 Topic: ${topic}
 Description: ${description}
+User's Native Language: ${motherLanguage}
 
 Generate:
-- A scenario description
-- 3-5 conversation starter questions
+- A scenario description (in ${motherLanguage})
+- 3-5 conversation starter questions (in German)
 - Minimum conversation duration
 
 Return a JSON object with this structure:
@@ -312,19 +327,20 @@ export const generateActivity = async (
   activityType: ActivityType,
   topic: string,
   description: string,
-  level: CEFRLevel
+  level: CEFRLevel,
+  motherLanguage: string = 'English'
 ): Promise<GrammarActivity | VocabularyActivity | ListeningActivity | WritingActivity | SpeakingActivity> => {
   switch (activityType) {
     case 'grammar':
-      return await generateGrammarActivity(topic, description, level);
+      return await generateGrammarActivity(topic, description, level, motherLanguage);
     case 'vocabulary':
-      return await generateVocabularyActivity(topic, description, level);
+      return await generateVocabularyActivity(topic, description, level, motherLanguage);
     case 'listening':
-      return await generateListeningActivity(topic, description, level);
+      return await generateListeningActivity(topic, description, level, motherLanguage);
     case 'writing':
-      return await generateWritingActivity(topic, description, level);
+      return await generateWritingActivity(topic, description, level, motherLanguage);
     case 'speaking':
-      return await generateSpeakingActivity(topic, description, level);
+      return await generateSpeakingActivity(topic, description, level, motherLanguage);
     default:
       throw new Error(`Unknown activity type: ${activityType}`);
   }

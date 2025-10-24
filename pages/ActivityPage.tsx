@@ -12,7 +12,7 @@ import { useAuth } from '../src/contexts/AuthContext';
 const ActivityPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
 
   // Get params from URL
   const activityType = searchParams.get('type') as ActivityType;
@@ -54,7 +54,8 @@ const ActivityPage: React.FC = () => {
   const loadActivity = async () => {
     setLoading(true);
     try {
-      const generatedActivity = await generateActivity(activityType, topic, description, level);
+      const motherLanguage = userProfile?.mother_language || 'English';
+      const generatedActivity = await generateActivity(activityType, topic, description, level, motherLanguage);
       setActivity(generatedActivity);
 
       // Initialize answers array for question-based activities
@@ -117,11 +118,13 @@ const ActivityPage: React.FC = () => {
 
     setLoading(true);
     try {
+      const motherLanguage = userProfile?.mother_language || 'English';
       const result = await evaluateWriting(
         userText,
         activity.prompt,
         level,
-        activity.evaluation_criteria
+        activity.evaluation_criteria,
+        motherLanguage
       );
       setEvaluation(result);
       setScore(result.score);
