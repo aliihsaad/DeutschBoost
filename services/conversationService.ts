@@ -51,6 +51,43 @@ export const startConversationSession = async (
 };
 
 /**
+ * Helper function to get localized fallback messages
+ */
+const getLocalizedFallbackMessages = (motherLanguage: string, type: 'empty' | 'short') => {
+  const messages = {
+    empty: {
+      English: {
+        areas_for_improvement: ['No conversation data to analyze'],
+        fluency_notes: 'No conversation data available',
+        encouragement: 'Start practicing to get feedback!',
+      },
+      Arabic: {
+        areas_for_improvement: ['لا توجد بيانات محادثة للتحليل'],
+        fluency_notes: 'لا توجد بيانات محادثة متاحة',
+        encouragement: 'ابدأ الممارسة للحصول على التعليقات!',
+      },
+    },
+    short: {
+      English: {
+        strengths: ['You started a conversation - great first step!'],
+        areas_for_improvement: ['Try to have a longer conversation next time'],
+        fluency_notes: 'This conversation was too short to provide detailed feedback. Try speaking for at least 2-3 minutes and engaging in meaningful exchanges.',
+        encouragement: 'Keep practicing! The more you speak, the better feedback I can give you. Try to have a real conversation with complete sentences next time.',
+      },
+      Arabic: {
+        strengths: ['لقد بدأت محادثة - خطوة أولى رائعة!'],
+        areas_for_improvement: ['حاول إجراء محادثة أطول في المرة القادمة'],
+        fluency_notes: 'كانت هذه المحادثة قصيرة جدًا لتقديم ملاحظات تفصيلية. حاول التحدث لمدة 2-3 دقائق على الأقل والانخراط في تبادلات ذات مغزى.',
+        encouragement: 'استمر في الممارسة! كلما تحدثت أكثر، كلما تمكنت من تقديم ملاحظات أفضل لك. حاول إجراء محادثة حقيقية بجمل كاملة في المرة القادمة.',
+      },
+    },
+  };
+
+  // Return the requested type for the mother language, fallback to English if language not found
+  return messages[type][motherLanguage as keyof typeof messages[typeof type]] || messages[type].English;
+};
+
+/**
  * Generate AI feedback for a conversation based on transcript and user level
  */
 export const generateConversationFeedback = async (
@@ -66,15 +103,16 @@ export const generateConversationFeedback = async (
       .join('\n');
 
     if (conversationText.length === 0) {
+      const emptyMessages = getLocalizedFallbackMessages(motherLanguage, 'empty');
       return {
         feedback: {
           overall_score: 0,
           strengths: [],
-          areas_for_improvement: ['No conversation data to analyze'],
+          areas_for_improvement: emptyMessages.areas_for_improvement,
           grammar_corrections: [],
           vocabulary_suggestions: [],
-          fluency_notes: 'No conversation data available',
-          encouragement: 'Start practicing to get feedback!',
+          fluency_notes: emptyMessages.fluency_notes,
+          encouragement: emptyMessages.encouragement,
         },
         error: null,
       };
@@ -95,15 +133,16 @@ export const generateConversationFeedback = async (
     const MIN_MODEL_EXCHANGES = 3;
 
     if (meaningfulUserMessages.length < MIN_USER_EXCHANGES || modelMessages.length < MIN_MODEL_EXCHANGES) {
+      const shortMessages = getLocalizedFallbackMessages(motherLanguage, 'short');
       return {
         feedback: {
           overall_score: 0,
-          strengths: ['You started a conversation - great first step!'],
-          areas_for_improvement: ['Try to have a longer conversation next time'],
+          strengths: shortMessages.strengths,
+          areas_for_improvement: shortMessages.areas_for_improvement,
           grammar_corrections: [],
           vocabulary_suggestions: [],
-          fluency_notes: 'This conversation was too short to provide detailed feedback. Try speaking for at least 2-3 minutes and engaging in meaningful exchanges.',
-          encouragement: 'Keep practicing! The more you speak, the better feedback I can give you. Try to have a real conversation with complete sentences next time.',
+          fluency_notes: shortMessages.fluency_notes,
+          encouragement: shortMessages.encouragement,
         },
         error: null,
       };
@@ -119,7 +158,7 @@ ${conversationText}
 
 Analyze this German conversation and provide detailed feedback. Evaluate the student's performance based on ${userLevel} level expectations.
 
-Provide your feedback in ${motherLanguage} language (except for German examples which should stay in German).
+IMPORTANT: ALL feedback must be written in ${motherLanguage}. Every field (strengths, areas_for_improvement, grammar_corrections explanations, fluency_notes, encouragement) must be in ${motherLanguage}, except for German text examples which should remain in German.
 
 Return a JSON object with the following structure:
 {
