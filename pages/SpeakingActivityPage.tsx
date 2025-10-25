@@ -59,48 +59,59 @@ const SpeakingActivityPage: React.FC = () => {
   }, [activityTopic, activityDescription, navigate]);
 
   const handleMessage = useCallback(async (message: LiveServerMessage) => {
-    if (message.serverContent?.turnComplete) {
-      if (currentOutputTranscription.current.trim()) {
-        setTranscripts(prev => [...prev, {
-          id: Date.now(),
-          speaker: 'model',
-          text: currentOutputTranscription.current.trim()
-        }]);
-        currentOutputTranscription.current = '';
-      }
-      if (currentInputTranscription.current.trim()) {
-        setTranscripts(prev => [...prev, {
-          id: Date.now() + 1,
-          speaker: 'user',
-          text: currentInputTranscription.current.trim()
-        }]);
-        currentInputTranscription.current = '';
-      }
+    let inputTranscriptPart = '';
+    let outputTranscriptPart = '';
+
+    if (message.serverContent?.inputTranscription) {
+      inputTranscriptPart = message.serverContent.inputTranscription.text;
+      currentInputTranscription.current += inputTranscriptPart;
+    }
+    if (message.serverContent?.outputTranscription) {
+      outputTranscriptPart = message.serverContent.outputTranscription.text;
+      currentOutputTranscription.current += outputTranscriptPart;
     }
 
-    if (message.serverContent?.modelTurn?.parts) {
-      for (const part of message.serverContent.modelTurn.parts) {
-        if (part.text) {
-          currentOutputTranscription.current += part.text;
-        }
-        if (part.inlineData?.mimeType?.startsWith('audio/pcm')) {
-          const audioData = decode(part.inlineData.data);
-          const audioBuffer = await decodeAudioData(outputAudioContextRef.current!, audioData.buffer);
-          const audioCtx = outputAudioContextRef.current!;
-          if (nextOutputStartTime.current < audioCtx.currentTime) {
-            nextOutputStartTime.current = audioCtx.currentTime;
-          }
-          const source = audioCtx.createBufferSource();
-          source.buffer = audioBuffer;
-          source.connect(audioCtx.destination);
-          source.addEventListener('ended', () => {
-            audioPlaybackSources.current.delete(source);
-          });
-          source.start(nextOutputStartTime.current);
-          nextOutputStartTime.current += audioBuffer.duration;
-          audioPlaybackSources.current.add(source);
+    setTranscripts(prev => {
+      const newTranscripts = [...prev];
+      if (inputTranscriptPart) {
+        const last = newTranscripts[newTranscripts.length - 1];
+        if (last && last.speaker === 'user') {
+          last.text += inputTranscriptPart;
+        } else {
+          newTranscripts.push({ id: Date.now(), speaker: 'user', text: inputTranscriptPart });
         }
       }
+      if (outputTranscriptPart) {
+        const last = newTranscripts[newTranscripts.length - 1];
+        if (last && last.speaker === 'model') {
+          last.text += outputTranscriptPart;
+        } else {
+          newTranscripts.push({ id: Date.now() + 1, speaker: 'model', text: outputTranscriptPart });
+        }
+      }
+      return newTranscripts;
+    });
+
+    if (message.serverContent?.turnComplete) {
+      currentInputTranscription.current = '';
+      currentOutputTranscription.current = '';
+    }
+
+    const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData.data;
+    if (base64Audio && outputAudioContextRef.current) {
+      const audioCtx = outputAudioContextRef.current;
+      nextOutputStartTime.current = Math.max(nextOutputStartTime.current, audioCtx.currentTime);
+      const audioBuffer = await decodeAudioData(decode(base64Audio), audioCtx, 24000, 1);
+
+      const source = audioCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioCtx.destination);
+      source.addEventListener('ended', () => {
+        audioPlaybackSources.current.delete(source);
+      });
+      source.start(nextOutputStartTime.current);
+      nextOutputStartTime.current += audioBuffer.duration;
+      audioPlaybackSources.current.add(source);
     }
 
     if (message.serverContent?.interrupted) {
@@ -162,11 +173,6 @@ const SpeakingActivityPage: React.FC = () => {
           };
           mediaStreamSourceRef.current.connect(scriptProcessorRef.current);
           scriptProcessorRef.current.connect(inputCtx.destination);
-
-          // Trigger AI to start speaking by sending initial message
-          sessionPromiseRef.current?.then((session) => {
-            session.send({ text: "Hello, I'm ready to practice!" });
-          });
         },
         onmessage: handleMessage,
         onerror: (e) => {
