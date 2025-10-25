@@ -146,6 +146,8 @@ const ActivityPage: React.FC = () => {
   const markActivityComplete = async (finalScore: number) => {
     if (!user || !weekNumber || !itemIndex) return;
 
+    const loadingToast = toast.loading('Saving your progress...');
+
     try {
       const timeSpent = Math.round((Date.now() - startTime) / 1000);
 
@@ -153,7 +155,19 @@ const ActivityPage: React.FC = () => {
       const { updatePlanItemCompletion, updateUserProgress } = await import('../services/learningPlanService');
 
       // Mark the learning plan item as complete
-      await updatePlanItemCompletion(user.id, parseInt(weekNumber), parseInt(itemIndex), true);
+      const { error: completionError } = await updatePlanItemCompletion(
+        user.id,
+        parseInt(weekNumber),
+        parseInt(itemIndex),
+        true
+      );
+
+      if (completionError) {
+        console.error('Error marking item complete:', completionError);
+        toast.dismiss(loadingToast);
+        toast.error('Failed to mark activity complete. Please try again.');
+        return;
+      }
 
       // Update user progress (study time, streak, session tracking)
       const activityTypeMap: Record<string, 'conversation' | 'grammar' | 'listening' | 'reading' | 'writing'> = {
@@ -174,13 +188,22 @@ const ActivityPage: React.FC = () => {
 
       if (progressError) {
         console.error('Error updating user progress:', progressError);
+        // Don't fail the whole operation if progress tracking fails
       } else if (profile) {
         console.log('✅ User progress updated:', profile);
       }
 
+      toast.dismiss(loadingToast);
       toast.success(`Activity completed! Score: ${finalScore}%`);
+
+      // Wait a moment for toast to show, then navigate
+      setTimeout(() => {
+        navigate('/learning-plan');
+      }, 1000);
     } catch (error) {
       console.error('Error marking activity complete:', error);
+      toast.dismiss(loadingToast);
+      toast.error('An error occurred. Please try again.');
     }
   };
 
@@ -387,7 +410,7 @@ const ActivityPage: React.FC = () => {
               onClick={() => {
                 if (flippedCards.size === activity.cards.length) {
                   markActivityComplete(100);
-                  navigate('/learning-plan');
+                  // Navigation now handled inside markActivityComplete()
                 } else {
                   toast.error(`Please flip all ${activity.cards.length} cards to complete the activity!`);
                 }
