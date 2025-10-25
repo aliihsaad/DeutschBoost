@@ -28,6 +28,7 @@ const ConversationPage: React.FC = () => {
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     const [previousFeedback, setPreviousFeedback] = useState<ConversationFeedback | null>(null);
     const [selectedMode, setSelectedMode] = useState<ConversationMode>(ConversationMode.FREE_CONVERSATION);
+    const [currentReadingText, setCurrentReadingText] = useState<string>('');
 
     // Define available conversation modes
     const conversationModes: ConversationModeInfo[] = [
@@ -100,6 +101,37 @@ const ConversationPage: React.FC = () => {
             }
         }
     }, [transcripts, selectedMode]);
+
+    // Detect and update current reading text in Reading Practice mode
+    useEffect(() => {
+        if (selectedMode === ConversationMode.READING_PRACTICE && transcripts.length > 0) {
+            const modelMessages = transcripts.filter(t => t.speaker === 'model');
+
+            if (modelMessages.length > 0) {
+                const latestModel = modelMessages[modelMessages.length - 1].text;
+
+                // Detect new reading prompts by checking for specific phrases or length
+                // Reading prompts are typically:
+                // - Longer texts (80+ chars for actual reading content)
+                // - Contain "lies" or start of paragraph
+                // - Don't contain "möchtest" (which is in the follow-up question)
+                const isReadingPrompt =
+                    latestModel.length > 80 &&
+                    !latestModel.toLowerCase().includes('möchtest') &&
+                    !latestModel.toLowerCase().includes('nochmal');
+
+                // Update reading text if it's a new reading prompt
+                if (isReadingPrompt && latestModel !== currentReadingText) {
+                    setCurrentReadingText(latestModel);
+                }
+
+                // Initialize with first model message if no reading text set yet
+                if (!currentReadingText && modelMessages.length > 0) {
+                    setCurrentReadingText(latestModel);
+                }
+            }
+        }
+    }, [transcripts, selectedMode, currentReadingText]);
 
     // Load conversation history on mount
     useEffect(() => {
@@ -523,68 +555,22 @@ const ConversationPage: React.FC = () => {
                     </p>
                 </div>
 
-                {/* Reading Practice Mode: Split View */}
+                {/* Reading Practice Mode: Static Text + Normal Chat */}
                 {selectedMode === ConversationMode.READING_PRACTICE && transcripts.length > 0 ? (
                     <div className="space-y-3">
-                        {/* Alex's Text (Pinned at Top) */}
+                        {/* Reading Text (Pinned - Static) */}
                         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-10 h-10 rounded-full bg-blue-500 flex-shrink-0 flex items-center justify-center text-white font-bold">A</div>
                                 <h4 className="font-bold text-gray-800">Text to Read:</h4>
                                 <div className="ml-auto flex items-center gap-2 text-sm text-blue-600">
-                                    <i className="fa-solid fa-microphone animate-pulse"></i>
-                                    <span>Alex is listening...</span>
+                                    <i className="fa-solid fa-book-open"></i>
+                                    <span>Scroll down to see chat</span>
                                 </div>
                             </div>
                             <div className="bg-white p-4 rounded-lg shadow-sm text-lg leading-relaxed">
-                                {(() => {
-                                    // Find reading paragraphs (longer texts, likely reading prompts)
-                                    // vs feedback (shorter, contains questions or corrections)
-                                    const modelMessages = transcripts.filter(t => t.speaker === 'model');
-
-                                    // Reading paragraphs are typically longer (50+ chars) and don't end with "?"
-                                    const readingTexts = modelMessages.filter(t =>
-                                        t.text.length > 50 &&
-                                        !t.text.trim().endsWith('?')
-                                    );
-
-                                    // Show the latest reading paragraph, or fallback to latest model message
-                                    const displayText = readingTexts.length > 0
-                                        ? readingTexts[readingTexts.length - 1].text
-                                        : (modelMessages.length > 0
-                                            ? modelMessages[modelMessages.length - 1].text
-                                            : 'Waiting for Alex to provide text...');
-
-                                    return displayText;
-                                })()}
+                                {currentReadingText || 'Waiting for Alex to provide text...'}
                             </div>
-
-                            {/* Latest Feedback Section */}
-                            {(() => {
-                                const modelMessages = transcripts.filter(t => t.speaker === 'model');
-
-                                // Feedback messages are shorter or end with "?"
-                                const feedbackMessages = modelMessages.filter(t =>
-                                    t.text.length <= 50 || t.text.trim().endsWith('?')
-                                );
-
-                                const latestFeedback = feedbackMessages.length > 0
-                                    ? feedbackMessages[feedbackMessages.length - 1].text
-                                    : null;
-
-                                if (latestFeedback) {
-                                    return (
-                                        <div className="mt-3 bg-green-50 border-2 border-green-200 rounded-lg p-3">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <i className="fa-solid fa-comment-dots text-green-600"></i>
-                                                <h5 className="font-bold text-green-800 text-sm">Alex's Feedback:</h5>
-                                            </div>
-                                            <p className="text-gray-700 text-sm">{latestFeedback}</p>
-                                        </div>
-                                    );
-                                }
-                                return null;
-                            })()}
 
                             {/* I'm Done Reading Button */}
                             {status === 'connected' && (
@@ -607,21 +593,17 @@ const ConversationPage: React.FC = () => {
                             )}
                         </div>
 
-                        {/* User's Attempt (Scrollable) */}
-                        <div ref={transcriptContainerRef} className="h-64 bg-gray-200 rounded-lg p-4 overflow-y-auto space-y-3">
-                            <h4 className="font-bold text-gray-700 sticky top-0 bg-gray-200 pb-2">Your Reading:</h4>
-                            {transcripts
-                                .filter(t => t.speaker === 'user')
-                                .map((t) => (
-                                    <div key={t.id} className="flex items-start gap-3 justify-end">
-                                        <div className="p-3 rounded-lg max-w-sm bg-blue-600 text-white">
-                                            {t.text}
-                                        </div>
-                                        <div className="w-10 h-10 rounded-full bg-gray-300 flex-shrink-0 flex items-center justify-center text-gray-600">
-                                            <i className="fa-solid fa-user"></i>
-                                        </div>
+                        {/* Normal Chat (All Messages - Scrollable) */}
+                        <div ref={transcriptContainerRef} className="h-96 bg-gray-200 rounded-lg p-4 overflow-y-auto space-y-4">
+                            {transcripts.map((t) => (
+                                <div key={t.id} className={`flex items-start gap-3 ${t.speaker === 'user' ? 'justify-end' : ''}`}>
+                                    {t.speaker === 'model' && <div className="w-10 h-10 rounded-full bg-blue-500 flex-shrink-0 flex items-center justify-center text-white font-bold">A</div>}
+                                    <div className={`p-3 rounded-lg max-w-sm ${t.speaker === 'model' ? 'bg-white shadow-sm' : 'bg-blue-600 text-white'}`}>
+                                        {t.text}
                                     </div>
-                                ))}
+                                     {t.speaker === 'user' && <div className="w-10 h-10 rounded-full bg-gray-300 flex-shrink-0 flex items-center justify-center text-gray-600"><i className="fa-solid fa-user"></i></div>}
+                                </div>
+                            ))}
                         </div>
                     </div>
                 ) : (
