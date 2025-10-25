@@ -537,11 +537,54 @@ const ConversationPage: React.FC = () => {
                                 </div>
                             </div>
                             <div className="bg-white p-4 rounded-lg shadow-sm text-lg leading-relaxed">
-                                {transcripts
-                                    .filter(t => t.speaker === 'model')
-                                    .map(t => t.text)
-                                    .slice(-1)[0] || 'Waiting for Alex to provide text...'}
+                                {(() => {
+                                    // Find reading paragraphs (longer texts, likely reading prompts)
+                                    // vs feedback (shorter, contains questions or corrections)
+                                    const modelMessages = transcripts.filter(t => t.speaker === 'model');
+
+                                    // Reading paragraphs are typically longer (50+ chars) and don't end with "?"
+                                    const readingTexts = modelMessages.filter(t =>
+                                        t.text.length > 50 &&
+                                        !t.text.trim().endsWith('?')
+                                    );
+
+                                    // Show the latest reading paragraph, or fallback to latest model message
+                                    const displayText = readingTexts.length > 0
+                                        ? readingTexts[readingTexts.length - 1].text
+                                        : (modelMessages.length > 0
+                                            ? modelMessages[modelMessages.length - 1].text
+                                            : 'Waiting for Alex to provide text...');
+
+                                    return displayText;
+                                })()}
                             </div>
+
+                            {/* Latest Feedback Section */}
+                            {(() => {
+                                const modelMessages = transcripts.filter(t => t.speaker === 'model');
+
+                                // Feedback messages are shorter or end with "?"
+                                const feedbackMessages = modelMessages.filter(t =>
+                                    t.text.length <= 50 || t.text.trim().endsWith('?')
+                                );
+
+                                const latestFeedback = feedbackMessages.length > 0
+                                    ? feedbackMessages[feedbackMessages.length - 1].text
+                                    : null;
+
+                                if (latestFeedback) {
+                                    return (
+                                        <div className="mt-3 bg-green-50 border-2 border-green-200 rounded-lg p-3">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <i className="fa-solid fa-comment-dots text-green-600"></i>
+                                                <h5 className="font-bold text-green-800 text-sm">Alex's Feedback:</h5>
+                                            </div>
+                                            <p className="text-gray-700 text-sm">{latestFeedback}</p>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
 
                             {/* I'm Done Reading Button */}
                             {status === 'connected' && (
@@ -566,7 +609,7 @@ const ConversationPage: React.FC = () => {
 
                         {/* User's Attempt (Scrollable) */}
                         <div ref={transcriptContainerRef} className="h-64 bg-gray-200 rounded-lg p-4 overflow-y-auto space-y-3">
-                            <h4 className="font-bold text-gray-700 sticky top-0 bg-gray-200 pb-2">Your Reading & Feedback:</h4>
+                            <h4 className="font-bold text-gray-700 sticky top-0 bg-gray-200 pb-2">Your Reading:</h4>
                             {transcripts
                                 .filter(t => t.speaker === 'user')
                                 .map((t) => (
