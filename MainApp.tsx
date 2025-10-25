@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import HomePage from './pages/HomePage';
 import EnhancedPlacementTestPage from './pages/EnhancedPlacementTestPage';
@@ -21,6 +21,7 @@ const MainApp: React.FC = () => {
   const [loadingPlan, setLoadingPlan] = useState(false);
   const { user, userProfile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Load user's level and active learning plan from database
   useEffect(() => {
@@ -48,6 +49,27 @@ const MainApp: React.FC = () => {
 
     loadUserData();
   }, [user, userProfile]);
+
+  // Reload learning plan when navigating to /learning-plan or / to reflect completed activities
+  useEffect(() => {
+    const reloadPlan = async () => {
+      if (!user || !location.pathname.match(/^\/(learning-plan|)?$/)) return;
+
+      try {
+        const { plan, error } = await loadActiveLearningPlan(user.id);
+
+        if (error) {
+          console.error('Error reloading learning plan:', error);
+        } else if (plan) {
+          setLearningPlan(plan);
+        }
+      } catch (error) {
+        console.error('Error reloading learning plan:', error);
+      }
+    };
+
+    reloadPlan();
+  }, [location.pathname, user]);
 
   const handleTestComplete = useCallback(
     async (result: TestResult) => {

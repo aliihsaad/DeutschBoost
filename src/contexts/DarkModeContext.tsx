@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
+import { supabase } from '../lib/supabase';
 
 interface DarkModeContextType {
   isDarkMode: boolean;
@@ -14,7 +15,7 @@ interface DarkModeProviderProps {
 }
 
 export const DarkModeProvider: React.FC<DarkModeProviderProps> = ({ children }) => {
-  const { userProfile } = useAuth();
+  const { userProfile, user } = useAuth();
   const [isDarkMode, setIsDarkModeState] = useState(false);
 
   // Load dark mode preference from user profile
@@ -33,7 +34,7 @@ export const DarkModeProvider: React.FC<DarkModeProviderProps> = ({ children }) 
     }
   }, [userProfile]);
 
-  const setDarkMode = (value: boolean) => {
+  const setDarkMode = async (value: boolean) => {
     setIsDarkModeState(value);
 
     // Apply or remove dark mode class
@@ -41,6 +42,21 @@ export const DarkModeProvider: React.FC<DarkModeProviderProps> = ({ children }) 
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
+    }
+
+    // Save to database
+    if (user && userProfile) {
+      try {
+        const currentPrefs = (userProfile.notification_preferences as any) || {};
+        const updatedPrefs = { ...currentPrefs, darkMode: value };
+
+        await supabase
+          .from('user_profiles')
+          .update({ notification_preferences: updatedPrefs })
+          .eq('id', user.id);
+      } catch (error) {
+        console.error('Error saving dark mode preference:', error);
+      }
     }
   };
 

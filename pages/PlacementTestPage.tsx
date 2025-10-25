@@ -74,8 +74,8 @@ const PlacementTestPage: React.FC<PlacementTestPageProps> = ({ onTestComplete })
 
   const renderIntro = () => (
     <Card className="text-center">
-      <h1 className="text-3xl font-bold mb-4 dark:text-gray-100">German Placement Test</h1>
-      <p className="text-gray-700 dark:text-gray-300 mb-8">Let's find out your German level. This test has two parts: Reading and Writing.</p>
+      <h1 className="text-3xl font-bold mb-4">German Placement Test</h1>
+      <p className="text-gray-700 mb-8">Let's find out your German level. This test has two parts: Reading and Writing.</p>
       <button onClick={startTest} className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition text-lg">
         Start Test
       </button>
@@ -84,35 +84,35 @@ const PlacementTestPage: React.FC<PlacementTestPageProps> = ({ onTestComplete })
 
   const renderReading = () => readingQuestion && (
     <Card>
-      <h2 className="text-2xl font-bold mb-2 dark:text-gray-100">Teil 1: Lesen (Reading)</h2>
-      <p className="text-gray-600 dark:text-gray-300 mb-6">Lesen Sie den Text und wählen Sie die richtige Antwort.</p>
-      <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-6">
-        <p className="italic dark:text-gray-200">{readingQuestion.text}</p>
+      <h2 className="text-2xl font-bold mb-2">Teil 1: Lesen (Reading)</h2>
+      <p className="text-gray-600 mb-6">Lesen Sie den Text und wählen Sie die richtige Antwort.</p>
+      <div className="bg-gray-100 p-4 rounded-lg mb-6">
+        <p className="italic">{readingQuestion.text}</p>
       </div>
-      <p className="font-semibold mb-4 dark:text-gray-100">{readingQuestion.question}</p>
+      <p className="font-semibold mb-4">{readingQuestion.question}</p>
       <div className="space-y-3">
         {readingQuestion.options.map((option, index) => (
           <button
             key={index}
             onClick={() => setUserReadingAnswer(index)}
             disabled={isReadingCorrect !== null}
-            className={`block w-full text-left p-4 rounded-lg border-2 transition dark:text-gray-100 ${
+            className={`block w-full text-left p-4 rounded-lg border-2 transition ${
               userReadingAnswer === index
-                ? 'border-blue-500 bg-blue-100 dark:bg-blue-900/30'
-                : 'border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
-            } ${isReadingCorrect !== null && index === readingQuestion.correctOptionIndex ? '!bg-green-200 dark:!bg-green-900/40 !border-green-500' : ''}
-               ${isReadingCorrect !== null && userReadingAnswer === index && userReadingAnswer !== readingQuestion.correctOptionIndex ? '!bg-red-200 dark:!bg-red-900/40 !border-red-500' : ''}`}
+                ? 'border-blue-500 bg-blue-100'
+                : 'border-gray-300 hover:bg-gray-100'
+            } ${isReadingCorrect !== null && index === readingQuestion.correctOptionIndex ? '!bg-green-200 !border-green-500' : ''}
+               ${isReadingCorrect !== null && userReadingAnswer === index && userReadingAnswer !== readingQuestion.correctOptionIndex ? '!bg-red-200 !border-red-500' : ''}`}
           >
             {option}
           </button>
         ))}
       </div>
       {isReadingCorrect !== null && (
-        <div className={`mt-4 p-3 rounded-lg text-center font-semibold ${isReadingCorrect ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'}`}>
+        <div className={`mt-4 p-3 rounded-lg text-center font-semibold ${isReadingCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
             {isReadingCorrect ? "Correct! Moving to the next section..." : "That's not quite right. Moving on..."}
         </div>
       )}
-      <button onClick={handleReadingSubmit} disabled={userReadingAnswer === null || isReadingCorrect !== null} className="mt-6 bg-blue-600 text-white px-8 py-2 rounded-lg font-semibold hover:bg-blue-700 transition disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-gray-700 dark:disabled:text-gray-400">
+      <button onClick={handleReadingSubmit} disabled={userReadingAnswer === null || isReadingCorrect !== null} className="mt-6 bg-blue-600 text-white px-8 py-2 rounded-lg font-semibold hover:bg-blue-700 transition disabled:bg-gray-300 disabled:text-gray-500">
         Submit Answer
       </button>
     </Card>
@@ -120,15 +120,15 @@ const PlacementTestPage: React.FC<PlacementTestPageProps> = ({ onTestComplete })
   
   const renderWriting = () => (
     <Card>
-        <h2 className="text-2xl font-bold mb-2 dark:text-gray-100">Teil 2: Schreiben (Writing)</h2>
-        <p className="text-gray-600 dark:text-gray-300 mb-6">Lesen Sie die Aufgabe und schreiben Sie Ihren Text.</p>
-        <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-6">
-            <p className="font-semibold dark:text-gray-100">{writingPrompt}</p>
+        <h2 className="text-2xl font-bold mb-2">Teil 2: Schreiben (Writing)</h2>
+        <p className="text-gray-600 mb-6">Lesen Sie die Aufgabe und schreiben Sie Ihren Text.</p>
+        <div className="bg-gray-100 p-4 rounded-lg mb-6">
+            <p className="font-semibold">{writingPrompt}</p>
         </div>
-        <textarea
+        <textarea 
             value={userWriting}
             onChange={(e) => setUserWriting(e.target.value)}
-            className="w-full h-48 p-4 border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+            className="w-full h-48 p-4 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
             placeholder="Schreiben Sie hier Ihre E-Mail..."
         />
         <button onClick={handleWritingSubmit} className="mt-6 bg-blue-600 text-white px-8 py-2 rounded-lg font-semibold hover:bg-blue-700 transition">
@@ -139,36 +139,36 @@ const PlacementTestPage: React.FC<PlacementTestPageProps> = ({ onTestComplete })
 
   const renderEvaluating = () => (
     <Card className="text-center">
-        <h2 className="text-3xl font-bold mb-4 dark:text-gray-100">Evaluating your work...</h2>
-        <p className="text-gray-700 dark:text-gray-300 mb-8">Our AI examiner is analyzing your writing. This may take a moment.</p>
+        <h2 className="text-3xl font-bold mb-4">Evaluating your work...</h2>
+        <p className="text-gray-700 mb-8">Our AI examiner is analyzing your writing. This may take a moment.</p>
         <LoadingSpinner text="Analyzing..." />
     </Card>
   );
-
+  
   const renderComplete = () => evaluationResult && (
       <Card className="text-center">
           <i className="fa-solid fa-check-circle text-6xl text-green-500 mb-4"></i>
-          <h1 className="text-3xl font-bold mb-2 dark:text-gray-100">Test Complete!</h1>
-          <p className="text-gray-700 dark:text-gray-300 mb-6">We've assessed your level based on your writing.</p>
-          <div className="bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-lg p-6 inline-block">
-              <p className="text-lg text-blue-800 dark:text-blue-300">Your estimated CEFR Level is:</p>
-              <p className="text-7xl font-bold text-blue-600 dark:text-blue-400">{evaluationResult.level}</p>
+          <h1 className="text-3xl font-bold mb-2">Test Complete!</h1>
+          <p className="text-gray-700 mb-6">We've assessed your level based on your writing.</p>
+          <div className="bg-blue-100 border border-blue-300 rounded-lg p-6 inline-block">
+              <p className="text-lg text-blue-800">Your estimated CEFR Level is:</p>
+              <p className="text-7xl font-bold text-blue-600">{evaluationResult.level}</p>
           </div>
           <div className="mt-6 text-left max-w-md mx-auto space-y-4">
               <div>
-                  <h3 className="font-bold text-lg dark:text-gray-100">Strengths:</h3>
-                  <ul className="list-disc list-inside text-gray-800 dark:text-gray-200">
+                  <h3 className="font-bold text-lg">Strengths:</h3>
+                  <ul className="list-disc list-inside text-gray-800">
                       {evaluationResult.strengths.map((s, i) => <li key={i}>{s}</li>)}
                   </ul>
               </div>
                <div>
-                  <h3 className="font-bold text-lg dark:text-gray-100">Areas for Improvement:</h3>
-                  <ul className="list-disc list-inside text-gray-800 dark:text-gray-200">
+                  <h3 className="font-bold text-lg">Areas for Improvement:</h3>
+                  <ul className="list-disc list-inside text-gray-800">
                       {evaluationResult.weaknesses.map((w, i) => <li key={i}>{w}</li>)}
                   </ul>
               </div>
           </div>
-           <p className="mt-8 text-gray-600 dark:text-gray-300">You will now get a personalized learning plan based on these results.</p>
+           <p className="mt-8 text-gray-600">You will now get a personalized learning plan based on these results.</p>
       </Card>
   );
 
