@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { LiveConnectSession, LiveServerMessage } from '@google/genai';
 import { startConversationSession as startGeminiSession, decode, decodeAudioData, createPcmBlob } from '../services/geminiService';
 import { Transcript } from '../types';
@@ -17,6 +18,7 @@ import ConversationHistoryCard from '../components/ConversationHistoryCard';
 
 const ConversationPage: React.FC = () => {
     const { user, userData, userProfile } = useAuth();
+    const [searchParams] = useSearchParams();
     const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
     const [transcripts, setTranscripts] = useState<Transcript[]>([]);
     const [feedback, setFeedback] = useState<ConversationFeedback | null>(null);
@@ -25,6 +27,12 @@ const ConversationPage: React.FC = () => {
     const [conversationHistory, setConversationHistory] = useState<any[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     const [previousFeedback, setPreviousFeedback] = useState<ConversationFeedback | null>(null);
+
+    // Get learning plan params if conversation started from a learning plan item
+    const weekNumber = searchParams.get('week');
+    const itemIndex = searchParams.get('item');
+    const activityTopic = searchParams.get('topic');
+    const activityDescription = searchParams.get('description');
 
     const sessionIdRef = useRef<string | null>(null);
     const sessionStartTimeRef = useRef<Date | null>(null);
@@ -306,6 +314,17 @@ const ConversationPage: React.FC = () => {
                             : data.feedback;
                         setFeedback(parsedFeedback);
                         setShowFeedback(true);
+
+                        // Mark learning plan item complete if this conversation was from a learning plan activity
+                        if (user && weekNumber && itemIndex && parsedFeedback.overall_score >= 70) {
+                            try {
+                                const { updatePlanItemCompletion } = await import('../services/learningPlanService');
+                                await updatePlanItemCompletion(user.id, parseInt(weekNumber), parseInt(itemIndex), true);
+                                toast.success(`Speaking activity completed! Score: ${parsedFeedback.overall_score}%`);
+                            } catch (err) {
+                                console.error('Error marking learning plan item complete:', err);
+                            }
+                        }
                     }
 
                     // Reload conversation history to show the new session

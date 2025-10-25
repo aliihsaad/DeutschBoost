@@ -35,9 +35,15 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
   ) => {
     const activityType = skill.toLowerCase();
 
-    // Special handling for speaking - redirect to conversation page
+    // Special handling for speaking - redirect to conversation page with learning plan params
     if (activityType === 'speaking') {
-      navigate('/conversation');
+      const params = new URLSearchParams({
+        week: weekNumber.toString(),
+        item: itemIndex.toString(),
+        topic,
+        description,
+      });
+      navigate(`/conversation?${params.toString()}`);
       return;
     }
 
@@ -271,8 +277,11 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
 
                           {/* Completion Indicator (Read-only) */}
                           {item.completed && (
-                            <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-green-500 border-2 border-green-500 flex items-center justify-center shadow-md">
-                              <i className="fa-solid fa-check text-white text-base sm:text-lg"></i>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 border-2 border-green-400 flex items-center justify-center shadow-lg">
+                                <i className="fa-solid fa-check text-white text-base sm:text-lg"></i>
+                              </div>
+                              <span className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-500 whitespace-nowrap">Completed!</span>
                             </div>
                           )}
                         </div>

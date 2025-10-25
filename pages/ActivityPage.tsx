@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { generateActivity, evaluateWriting } from '../services/activityService';
 import { speakText } from '../services/geminiService';
 import { CEFRLevel } from '../types';
-import { ActivityType, GrammarActivity, VocabularyActivity, ListeningActivity, WritingActivity, SpeakingActivity } from '../src/types/activity.types';
+import { ActivityType, GrammarActivity, VocabularyActivity, ListeningActivity, WritingActivity, SpeakingActivity, ReadingActivity } from '../src/types/activity.types';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
@@ -60,7 +60,7 @@ const ActivityPage: React.FC = () => {
       setActivity(generatedActivity);
 
       // Initialize answers array for question-based activities
-      if (activityType === 'grammar' || activityType === 'listening') {
+      if (activityType === 'grammar' || activityType === 'listening' || activityType === 'reading') {
         const questionCount = (generatedActivity as any).questions.length;
         setUserAnswers(new Array(questionCount).fill(-1));
 
@@ -247,6 +247,28 @@ const ActivityPage: React.FC = () => {
     );
   };
 
+  const speakGermanWord = (text: string) => {
+    if ('speechSynthesis' in window) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'de-DE';
+      utterance.rate = 0.85; // Slightly slower for learning
+
+      // Try to find a German voice
+      const voices = window.speechSynthesis.getVoices();
+      const germanVoice = voices.find(voice => voice.lang.startsWith('de'));
+      if (germanVoice) {
+        utterance.voice = germanVoice;
+      }
+
+      window.speechSynthesis.speak(utterance);
+    } else {
+      toast.error('Text-to-speech is not supported in your browser');
+    }
+  };
+
   const renderVocabularyActivity = () => {
     if (!activity || !activity.cards) return null;
 
@@ -262,32 +284,56 @@ const ActivityPage: React.FC = () => {
           </div>
         </div>
 
-        <Card className="min-h-96 flex flex-col items-center justify-center cursor-pointer hover:shadow-xl transition-shadow"
-              onClick={() => {
-                const newShowAnswer = !showAnswer;
-                setShowAnswer(newShowAnswer);
-                // Mark card as flipped when user views the answer
-                if (newShowAnswer) {
-                  setFlippedCards(prev => new Set(prev).add(currentCardIndex));
-                }
-              }}>
-          <div className="text-center">
-            {!showAnswer ? (
-              <>
-                <div className="text-6xl font-bold text-blue-600 dark:text-blue-400 mb-4">{card.german}</div>
-                <p className="text-gray-500 dark:text-gray-400 text-lg">Click to reveal</p>
-              </>
-            ) : (
-              <>
-                <div className="text-4xl font-bold text-gray-800 dark:text-gray-100 mb-4">{card.german}</div>
-                <div className="text-3xl text-green-600 dark:text-green-500 mb-6">{card.translation}</div>
-                <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg max-w-md">
-                  <p className="text-lg text-gray-700 dark:text-gray-200 italic">"{card.example_sentence}"</p>
-                </div>
-              </>
-            )}
-          </div>
-        </Card>
+        <div className="relative">
+          <Card className="min-h-96 flex flex-col items-center justify-center cursor-pointer hover:shadow-xl transition-shadow"
+                onClick={() => {
+                  const newShowAnswer = !showAnswer;
+                  setShowAnswer(newShowAnswer);
+                  // Mark card as flipped when user views the answer
+                  if (newShowAnswer) {
+                    setFlippedCards(prev => new Set(prev).add(currentCardIndex));
+                  }
+                }}>
+            <div className="text-center">
+              {!showAnswer ? (
+                <>
+                  <div className="text-6xl font-bold text-blue-600 dark:text-blue-400 mb-4">{card.german}</div>
+                  <p className="text-gray-500 dark:text-gray-400 text-lg">Click to reveal</p>
+                </>
+              ) : (
+                <>
+                  <div className="text-4xl font-bold text-gray-800 dark:text-gray-100 mb-4">{card.german}</div>
+                  <div className="text-3xl text-green-600 dark:text-green-500 mb-6">{card.translation}</div>
+                  <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg max-w-md relative">
+                    <p className="text-lg text-gray-700 dark:text-gray-200 italic">"{card.example_sentence}"</p>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        speakGermanWord(card.example_sentence);
+                      }}
+                      className="absolute -top-2 -right-2 w-10 h-10 bg-gradient-to-br from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center"
+                      title="Listen to example sentence"
+                    >
+                      <i className="fa-solid fa-volume-up text-sm"></i>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </Card>
+
+          {/* Pronunciation Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              speakGermanWord(card.german);
+            }}
+            className="absolute top-4 right-4 w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group"
+            title="Listen to pronunciation"
+          >
+            <i className="fa-solid fa-volume-up text-xl group-hover:scale-110 transition-transform"></i>
+          </button>
+        </div>
 
         <div className="flex space-x-4">
           {currentCardIndex > 0 && (
@@ -593,6 +639,110 @@ const ActivityPage: React.FC = () => {
     );
   };
 
+  const renderReadingActivity = () => {
+    if (!activity || !activity.questions) return null;
+
+    const question = activity.questions[currentQuestionIndex];
+    const isLastQuestion = currentQuestionIndex === activity.questions.length - 1;
+
+    if (showResults) {
+      return (
+        <div className="space-y-6">
+          <div className="text-center mb-8">
+            <div className={`text-8xl font-bold mb-4 ${score >= 70 ? 'text-green-600 dark:text-green-500' : 'text-orange-600 dark:text-orange-500'}`}>
+              {score}%
+            </div>
+            <h2 className="text-3xl font-bold mb-2 dark:text-gray-100">
+              {score >= 90 ? 'Excellent!' : score >= 70 ? 'Good Job!' : 'Keep Practicing!'}
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 text-lg">
+              You got {userAnswers.filter((a, i) => a === activity.questions[i].correct_option).length} out of {activity.questions.length} correct
+            </p>
+          </div>
+
+          {/* Review answers */}
+          <div className="space-y-4">
+            <h3 className="text-2xl font-bold mb-4 dark:text-gray-100">Review Your Answers</h3>
+            {activity.questions.map((q: any, index: number) => (
+              <Card key={index} className={userAnswers[index] === q.correct_option ? 'border-2 border-green-500 dark:border-green-600' : 'border-2 border-red-500 dark:border-red-600'}>
+                <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg mb-4">
+                  <p className="text-lg font-medium text-gray-800 dark:text-gray-100 italic">{q.text}</p>
+                </div>
+                <p className="font-bold text-lg mb-3 dark:text-gray-100">{q.question}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Your answer: <span className={userAnswers[index] === q.correct_option ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}>{q.options[userAnswers[index]]}</span></p>
+                {userAnswers[index] !== q.correct_option && (
+                  <p className="text-sm text-green-600 dark:text-green-500 mb-2">Correct answer: {q.options[q.correct_option]}</p>
+                )}
+                {q.explanation && (
+                  <p className="text-sm text-gray-700 dark:text-gray-200 bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg mt-2">💡 {q.explanation}</p>
+                )}
+              </Card>
+            ))}
+          </div>
+
+          <button
+            onClick={() => navigate('/learning-plan')}
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 dark:hover:from-blue-800 dark:hover:to-indigo-800 transition-all duration-300 shadow-lg"
+          >
+            Back to Learning Plan
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold dark:text-gray-100">Question {currentQuestionIndex + 1} of {activity.questions.length}</h2>
+          <div className="text-sm text-gray-600 dark:text-gray-300">
+            Progress: {Math.round(((currentQuestionIndex + 1) / activity.questions.length) * 100)}%
+          </div>
+        </div>
+
+        {/* Reading Text Card */}
+        <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border-2 border-amber-200 dark:border-amber-600">
+          <div className="flex items-start gap-3 mb-3">
+            <i className="fa-solid fa-book-open text-3xl text-amber-600 dark:text-amber-400"></i>
+            <h3 className="text-xl font-bold text-amber-800 dark:text-amber-400">Reading Passage</h3>
+          </div>
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-amber-200 dark:border-amber-700">
+            <p className="text-xl leading-relaxed text-gray-800 dark:text-gray-100">{question.text}</p>
+          </div>
+        </Card>
+
+        {/* Question Card */}
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-2 border-blue-200 dark:border-blue-600">
+          <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{question.question}</p>
+        </Card>
+
+        <div className="space-y-3">
+          {question.options.map((option: string, index: number) => (
+            <button
+              key={index}
+              onClick={() => handleAnswerSelect(index)}
+              className={`w-full p-5 rounded-xl text-left font-medium text-lg transition-all duration-300 ${
+                userAnswers[currentQuestionIndex] === index
+                  ? 'bg-blue-600 dark:bg-blue-700 text-white shadow-lg scale-105'
+                  : 'bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 dark:text-gray-100'
+              }`}
+            >
+              <span className="font-bold mr-3">{String.fromCharCode(65 + index)}.</span>
+              {option}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={handleNextQuestion}
+          disabled={userAnswers[currentQuestionIndex] === -1}
+          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-emerald-700 dark:hover:from-green-800 dark:hover:to-emerald-800 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLastQuestion ? 'Finish' : 'Next Question'}
+        </button>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
@@ -619,6 +769,7 @@ const ActivityPage: React.FC = () => {
         {activityType === 'vocabulary' && renderVocabularyActivity()}
         {activityType === 'writing' && renderWritingActivity()}
         {activityType === 'listening' && renderListeningActivity()}
+        {activityType === 'reading' && renderReadingActivity()}
       </div>
     </div>
   );

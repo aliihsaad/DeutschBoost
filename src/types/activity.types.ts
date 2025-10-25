@@ -1,6 +1,6 @@
 import { CEFRLevel } from '../../types';
 
-export type ActivityType = 'grammar' | 'vocabulary' | 'listening' | 'writing' | 'speaking';
+export type ActivityType = 'grammar' | 'vocabulary' | 'listening' | 'writing' | 'speaking' | 'reading';
 
 export interface ActivitySession {
   id: string;
@@ -80,6 +80,21 @@ export interface SpeakingActivity {
   scenario: string;
   min_duration_seconds: number;
   conversation_starters: string[];
+}
+
+// Reading Activity
+export interface ReadingQuestion {
+  text: string; // The German text to read
+  question: string;
+  options: string[];
+  correct_option: number;
+  explanation?: string;
+}
+
+export interface ReadingActivity {
+  topic: string;
+  level: CEFRLevel;
+  questions: ReadingQuestion[];
 }
 
 // Generic Activity Result

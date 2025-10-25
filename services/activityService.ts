@@ -6,6 +6,7 @@ import {
   ListeningActivity,
   WritingActivity,
   SpeakingActivity,
+  ReadingActivity,
   WritingEvaluation,
   ActivityType,
 } from '../src/types/activity.types';
@@ -323,6 +324,64 @@ Return a JSON object with this structure:
 };
 
 /**
+ * Generate reading comprehension activity
+ */
+export const generateReadingActivity = async (
+  topic: string,
+  description: string,
+  level: CEFRLevel,
+  motherLanguage: string = 'English'
+): Promise<ReadingActivity> => {
+  const levelGuidance = {
+    A1: 'very simple text with basic vocabulary (family, food, numbers), present tense only, 2-3 sentences',
+    A2: 'simple text about everyday topics, mostly present and perfect tense, 3-4 sentences',
+    B1: 'text about common topics with some complexity, various tenses, 4-6 sentences',
+    B2: 'complex text about abstract topics, varied grammar structures, 6-8 sentences',
+    C1: 'sophisticated text on any topic, nuanced language, 8-10 sentences',
+    C2: 'native-level text with advanced vocabulary and structures, 10+ sentences',
+  };
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: `Create a reading comprehension exercise for German learners at ${level} level.
+
+Topic: ${topic}
+Description: ${description}
+Reading Level: ${levelGuidance[level]}
+User's Native Language: ${motherLanguage}
+
+Generate 3 reading comprehension questions. Each should have:
+- A German text appropriate for ${level} level
+- A comprehension question in ${motherLanguage} about the text (asking about main idea, detail, or inference)
+- 4 multiple choice answers in ${motherLanguage}
+- The correct answer index (0-3)
+- A brief explanation of why the answer is correct (in ${motherLanguage})
+
+Important: All questions should be based on the SAME German text. This creates a cohesive reading comprehension exercise.
+
+Return a JSON object with this structure:
+{
+  "topic": "${topic}",
+  "level": "${level}",
+  "questions": [
+    {
+      "text": "Maria wohnt in Berlin. Sie ist Lehrerin und arbeitet in einer Grundschule. Jeden Morgen fährt sie mit dem Fahrrad zur Arbeit.",
+      "question": "What is Maria's profession?",
+      "options": ["Doctor", "Teacher", "Engineer", "Student"],
+      "correct_option": 1,
+      "explanation": "The text states 'Sie ist Lehrerin' which means 'She is a teacher'."
+    }
+  ]
+}`,
+    config: {
+      responseMimeType: 'application/json',
+    },
+  });
+
+  return JSON.parse(response.text);
+};
+
+/**
  * Route activity generation based on skill type
  */
 export const generateActivity = async (
@@ -331,7 +390,7 @@ export const generateActivity = async (
   description: string,
   level: CEFRLevel,
   motherLanguage: string = 'English'
-): Promise<GrammarActivity | VocabularyActivity | ListeningActivity | WritingActivity | SpeakingActivity> => {
+): Promise<GrammarActivity | VocabularyActivity | ListeningActivity | WritingActivity | SpeakingActivity | ReadingActivity> => {
   switch (activityType) {
     case 'grammar':
       return await generateGrammarActivity(topic, description, level, motherLanguage);
@@ -343,6 +402,8 @@ export const generateActivity = async (
       return await generateWritingActivity(topic, description, level, motherLanguage);
     case 'speaking':
       return await generateSpeakingActivity(topic, description, level, motherLanguage);
+    case 'reading':
+      return await generateReadingActivity(topic, description, level, motherLanguage);
     default:
       throw new Error(`Unknown activity type: ${activityType}`);
   }
