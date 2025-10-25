@@ -33,8 +33,9 @@ export interface TestResult {
 }
 
 export interface LearningPlanItem {
+  id?: string;  // Database ID for the learning_plan_items record
   topic: string;
-  skill: 'Grammar' | 'Vocabulary' | 'Listening' | 'Writing' | 'Speaking';
+  skill: 'Grammar' | 'Vocabulary' | 'Listening' | 'Writing' | 'Speaking' | 'Reading';
   description: string;
   completed: boolean;
 }

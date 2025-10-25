@@ -64,9 +64,8 @@ const ConversationPage: React.FC = () => {
         }
     ];
 
-    // Get learning plan params if conversation started from a learning plan item
-    const weekNumber = searchParams.get('week');
-    const itemIndex = searchParams.get('item');
+    // Get learning plan params if conversation started from a learning plan item (legacy, now uses SpeakingActivityPage)
+    const itemId = searchParams.get('itemId');
     const activityTopic = searchParams.get('topic');
     const activityDescription = searchParams.get('description');
 
@@ -411,12 +410,12 @@ const ConversationPage: React.FC = () => {
                         setShowFeedback(true);
 
                         // Mark learning plan item complete if this conversation was from a learning plan activity
-                        if (user && weekNumber && itemIndex && parsedFeedback.overall_score >= 70) {
+                        if (user && itemId && parsedFeedback.overall_score >= 70) {
                             try {
                                 const { updatePlanItemCompletion, updateUserProgress } = await import('../services/learningPlanService');
 
                                 // Mark item complete
-                                await updatePlanItemCompletion(user.id, parseInt(weekNumber), parseInt(itemIndex), true);
+                                await updatePlanItemCompletion(user.id, itemId, true);
 
                                 // Update user progress (calculate duration in seconds)
                                 const durationSeconds = sessionStartTimeRef.current

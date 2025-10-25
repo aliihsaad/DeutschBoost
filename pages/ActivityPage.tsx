@@ -19,8 +19,7 @@ const ActivityPage: React.FC = () => {
   const topic = searchParams.get('topic') || '';
   const description = searchParams.get('description') || '';
   const level = searchParams.get('level') as CEFRLevel || CEFRLevel.A2;
-  const weekNumber = searchParams.get('week');
-  const itemIndex = searchParams.get('item');
+  const itemId = searchParams.get('itemId');
 
   const [loading, setLoading] = useState(true);
   const [activity, setActivity] = useState<any>(null);
@@ -144,7 +143,7 @@ const ActivityPage: React.FC = () => {
   };
 
   const markActivityComplete = async (finalScore: number) => {
-    if (!user || !weekNumber || !itemIndex) return;
+    if (!user || !itemId) return;
 
     const loadingToast = toast.loading('Saving your progress...');
 
@@ -157,8 +156,7 @@ const ActivityPage: React.FC = () => {
       // Mark the learning plan item as complete
       const { error: completionError } = await updatePlanItemCompletion(
         user.id,
-        parseInt(weekNumber),
-        parseInt(itemIndex),
+        itemId,
         true
       );
 

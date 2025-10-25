@@ -35,16 +35,14 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
     topic: string,
     description: string,
     level: string,
-    weekNumber: number,
-    itemIndex: number
+    itemId: string
   ) => {
     const activityType = skill.toLowerCase();
 
     // Special handling for speaking - redirect to speaking activity page
     if (activityType === 'speaking') {
       const params = new URLSearchParams({
-        week: weekNumber.toString(),
-        item: itemIndex.toString(),
+        itemId,
         topic,
         description,
         level,
@@ -59,8 +57,7 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
       topic,
       description,
       level,
-      week: weekNumber.toString(),
-      item: itemIndex.toString(),
+      itemId,
     });
 
     navigate(`/activity?${params.toString()}`);
@@ -325,9 +322,9 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
 
                         {/* Action Buttons - Stack on Mobile */}
                         <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 mt-3 sm:mt-0 sm:ml-4">
-                          {!item.completed && (
+                          {!item.completed && item.id && (
                             <button
-                              onClick={() => handleStartActivity(item.skill, item.topic, item.description, learningPlan.level, week.week, itemIndex)}
+                              onClick={() => handleStartActivity(item.skill, item.topic, item.description, learningPlan.level, item.id!)}
                               className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-bold text-xs sm:text-sm hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
                             >
                               Start Activity

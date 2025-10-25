@@ -19,8 +19,7 @@ const SpeakingActivityPage: React.FC = () => {
   const activityTopic = searchParams.get('topic') || '';
   const activityDescription = searchParams.get('description') || '';
   const level = searchParams.get('level') as CEFRLevel || CEFRLevel.A2;
-  const weekNumber = searchParams.get('week');
-  const itemIndex = searchParams.get('item');
+  const itemId = searchParams.get('itemId');
 
   const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'stopping' | 'evaluating' | 'error'>('idle');
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
@@ -255,7 +254,7 @@ const SpeakingActivityPage: React.FC = () => {
   };
 
   const markActivityComplete = async (finalScore: number) => {
-    if (!user || !weekNumber || !itemIndex) return;
+    if (!user || !itemId) return;
 
     const loadingToast = toast.loading('Saving your progress...');
 
@@ -265,8 +264,7 @@ const SpeakingActivityPage: React.FC = () => {
 
       const { error: completionError } = await updatePlanItemCompletion(
         user.id,
-        parseInt(weekNumber),
-        parseInt(itemIndex),
+        itemId,
         true
       );
 

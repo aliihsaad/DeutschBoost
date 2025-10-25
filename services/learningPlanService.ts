@@ -193,6 +193,7 @@ export const loadActiveLearningPlan = async (
       }
 
       weekMap.get(item.week_number)!.items.push({
+        id: item.id,  // Include database ID for direct updates
         topic: item.topic,
         skill: item.skill,
         description: item.description,
@@ -220,47 +221,18 @@ export const loadActiveLearningPlan = async (
  */
 export const updatePlanItemCompletion = async (
   userId: string,
-  weekNumber: number,
-  itemIndex: number,
+  itemId: string,
   completed: boolean
 ): Promise<{ error: Error | null }> => {
   try {
-    // 1. Get the active learning plan
-    const { data: planData, error: planError } = await supabase
-      .from('learning_plans')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .single();
-
-    if (planError || !planData) {
-      console.error('Error finding active plan:', planError);
-      return { error: planError || new Error('No active plan found') };
-    }
-
-    // 2. Get the specific item to update
-    const { data: items, error: itemsError } = await supabase
-      .from('learning_plan_items')
-      .select('id')
-      .eq('learning_plan_id', planData.id)
-      .eq('week_number', weekNumber)
-      .order('id', { ascending: true });
-
-    if (itemsError || !items || items.length <= itemIndex) {
-      console.error('Error finding plan item:', itemsError);
-      return { error: itemsError || new Error('Plan item not found') };
-    }
-
-    const itemToUpdate = items[itemIndex];
-
-    // 3. Update the item
+    // Update the item directly by ID
     const { error: updateError } = await supabase
       .from('learning_plan_items')
       .update({
         completed,
         completed_at: completed ? new Date().toISOString() : null,
       })
-      .eq('id', itemToUpdate.id);
+      .eq('id', itemId);
 
     if (updateError) {
       console.error('Error updating plan item:', updateError);
