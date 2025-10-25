@@ -531,13 +531,37 @@ const ConversationPage: React.FC = () => {
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-10 h-10 rounded-full bg-blue-500 flex-shrink-0 flex items-center justify-center text-white font-bold">A</div>
                                 <h4 className="font-bold text-gray-800">Text to Read:</h4>
+                                <div className="ml-auto flex items-center gap-2 text-sm text-blue-600">
+                                    <i className="fa-solid fa-microphone animate-pulse"></i>
+                                    <span>Alex is listening...</span>
+                                </div>
                             </div>
-                            <div className="bg-white p-4 rounded-lg shadow-sm">
+                            <div className="bg-white p-4 rounded-lg shadow-sm text-lg leading-relaxed">
                                 {transcripts
                                     .filter(t => t.speaker === 'model')
                                     .map(t => t.text)
                                     .slice(-1)[0] || 'Waiting for Alex to provide text...'}
                             </div>
+
+                            {/* I'm Done Reading Button */}
+                            {status === 'connected' && (
+                                <div className="mt-4 flex justify-center">
+                                    <button
+                                        onClick={() => {
+                                            // Create a manual transcript entry to signal completion
+                                            setTranscripts(prev => [...prev, {
+                                                id: Date.now(),
+                                                speaker: 'user',
+                                                text: 'Fertig'
+                                            }]);
+                                        }}
+                                        className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg flex items-center gap-2"
+                                    >
+                                        <i className="fa-solid fa-check-circle"></i>
+                                        <span>I'm Done Reading</span>
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* User's Attempt (Scrollable) */}
