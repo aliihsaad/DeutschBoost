@@ -170,35 +170,35 @@ const ActivityPage: React.FC = () => {
       return (
         <div className="space-y-6">
           <div className="text-center mb-8">
-            <div className={`text-8xl font-bold mb-4 ${score >= 70 ? 'text-green-600 dark:text-green-500' : 'text-orange-600 dark:text-orange-500'}`}>
+            <div className={`text-8xl font-bold mb-4 ${score >= 70 ? 'text-green-600' : 'text-orange-600'}`}>
               {score}%
             </div>
-            <h2 className="text-3xl font-bold mb-2 dark:text-gray-100">
+            <h2 className="text-3xl font-bold mb-2">
               {score >= 90 ? 'Excellent!' : score >= 70 ? 'Good Job!' : 'Keep Practicing!'}
             </h2>
-            <p className="text-gray-600 dark:text-gray-300 text-lg">
+            <p className="text-gray-600 text-lg">
               You got {userAnswers.filter((a, i) => a === activity.questions[i].correct_option).length} out of {activity.questions.length} correct
             </p>
           </div>
 
           {/* Review answers */}
           <div className="space-y-4">
-            <h3 className="text-2xl font-bold mb-4 dark:text-gray-100">Review Your Answers</h3>
+            <h3 className="text-2xl font-bold mb-4">Review Your Answers</h3>
             {activity.questions.map((q: any, index: number) => (
-              <Card key={index} className={userAnswers[index] === q.correct_option ? 'border-2 border-green-500 dark:border-green-600' : 'border-2 border-red-500 dark:border-red-600'}>
-                <p className="font-bold text-lg mb-3 dark:text-gray-100">{q.sentence}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Your answer: <span className={userAnswers[index] === q.correct_option ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}>{q.options[userAnswers[index]]}</span></p>
+              <Card key={index} className={userAnswers[index] === q.correct_option ? 'border-2 border-green-500' : 'border-2 border-red-500'}>
+                <p className="font-bold text-lg mb-3">{q.sentence}</p>
+                <p className="text-sm text-gray-600 mb-2">Your answer: <span className={userAnswers[index] === q.correct_option ? 'text-green-600' : 'text-red-600'}>{q.options[userAnswers[index]]}</span></p>
                 {userAnswers[index] !== q.correct_option && (
-                  <p className="text-sm text-green-600 dark:text-green-500 mb-2">Correct answer: {q.options[q.correct_option]}</p>
+                  <p className="text-sm text-green-600 mb-2">Correct answer: {q.options[q.correct_option]}</p>
                 )}
-                <p className="text-sm text-gray-700 dark:text-gray-200 bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg mt-2">💡 {q.explanation}</p>
+                <p className="text-sm text-gray-700 bg-blue-50 p-3 rounded-lg mt-2">💡 {q.explanation}</p>
               </Card>
             ))}
           </div>
 
           <button
             onClick={() => navigate('/learning-plan')}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 dark:hover:from-blue-800 dark:hover:to-indigo-800 transition-all duration-300 shadow-lg"
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg"
           >
             Back to Learning Plan
           </button>
@@ -209,14 +209,14 @@ const ActivityPage: React.FC = () => {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold dark:text-gray-100">Question {currentQuestionIndex + 1} of {activity.questions.length}</h2>
-          <div className="text-sm text-gray-600 dark:text-gray-300">
+          <h2 className="text-2xl font-bold">Question {currentQuestionIndex + 1} of {activity.questions.length}</h2>
+          <div className="text-sm text-gray-600">
             Progress: {Math.round(((currentQuestionIndex + 1) / activity.questions.length) * 100)}%
           </div>
         </div>
 
-        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-2 border-blue-200 dark:border-blue-600">
-          <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{question.sentence}</p>
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
+          <p className="text-2xl font-bold text-gray-800">{question.sentence}</p>
         </Card>
 
         <div className="space-y-3">
@@ -226,8 +226,8 @@ const ActivityPage: React.FC = () => {
               onClick={() => handleAnswerSelect(index)}
               className={`w-full p-5 rounded-xl text-left font-medium text-lg transition-all duration-300 ${
                 userAnswers[currentQuestionIndex] === index
-                  ? 'bg-blue-600 dark:bg-blue-700 text-white shadow-lg scale-105'
-                  : 'bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 dark:text-gray-100'
+                  ? 'bg-blue-600 text-white shadow-lg scale-105'
+                  : 'bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-300'
               }`}
             >
               <span className="font-bold mr-3">{String.fromCharCode(65 + index)}.</span>
@@ -239,7 +239,7 @@ const ActivityPage: React.FC = () => {
         <button
           onClick={handleNextQuestion}
           disabled={userAnswers[currentQuestionIndex] === -1}
-          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-emerald-700 dark:hover:from-green-800 dark:hover:to-emerald-800 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLastQuestion ? 'Finish' : 'Next Question'}
         </button>
@@ -278,8 +278,8 @@ const ActivityPage: React.FC = () => {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold dark:text-gray-100">Card {currentCardIndex + 1} of {activity.cards.length}</h2>
-          <div className="text-sm text-gray-600 dark:text-gray-300">
+          <h2 className="text-2xl font-bold">Card {currentCardIndex + 1} of {activity.cards.length}</h2>
+          <div className="text-sm text-gray-600">
             Progress: {Math.round(((currentCardIndex + 1) / activity.cards.length) * 100)}%
           </div>
         </div>
@@ -297,15 +297,15 @@ const ActivityPage: React.FC = () => {
             <div className="text-center">
               {!showAnswer ? (
                 <>
-                  <div className="text-6xl font-bold text-blue-600 dark:text-blue-400 mb-4">{card.german}</div>
-                  <p className="text-gray-500 dark:text-gray-400 text-lg">Click to reveal</p>
+                  <div className="text-6xl font-bold text-blue-600 mb-4">{card.german}</div>
+                  <p className="text-gray-500 text-lg">Click to reveal</p>
                 </>
               ) : (
                 <>
-                  <div className="text-4xl font-bold text-gray-800 dark:text-gray-100 mb-4">{card.german}</div>
-                  <div className="text-3xl text-green-600 dark:text-green-500 mb-6">{card.translation}</div>
-                  <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg max-w-md relative">
-                    <p className="text-lg text-gray-700 dark:text-gray-200 italic">"{card.example_sentence}"</p>
+                  <div className="text-4xl font-bold text-gray-800 mb-4">{card.german}</div>
+                  <div className="text-3xl text-green-600 mb-6">{card.translation}</div>
+                  <div className="bg-blue-50 p-4 rounded-lg max-w-md relative">
+                    <p className="text-lg text-gray-700 italic">"{card.example_sentence}"</p>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -342,7 +342,7 @@ const ActivityPage: React.FC = () => {
                 setCurrentCardIndex(currentCardIndex - 1);
                 setShowAnswer(false);
               }}
-              className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-300"
+              className="flex-1 bg-gray-200 text-gray-700 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-300 transition-all duration-300"
             >
               Previous
             </button>
@@ -354,7 +354,7 @@ const ActivityPage: React.FC = () => {
                 setCurrentCardIndex(currentCardIndex + 1);
                 setShowAnswer(false);
               }}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 dark:hover:from-blue-800 dark:hover:to-indigo-800 transition-all duration-300 shadow-lg"
+              className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg"
             >
               Next Card
             </button>
@@ -371,8 +371,8 @@ const ActivityPage: React.FC = () => {
               disabled={flippedCards.size !== activity.cards.length}
               className={`flex-1 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 shadow-lg ${
                 flippedCards.size === activity.cards.length
-                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 dark:hover:from-green-800 dark:hover:to-emerald-800'
-                  : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
               Complete ({flippedCards.size}/{activity.cards.length} flipped)
@@ -390,47 +390,47 @@ const ActivityPage: React.FC = () => {
       return (
         <div className="space-y-6">
           <div className="text-center mb-8">
-            <div className={`text-8xl font-bold mb-4 ${score >= 70 ? 'text-green-600 dark:text-green-500' : 'text-orange-600 dark:text-orange-500'}`}>
+            <div className={`text-8xl font-bold mb-4 ${score >= 70 ? 'text-green-600' : 'text-orange-600'}`}>
               {score}%
             </div>
-            <h2 className="text-3xl font-bold mb-2 dark:text-gray-100">
+            <h2 className="text-3xl font-bold mb-2">
               {score >= 90 ? 'Excellent Writing!' : score >= 70 ? 'Good Work!' : 'Keep Practicing!'}
             </h2>
           </div>
 
-          <Card className="bg-green-50 dark:bg-green-900/30 border-2 border-green-200 dark:border-green-600">
-            <h3 className="text-xl font-bold text-green-800 dark:text-green-400 mb-3">✨ Strengths</h3>
+          <Card className="bg-green-50 border-2 border-green-200">
+            <h3 className="text-xl font-bold text-green-800 mb-3">✨ Strengths</h3>
             <ul className="list-disc list-inside space-y-1">
               {evaluation.strengths.map((strength: string, index: number) => (
-                <li key={index} className="text-gray-700 dark:text-gray-200">{strength}</li>
+                <li key={index} className="text-gray-700">{strength}</li>
               ))}
             </ul>
           </Card>
 
-          <Card className="bg-orange-50 dark:bg-orange-900/30 border-2 border-orange-200 dark:border-orange-600">
-            <h3 className="text-xl font-bold text-orange-800 dark:text-orange-400 mb-3">📚 Areas for Improvement</h3>
+          <Card className="bg-orange-50 border-2 border-orange-200">
+            <h3 className="text-xl font-bold text-orange-800 mb-3">📚 Areas for Improvement</h3>
             <ul className="list-disc list-inside space-y-1">
               {evaluation.areas_for_improvement.map((area: string, index: number) => (
-                <li key={index} className="text-gray-700 dark:text-gray-200">{area}</li>
+                <li key={index} className="text-gray-700">{area}</li>
               ))}
             </ul>
           </Card>
 
-          <Card className="bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-200 dark:border-blue-600">
-            <h3 className="text-xl font-bold text-blue-800 dark:text-blue-400 mb-3">💬 Detailed Feedback</h3>
-            <p className="text-gray-700 dark:text-gray-200 leading-relaxed">{evaluation.detailed_feedback}</p>
+          <Card className="bg-blue-50 border-2 border-blue-200">
+            <h3 className="text-xl font-bold text-blue-800 mb-3">💬 Detailed Feedback</h3>
+            <p className="text-gray-700 leading-relaxed">{evaluation.detailed_feedback}</p>
           </Card>
 
           {evaluation.corrected_text && (
-            <Card className="bg-purple-50 dark:bg-purple-900/30 border-2 border-purple-200 dark:border-purple-600">
-              <h3 className="text-xl font-bold text-purple-800 dark:text-purple-400 mb-3">✏️ Corrected Version</h3>
-              <p className="text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">{evaluation.corrected_text}</p>
+            <Card className="bg-purple-50 border-2 border-purple-200">
+              <h3 className="text-xl font-bold text-purple-800 mb-3">✏️ Corrected Version</h3>
+              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{evaluation.corrected_text}</p>
             </Card>
           )}
 
           <button
             onClick={() => navigate('/learning-plan')}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 dark:hover:from-blue-800 dark:hover:to-indigo-800 transition-all duration-300 shadow-lg"
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg"
           >
             Back to Learning Plan
           </button>
@@ -442,10 +442,10 @@ const ActivityPage: React.FC = () => {
 
     return (
       <div className="space-y-6">
-        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 border-2 border-purple-200 dark:border-purple-600">
-          <h3 className="text-xl font-bold text-purple-800 dark:text-purple-400 mb-3">✍️ Writing Prompt</h3>
-          <p className="text-lg text-gray-800 dark:text-gray-100 mb-4">{activity.prompt}</p>
-          <p className="text-sm text-gray-600 dark:text-gray-300">Minimum words: {activity.min_words}</p>
+        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
+          <h3 className="text-xl font-bold text-purple-800 mb-3">✍️ Writing Prompt</h3>
+          <p className="text-lg text-gray-800 mb-4">{activity.prompt}</p>
+          <p className="text-sm text-gray-600">Minimum words: {activity.min_words}</p>
         </Card>
 
         <Card>
@@ -453,9 +453,9 @@ const ActivityPage: React.FC = () => {
             value={userText}
             onChange={(e) => setUserText(e.target.value)}
             placeholder="Schreibe hier auf Deutsch..."
-            className="w-full h-64 p-4 border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 font-medium text-lg"
+            className="w-full h-64 p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 font-medium text-lg"
           />
-          <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+          <div className="mt-2 text-sm text-gray-600">
             Word count: {wordCount} / {activity.min_words}
           </div>
         </Card>
@@ -463,7 +463,7 @@ const ActivityPage: React.FC = () => {
         <button
           onClick={handleSubmitWriting}
           disabled={wordCount < activity.min_words || loading}
-          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-purple-700 hover:to-pink-700 dark:hover:from-purple-800 dark:hover:to-pink-800 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Evaluating...' : 'Submit for Evaluation'}
         </button>
@@ -521,36 +521,36 @@ const ActivityPage: React.FC = () => {
       return (
         <div className="space-y-6">
           <div className="text-center mb-8">
-            <div className={`text-8xl font-bold mb-4 ${score >= 70 ? 'text-green-600 dark:text-green-500' : 'text-orange-600 dark:text-orange-500'}`}>
+            <div className={`text-8xl font-bold mb-4 ${score >= 70 ? 'text-green-600' : 'text-orange-600'}`}>
               {score}%
             </div>
-            <h2 className="text-3xl font-bold mb-2 dark:text-gray-100">
+            <h2 className="text-3xl font-bold mb-2">
               {score >= 90 ? 'Excellent!' : score >= 70 ? 'Good Job!' : 'Keep Practicing!'}
             </h2>
-            <p className="text-gray-600 dark:text-gray-300 text-lg">
+            <p className="text-gray-600 text-lg">
               You got {userAnswers.filter((a, i) => a === activity.questions[i].correct_option).length} out of {activity.questions.length} correct
             </p>
           </div>
 
           {/* Review answers */}
           <div className="space-y-4">
-            <h3 className="text-2xl font-bold mb-4 dark:text-gray-100">Review Your Answers</h3>
+            <h3 className="text-2xl font-bold mb-4">Review Your Answers</h3>
             {activity.questions.map((q: any, index: number) => (
-              <Card key={index} className={userAnswers[index] === q.correct_option ? 'border-2 border-green-500 dark:border-green-600' : 'border-2 border-red-500 dark:border-red-600'}>
+              <Card key={index} className={userAnswers[index] === q.correct_option ? 'border-2 border-green-500' : 'border-2 border-red-500'}>
                 <div className="mb-3">
                   <button
                     onClick={() => handlePlayAudio(index, q.audio_text)}
                     disabled={audioLoading[index] || isPlayingAudio}
-                    className="bg-blue-600 dark:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 dark:hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     <i className={`fa-solid ${audioLoading[index] ? 'fa-spinner fa-spin' : 'fa-volume-up'}`}></i>
                     Replay Audio
                   </button>
                 </div>
-                <p className="font-bold text-lg mb-3 dark:text-gray-100">{q.question}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Your answer: <span className={userAnswers[index] === q.correct_option ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}>{q.options[userAnswers[index]]}</span></p>
+                <p className="font-bold text-lg mb-3">{q.question}</p>
+                <p className="text-sm text-gray-600 mb-2">Your answer: <span className={userAnswers[index] === q.correct_option ? 'text-green-600' : 'text-red-600'}>{q.options[userAnswers[index]]}</span></p>
                 {userAnswers[index] !== q.correct_option && (
-                  <p className="text-sm text-green-600 dark:text-green-500 mb-2">Correct answer: {q.options[q.correct_option]}</p>
+                  <p className="text-sm text-green-600 mb-2">Correct answer: {q.options[q.correct_option]}</p>
                 )}
               </Card>
             ))}
@@ -558,7 +558,7 @@ const ActivityPage: React.FC = () => {
 
           <button
             onClick={() => navigate('/learning-plan')}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 dark:hover:from-blue-800 dark:hover:to-indigo-800 transition-all duration-300 shadow-lg"
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg"
           >
             Back to Learning Plan
           </button>
@@ -569,29 +569,29 @@ const ActivityPage: React.FC = () => {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold dark:text-gray-100">Question {currentQuestionIndex + 1} of {activity.questions.length}</h2>
-          <div className="text-sm text-gray-600 dark:text-gray-300">
+          <h2 className="text-2xl font-bold">Question {currentQuestionIndex + 1} of {activity.questions.length}</h2>
+          <div className="text-sm text-gray-600">
             Progress: {Math.round(((currentQuestionIndex + 1) / activity.questions.length) * 100)}%
           </div>
         </div>
 
         {/* Audio Player Card */}
-        <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 border-2 border-indigo-200 dark:border-indigo-600">
+        <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200">
           <div className="text-center py-8">
             <div className="text-6xl mb-4">
-              <i className="fa-solid fa-headphones text-indigo-600 dark:text-indigo-400"></i>
+              <i className="fa-solid fa-headphones text-indigo-600"></i>
             </div>
-            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Listen to the audio</h3>
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Listen to the audio</h3>
             <button
               onClick={() => handlePlayAudio(currentQuestionIndex, question.audio_text)}
               disabled={audioLoading[currentQuestionIndex] || isPlayingAudio}
-              className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-indigo-700 hover:to-purple-700 dark:hover:from-indigo-800 dark:hover:to-purple-800 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 mx-auto"
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 mx-auto"
             >
               <i className={`fa-solid ${audioLoading[currentQuestionIndex] ? 'fa-spinner fa-spin' : isPlayingAudio ? 'fa-circle-pause' : 'fa-circle-play'} text-2xl`}></i>
               <span>{audioLoading[currentQuestionIndex] ? 'Loading...' : isPlayingAudio ? 'Playing...' : audioPlayed[currentQuestionIndex] ? 'Play Again' : 'Play Audio'}</span>
             </button>
             {audioPlayed[currentQuestionIndex] && (
-              <p className="text-sm text-green-600 dark:text-green-500 mt-3">
+              <p className="text-sm text-green-600 mt-3">
                 <i className="fa-solid fa-check-circle"></i> Audio played
               </p>
             )}
@@ -599,8 +599,8 @@ const ActivityPage: React.FC = () => {
         </Card>
 
         {/* Question Card */}
-        <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 border-2 border-blue-200 dark:border-blue-600">
-          <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{question.question}</p>
+        <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
+          <p className="text-2xl font-bold text-gray-800">{question.question}</p>
         </Card>
 
         <div className="space-y-3">
@@ -611,8 +611,8 @@ const ActivityPage: React.FC = () => {
               disabled={!audioPlayed[currentQuestionIndex]}
               className={`w-full p-5 rounded-xl text-left font-medium text-lg transition-all duration-300 ${
                 userAnswers[currentQuestionIndex] === index
-                  ? 'bg-blue-600 dark:bg-blue-700 text-white shadow-lg scale-105'
-                  : 'bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 dark:text-gray-100'
+                  ? 'bg-blue-600 text-white shadow-lg scale-105'
+                  : 'bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-300'
               } ${!audioPlayed[currentQuestionIndex] ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <span className="font-bold mr-3">{String.fromCharCode(65 + index)}.</span>
@@ -622,7 +622,7 @@ const ActivityPage: React.FC = () => {
         </div>
 
         {!audioPlayed[currentQuestionIndex] && (
-          <div className="text-center text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-900/30 p-4 rounded-lg border border-amber-200 dark:border-amber-600">
+          <div className="text-center text-amber-600 bg-amber-50 p-4 rounded-lg border border-amber-200">
             <i className="fa-solid fa-info-circle mr-2"></i>
             Please listen to the audio before selecting an answer
           </div>
@@ -631,7 +631,7 @@ const ActivityPage: React.FC = () => {
         <button
           onClick={handleNextQuestion}
           disabled={userAnswers[currentQuestionIndex] === -1}
-          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-emerald-700 dark:hover:from-green-800 dark:hover:to-emerald-800 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLastQuestion ? 'Finish' : 'Next Question'}
         </button>
@@ -649,32 +649,32 @@ const ActivityPage: React.FC = () => {
       return (
         <div className="space-y-6">
           <div className="text-center mb-8">
-            <div className={`text-8xl font-bold mb-4 ${score >= 70 ? 'text-green-600 dark:text-green-500' : 'text-orange-600 dark:text-orange-500'}`}>
+            <div className={`text-8xl font-bold mb-4 ${score >= 70 ? 'text-green-600' : 'text-orange-600'}`}>
               {score}%
             </div>
-            <h2 className="text-3xl font-bold mb-2 dark:text-gray-100">
+            <h2 className="text-3xl font-bold mb-2">
               {score >= 90 ? 'Excellent!' : score >= 70 ? 'Good Job!' : 'Keep Practicing!'}
             </h2>
-            <p className="text-gray-600 dark:text-gray-300 text-lg">
+            <p className="text-gray-600 text-lg">
               You got {userAnswers.filter((a, i) => a === activity.questions[i].correct_option).length} out of {activity.questions.length} correct
             </p>
           </div>
 
           {/* Review answers */}
           <div className="space-y-4">
-            <h3 className="text-2xl font-bold mb-4 dark:text-gray-100">Review Your Answers</h3>
+            <h3 className="text-2xl font-bold mb-4">Review Your Answers</h3>
             {activity.questions.map((q: any, index: number) => (
-              <Card key={index} className={userAnswers[index] === q.correct_option ? 'border-2 border-green-500 dark:border-green-600' : 'border-2 border-red-500 dark:border-red-600'}>
-                <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg mb-4">
-                  <p className="text-lg font-medium text-gray-800 dark:text-gray-100 italic">{q.text}</p>
+              <Card key={index} className={userAnswers[index] === q.correct_option ? 'border-2 border-green-500' : 'border-2 border-red-500'}>
+                <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                  <p className="text-lg font-medium text-gray-800 italic">{q.text}</p>
                 </div>
-                <p className="font-bold text-lg mb-3 dark:text-gray-100">{q.question}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Your answer: <span className={userAnswers[index] === q.correct_option ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}>{q.options[userAnswers[index]]}</span></p>
+                <p className="font-bold text-lg mb-3">{q.question}</p>
+                <p className="text-sm text-gray-600 mb-2">Your answer: <span className={userAnswers[index] === q.correct_option ? 'text-green-600' : 'text-red-600'}>{q.options[userAnswers[index]]}</span></p>
                 {userAnswers[index] !== q.correct_option && (
-                  <p className="text-sm text-green-600 dark:text-green-500 mb-2">Correct answer: {q.options[q.correct_option]}</p>
+                  <p className="text-sm text-green-600 mb-2">Correct answer: {q.options[q.correct_option]}</p>
                 )}
                 {q.explanation && (
-                  <p className="text-sm text-gray-700 dark:text-gray-200 bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg mt-2">💡 {q.explanation}</p>
+                  <p className="text-sm text-gray-700 bg-blue-50 p-3 rounded-lg mt-2">💡 {q.explanation}</p>
                 )}
               </Card>
             ))}
@@ -682,7 +682,7 @@ const ActivityPage: React.FC = () => {
 
           <button
             onClick={() => navigate('/learning-plan')}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 dark:hover:from-blue-800 dark:hover:to-indigo-800 transition-all duration-300 shadow-lg"
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg"
           >
             Back to Learning Plan
           </button>
@@ -693,26 +693,26 @@ const ActivityPage: React.FC = () => {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold dark:text-gray-100">Question {currentQuestionIndex + 1} of {activity.questions.length}</h2>
-          <div className="text-sm text-gray-600 dark:text-gray-300">
+          <h2 className="text-2xl font-bold">Question {currentQuestionIndex + 1} of {activity.questions.length}</h2>
+          <div className="text-sm text-gray-600">
             Progress: {Math.round(((currentQuestionIndex + 1) / activity.questions.length) * 100)}%
           </div>
         </div>
 
         {/* Reading Text Card */}
-        <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border-2 border-amber-200 dark:border-amber-600">
+        <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200">
           <div className="flex items-start gap-3 mb-3">
-            <i className="fa-solid fa-book-open text-3xl text-amber-600 dark:text-amber-400"></i>
-            <h3 className="text-xl font-bold text-amber-800 dark:text-amber-400">Reading Passage</h3>
+            <i className="fa-solid fa-book-open text-3xl text-amber-600"></i>
+            <h3 className="text-xl font-bold text-amber-800">Reading Passage</h3>
           </div>
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-amber-200 dark:border-amber-700">
-            <p className="text-xl leading-relaxed text-gray-800 dark:text-gray-100">{question.text}</p>
+          <div className="bg-white p-6 rounded-lg border border-amber-200">
+            <p className="text-xl leading-relaxed text-gray-800">{question.text}</p>
           </div>
         </Card>
 
         {/* Question Card */}
-        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-2 border-blue-200 dark:border-blue-600">
-          <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{question.question}</p>
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
+          <p className="text-2xl font-bold text-gray-800">{question.question}</p>
         </Card>
 
         <div className="space-y-3">
@@ -722,8 +722,8 @@ const ActivityPage: React.FC = () => {
               onClick={() => handleAnswerSelect(index)}
               className={`w-full p-5 rounded-xl text-left font-medium text-lg transition-all duration-300 ${
                 userAnswers[currentQuestionIndex] === index
-                  ? 'bg-blue-600 dark:bg-blue-700 text-white shadow-lg scale-105'
-                  : 'bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 dark:text-gray-100'
+                  ? 'bg-blue-600 text-white shadow-lg scale-105'
+                  : 'bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-300'
               }`}
             >
               <span className="font-bold mr-3">{String.fromCharCode(65 + index)}.</span>
@@ -735,7 +735,7 @@ const ActivityPage: React.FC = () => {
         <button
           onClick={handleNextQuestion}
           disabled={userAnswers[currentQuestionIndex] === -1}
-          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-emerald-700 dark:hover:from-green-800 dark:hover:to-emerald-800 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLastQuestion ? 'Finish' : 'Next Question'}
         </button>
@@ -745,23 +745,23 @@ const ActivityPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
         <LoadingSpinner text="Generating your activity..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       <div className="container mx-auto p-4 md:p-8 max-w-4xl">
-        <Card glass hover className="backdrop-blur-xl border-2 border-white/30 dark:border-gray-600/30 mb-6">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent mb-2">
+        <Card glass hover className="backdrop-blur-xl border-2 border-white/30 mb-6">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2">
             {topic}
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 text-lg font-medium">{description}</p>
-          <div className="mt-3 inline-block px-4 py-2 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50 rounded-lg">
-            <span className="text-sm font-bold text-gray-700 dark:text-gray-200">Level: </span>
-            <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{level}</span>
+          <p className="text-gray-600 text-lg font-medium">{description}</p>
+          <div className="mt-3 inline-block px-4 py-2 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg">
+            <span className="text-sm font-bold text-gray-700">Level: </span>
+            <span className="text-lg font-bold text-blue-600">{level}</span>
           </div>
         </Card>
 

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Page } from '../types';
 import { useAuth } from '../src/contexts/AuthContext';
-import { useDarkMode } from '../src/contexts/DarkModeContext';
 import toast from 'react-hot-toast';
 
 interface HeaderProps {
@@ -33,7 +32,6 @@ const NavItem: React.FC<{
 
 const Header: React.FC<HeaderProps> = ({ currentPage, setPage }) => {
   const { signOut, userData } = useAuth();
-  const { isDarkMode, toggleDarkMode } = useDarkMode();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -90,13 +88,6 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setPage }) => {
               Profile
             </NavItem>
             <button
-              onClick={toggleDarkMode}
-              className="flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-200 font-medium text-gray-700 hover:bg-gray-100 border-2 border-gray-200"
-              title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            >
-              <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
-            </button>
-            <button
               onClick={handleSignOut}
               className="flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-200 font-medium text-red-600 hover:bg-red-50 border-2 border-red-200 hover:border-red-300"
               title="Sign Out"
@@ -134,16 +125,6 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setPage }) => {
             <NavItem to="/profile" icon="fa-user-gear" isActive={isActive('/profile')} onClick={closeMobileMenu}>
               Profile
             </NavItem>
-            <button
-              onClick={() => {
-                toggleDarkMode();
-                closeMobileMenu();
-              }}
-              className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 font-medium text-gray-700 hover:bg-gray-100 border-2 border-gray-200"
-            >
-              <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'} text-lg`}></i>
-              <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
-            </button>
             <button
               onClick={() => {
                 handleSignOut();

@@ -43,12 +43,12 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4 sm:p-6 md:p-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4 sm:p-6 md:p-8 relative overflow-hidden">
       {/* Animated Background Elements - responsive positioning */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-10 sm:top-20 left-5 sm:left-10 w-48 sm:w-72 h-48 sm:h-72 bg-blue-400/20 dark:bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-10 sm:bottom-20 right-5 sm:right-10 w-64 sm:w-96 h-64 sm:h-96 bg-purple-400/20 dark:bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 w-48 sm:w-64 h-48 sm:h-64 bg-indigo-400/20 dark:bg-indigo-500/10 rounded-full blur-3xl animate-pulse delay-500 hidden sm:block"></div>
+        <div className="absolute top-10 sm:top-20 left-5 sm:left-10 w-48 sm:w-72 h-48 sm:h-72 bg-blue-400/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-10 sm:bottom-20 right-5 sm:right-10 w-64 sm:w-96 h-64 sm:h-96 bg-purple-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 w-48 sm:w-64 h-48 sm:h-64 bg-indigo-400/20 rounded-full blur-3xl animate-pulse delay-500 hidden sm:block"></div>
       </div>
 
       <div className="w-full max-w-md relative z-10">
@@ -64,20 +64,20 @@ const LoginPage: React.FC = () => {
               DeutschBoost
             </h1>
           </div>
-          <p className="text-gray-600 dark:text-gray-300 text-base sm:text-lg font-medium px-4">
+          <p className="text-gray-600 text-base sm:text-lg font-medium px-4">
             Sign in to continue your German learning journey
           </p>
         </div>
 
         <Card glass className="backdrop-blur-2xl shadow-2xl">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-5 sm:mb-6 text-center bg-gradient-to-r from-gray-800 to-gray-600 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-5 sm:mb-6 text-center bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
             Welcome Back
           </h2>
 
           <form onSubmit={handleEmailLogin} className="space-y-4 sm:space-y-5">
             {/* Email Input */}
             <div>
-              <label htmlFor="email" className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
+              <label htmlFor="email" className="block text-sm font-bold text-gray-700 mb-2">
                 Email Address
               </label>
               <input
@@ -85,7 +85,7 @@ const LoginPage: React.FC = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 sm:py-3.5 border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 font-medium text-base"
+                className="w-full px-4 py-3 sm:py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 font-medium text-base"
                 placeholder="your.email@example.com"
                 disabled={loading}
                 autoComplete="email"
@@ -94,7 +94,7 @@ const LoginPage: React.FC = () => {
 
             {/* Password Input with Toggle */}
             <div>
-              <label htmlFor="password" className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
+              <label htmlFor="password" className="block text-sm font-bold text-gray-700 mb-2">
                 Password
               </label>
               <div className="relative">
@@ -103,7 +103,7 @@ const LoginPage: React.FC = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 sm:py-3.5 pr-12 border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 font-medium text-base"
+                  className="w-full px-4 py-3 sm:py-3.5 pr-12 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 font-medium text-base"
                   placeholder="••••••••"
                   disabled={loading}
                   autoComplete="current-password"
@@ -111,7 +111,7 @@ const LoginPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-lg hover:bg-gray-100"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   tabIndex={-1}
                 >
@@ -152,10 +152,10 @@ const LoginPage: React.FC = () => {
           {/* Divider */}
           <div className="relative my-5 sm:my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t-2 border-gray-200 dark:border-gray-600"></div>
+              <div className="w-full border-t-2 border-gray-200"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-3 sm:px-4 bg-white/80 dark:bg-gray-800/80 text-gray-600 dark:text-gray-300 font-bold">Or continue with</span>
+              <span className="px-3 sm:px-4 bg-white/80 text-gray-600 font-bold">Or continue with</span>
             </div>
           </div>
 
@@ -163,7 +163,7 @@ const LoginPage: React.FC = () => {
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 sm:gap-3 bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 py-4 sm:py-3.5 rounded-xl font-bold hover:bg-gray-50 dark:hover:bg-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg active:scale-[0.99]"
+            className="w-full flex items-center justify-center gap-2 sm:gap-3 bg-white border-2 border-gray-200 text-gray-700 py-4 sm:py-3.5 rounded-xl font-bold hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg active:scale-[0.99]"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -188,11 +188,11 @@ const LoginPage: React.FC = () => {
 
           {/* Sign Up Link */}
           <div className="mt-5 sm:mt-6 text-center">
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 font-medium">
+            <p className="text-sm sm:text-base text-gray-600 font-medium">
               Don't have an account?{' '}
               <Link
                 to="/signup"
-                className="text-blue-600 dark:text-blue-400 font-bold hover:text-blue-700 dark:hover:text-blue-300 hover:underline transition-colors inline-block py-1"
+                className="text-blue-600 font-bold hover:text-blue-700 hover:underline transition-colors inline-block py-1"
               >
                 Sign up
               </Link>
@@ -201,11 +201,11 @@ const LoginPage: React.FC = () => {
         </Card>
 
         {/* Legal Links - responsive text */}
-        <div className="mt-4 sm:mt-6 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-medium px-4">
+        <div className="mt-4 sm:mt-6 text-center text-xs sm:text-sm text-gray-500 font-medium px-4">
           By signing in, you agree to our{' '}
-          <a href="#" className="text-blue-600 dark:text-blue-400 hover:underline">Terms of Service</a>
+          <a href="#" className="text-blue-600 hover:underline">Terms of Service</a>
           {' '}and{' '}
-          <a href="#" className="text-blue-600 dark:text-blue-400 hover:underline">Privacy Policy</a>
+          <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>
         </div>
       </div>
     </div>
