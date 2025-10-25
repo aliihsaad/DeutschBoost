@@ -389,18 +389,18 @@ const ConversationPage: React.FC = () => {
     return (
         <div className="container mx-auto p-8">
             <header className="mb-8 text-center">
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">AI Conversation Partner</h1>
+                <h1 className="text-4xl font-bold">AI Conversation Partner</h1>
                 <p className="text-gray-600 mt-2">Practice your German by speaking with our AI tutor, Alex.</p>
             </header>
 
             {/* Level Info Card */}
-            <Card className="max-w-3xl mx-auto mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200
+            <Card className="max-w-3xl mx-auto mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
                 <div className="flex items-center gap-4">
                     <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white text-2xl font-bold shadow-lg">
                         {userLevel}
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-800 Conversation Level</h3>
+                        <h3 className="text-lg font-bold text-gray-800">Your Conversation Level</h3>
                         <p className="text-gray-600 text-sm">{levelDescriptions[userLevel]}</p>
                     </div>
                     <div className="hidden md:block text-4xl">
@@ -439,11 +439,11 @@ const ConversationPage: React.FC = () => {
                     )}
                 </div>
                 <div className="text-center mb-6">
-                    <p className="font-semibold
+                    <p className="font-semibold">Status: 
                         <span className={`ml-2 px-3 py-1 rounded-full text-sm ${
-                            status === 'connected' ? 'bg-green-100 text-green-800 :
-                            status === 'connecting' ? 'bg-yellow-100 text-yellow-800 :
-                            'bg-gray-100 text-gray-800
+                            status === 'connected' ? 'bg-green-100 text-green-800' : 
+                            status === 'connecting' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
                         }`}>
                             {status === 'connected' && <><i className="fa-solid fa-wifi text-green-500 animate-pulse"></i> Connected</>}
                             {status === 'connecting' && 'Connecting...'}
@@ -455,7 +455,7 @@ const ConversationPage: React.FC = () => {
                 
                 <div ref={transcriptContainerRef} className="h-96 bg-gray-200 rounded-lg p-4 overflow-y-auto space-y-4">
                     {transcripts.length === 0 && (
-                        <div className="flex flex-col items-center justify-center h-full text-gray-500
+                        <div className="flex flex-col items-center justify-center h-full text-gray-500">
                            <i className="fa-solid fa-comments text-5xl mb-4"></i>
                            <p>Your conversation will appear here.</p>
                            <p className="text-sm">Press "Start Conversation" to begin.</p>
@@ -467,7 +467,7 @@ const ConversationPage: React.FC = () => {
                             <div className={`p-3 rounded-lg max-w-sm ${t.speaker === 'model' ? 'bg-white shadow-sm' : 'bg-blue-600 text-white'}`}>
                                 {t.text}
                             </div>
-                             {t.speaker === 'user' && <div className="w-10 h-10 rounded-full bg-gray-300 flex-shrink-0 flex items-center justify-center text-gray-600 className="fa-solid fa-user"></i></div>}
+                             {t.speaker === 'user' && <div className="w-10 h-10 rounded-full bg-gray-300 flex-shrink-0 flex items-center justify-center text-gray-600"><i className="fa-solid fa-user"></i></div>}
                         </div>
                     ))}
                 </div>
@@ -482,7 +482,7 @@ const ConversationPage: React.FC = () => {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h2 className="text-3xl font-bold mb-2">Conversation Feedback</h2>
-                                    <p className="text-blue-100 how you did!</p>
+                                    <p className="text-blue-100">Here's how you did!</p>
                                 </div>
                                 <button
                                     onClick={() => setShowFeedback(false)}
@@ -518,14 +518,14 @@ const ConversationPage: React.FC = () => {
                             {/* Strengths */}
                             <div>
                                 <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                    <i className="fa-solid fa-star text-yellow-500
+                                    <i className="fa-solid fa-star text-yellow-500"></i>
                                     Strengths
                                 </h3>
                                 <ul className="space-y-2">
                                     {feedback.strengths.map((strength, idx) => (
                                         <li key={idx} className="flex items-start gap-3">
                                             <i className="fa-solid fa-check-circle text-green-500 mt-1"></i>
-                                            <span className="text-gray-700
+                                            <span className="text-gray-700">{strength}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -534,14 +534,14 @@ const ConversationPage: React.FC = () => {
                             {/* Areas for Improvement */}
                             <div>
                                 <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                    <i className="fa-solid fa-arrow-up text-blue-500
+                                    <i className="fa-solid fa-arrow-up text-blue-500"></i>
                                     Areas for Improvement
                                 </h3>
                                 <ul className="space-y-2">
                                     {feedback.areas_for_improvement.map((area, idx) => (
                                         <li key={idx} className="flex items-start gap-3">
                                             <i className="fa-solid fa-lightbulb text-amber-500 mt-1"></i>
-                                            <span className="text-gray-700
+                                            <span className="text-gray-700">{area}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -551,12 +551,12 @@ const ConversationPage: React.FC = () => {
                             {feedback.grammar_corrections && feedback.grammar_corrections.length > 0 && (
                                 <div>
                                     <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                        <i className="fa-solid fa-spell-check text-purple-500
+                                        <i className="fa-solid fa-spell-check text-purple-500"></i>
                                         Grammar Corrections
                                     </h3>
                                     <div className="space-y-3">
                                         {feedback.grammar_corrections.map((correction, idx) => (
-                                            <div key={idx} className="bg-gray-50 rounded-lg p-4 border border-gray-200
+                                            <div key={idx} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                                                 <div className="grid md:grid-cols-2 gap-3 mb-2">
                                                     <div>
                                                         <div className="text-xs text-gray-500 mb-1">You said:</div>
@@ -581,7 +581,7 @@ const ConversationPage: React.FC = () => {
                             {feedback.vocabulary_suggestions && feedback.vocabulary_suggestions.length > 0 && (
                                 <div>
                                     <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                        <i className="fa-solid fa-book text-indigo-500
+                                        <i className="fa-solid fa-book text-indigo-500"></i>
                                         Vocabulary Suggestions
                                     </h3>
                                     <div className="flex flex-wrap gap-2">
@@ -598,7 +598,7 @@ const ConversationPage: React.FC = () => {
                             {feedback.fluency_notes && (
                                 <div>
                                     <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                        <i className="fa-solid fa-comments text-teal-500
+                                        <i className="fa-solid fa-comments text-teal-500"></i>
                                         Fluency Assessment
                                     </h3>
                                     <p className="text-gray-700 leading-relaxed">{feedback.fluency_notes}</p>
@@ -621,14 +621,14 @@ const ConversationPage: React.FC = () => {
 
             {/* Conversation History Section */}
             <div className="max-w-3xl mx-auto mt-12">
-                <h2 className="text-2xl font-bold mb-6 flex items-center gap-3 bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                    <i className="fa-solid fa-history text-blue-600
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                    <i className="fa-solid fa-history text-blue-600"></i>
                     Conversation History
                 </h2>
 
                 {isLoadingHistory ? (
                     <div className="flex justify-center items-center py-12">
-                        <i className="fa-solid fa-spinner fa-spin text-3xl text-blue-600
+                        <i className="fa-solid fa-spinner fa-spin text-3xl text-blue-600"></i>
                     </div>
                 ) : conversationHistory.length === 0 ? (
                     <Card className="bg-gray-50 text-center py-12">
