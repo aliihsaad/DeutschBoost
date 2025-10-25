@@ -40,15 +40,16 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
   ) => {
     const activityType = skill.toLowerCase();
 
-    // Special handling for speaking - redirect to conversation page with learning plan params
+    // Special handling for speaking - redirect to speaking activity page
     if (activityType === 'speaking') {
       const params = new URLSearchParams({
         week: weekNumber.toString(),
         item: itemIndex.toString(),
         topic,
         description,
+        level,
       });
-      navigate(`/conversation?${params.toString()}`);
+      navigate(`/speaking-activity?${params.toString()}`);
       return;
     }
 
