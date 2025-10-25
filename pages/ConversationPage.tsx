@@ -85,12 +85,21 @@ const ConversationPage: React.FC = () => {
 
     const currentInputTranscription = useRef('');
     const currentOutputTranscription = useRef('');
-    
+
+    // Auto-scroll behavior based on selected mode
     useEffect(() => {
         if (transcriptContainerRef.current) {
-            transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight;
+            // Only auto-scroll in Free Conversation and Listening Comprehension modes
+            // In Reading, Vocabulary, and Grammar modes, user needs to see previous content
+            const shouldAutoScroll =
+                selectedMode === ConversationMode.FREE_CONVERSATION ||
+                selectedMode === ConversationMode.LISTENING_COMPREHENSION;
+
+            if (shouldAutoScroll) {
+                transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight;
+            }
         }
-    }, [transcripts]);
+    }, [transcripts, selectedMode]);
 
     // Load conversation history on mount
     useEffect(() => {
@@ -513,25 +522,62 @@ const ConversationPage: React.FC = () => {
                         </span>
                     </p>
                 </div>
-                
-                <div ref={transcriptContainerRef} className="h-96 bg-gray-200 rounded-lg p-4 overflow-y-auto space-y-4">
-                    {transcripts.length === 0 && (
-                        <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                           <i className="fa-solid fa-comments text-5xl mb-4"></i>
-                           <p>Your conversation will appear here.</p>
-                           <p className="text-sm">Press "Start Conversation" to begin.</p>
-                        </div>
-                    )}
-                    {transcripts.map((t) => (
-                        <div key={t.id} className={`flex items-start gap-3 ${t.speaker === 'user' ? 'justify-end' : ''}`}>
-                            {t.speaker === 'model' && <div className="w-10 h-10 rounded-full bg-blue-500 flex-shrink-0 flex items-center justify-center text-white font-bold">A</div>}
-                            <div className={`p-3 rounded-lg max-w-sm ${t.speaker === 'model' ? 'bg-white shadow-sm' : 'bg-blue-600 text-white'}`}>
-                                {t.text}
+
+                {/* Reading Practice Mode: Split View */}
+                {selectedMode === ConversationMode.READING_PRACTICE && transcripts.length > 0 ? (
+                    <div className="space-y-3">
+                        {/* Alex's Text (Pinned at Top) */}
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-10 h-10 rounded-full bg-blue-500 flex-shrink-0 flex items-center justify-center text-white font-bold">A</div>
+                                <h4 className="font-bold text-gray-800">Text to Read:</h4>
                             </div>
-                             {t.speaker === 'user' && <div className="w-10 h-10 rounded-full bg-gray-300 flex-shrink-0 flex items-center justify-center text-gray-600"><i className="fa-solid fa-user"></i></div>}
+                            <div className="bg-white p-4 rounded-lg shadow-sm">
+                                {transcripts
+                                    .filter(t => t.speaker === 'model')
+                                    .map(t => t.text)
+                                    .slice(-1)[0] || 'Waiting for Alex to provide text...'}
+                            </div>
                         </div>
-                    ))}
-                </div>
+
+                        {/* User's Attempt (Scrollable) */}
+                        <div ref={transcriptContainerRef} className="h-64 bg-gray-200 rounded-lg p-4 overflow-y-auto space-y-3">
+                            <h4 className="font-bold text-gray-700 sticky top-0 bg-gray-200 pb-2">Your Reading & Feedback:</h4>
+                            {transcripts
+                                .filter(t => t.speaker === 'user')
+                                .map((t) => (
+                                    <div key={t.id} className="flex items-start gap-3 justify-end">
+                                        <div className="p-3 rounded-lg max-w-sm bg-blue-600 text-white">
+                                            {t.text}
+                                        </div>
+                                        <div className="w-10 h-10 rounded-full bg-gray-300 flex-shrink-0 flex items-center justify-center text-gray-600">
+                                            <i className="fa-solid fa-user"></i>
+                                        </div>
+                                    </div>
+                                ))}
+                        </div>
+                    </div>
+                ) : (
+                    /* Normal Chat View for All Other Modes */
+                    <div ref={transcriptContainerRef} className="h-96 bg-gray-200 rounded-lg p-4 overflow-y-auto space-y-4">
+                        {transcripts.length === 0 && (
+                            <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                               <i className="fa-solid fa-comments text-5xl mb-4"></i>
+                               <p>Your conversation will appear here.</p>
+                               <p className="text-sm">Press "Start Conversation" to begin.</p>
+                            </div>
+                        )}
+                        {transcripts.map((t) => (
+                            <div key={t.id} className={`flex items-start gap-3 ${t.speaker === 'user' ? 'justify-end' : ''}`}>
+                                {t.speaker === 'model' && <div className="w-10 h-10 rounded-full bg-blue-500 flex-shrink-0 flex items-center justify-center text-white font-bold">A</div>}
+                                <div className={`p-3 rounded-lg max-w-sm ${t.speaker === 'model' ? 'bg-white shadow-sm' : 'bg-blue-600 text-white'}`}>
+                                    {t.text}
+                                </div>
+                                 {t.speaker === 'user' && <div className="w-10 h-10 rounded-full bg-gray-300 flex-shrink-0 flex items-center justify-center text-gray-600"><i className="fa-solid fa-user"></i></div>}
+                            </div>
+                        ))}
+                    </div>
+                )}
             </Card>
 
             {/* Feedback Modal */}
