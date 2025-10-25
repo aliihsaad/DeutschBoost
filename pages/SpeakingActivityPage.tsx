@@ -163,6 +163,11 @@ const SpeakingActivityPage: React.FC = () => {
           };
           mediaStreamSourceRef.current.connect(scriptProcessorRef.current);
           scriptProcessorRef.current.connect(inputCtx.destination);
+
+          // Trigger AI to start speaking by sending initial message
+          sessionPromiseRef.current?.then((session) => {
+            session.send({ text: "Hello, I'm ready to practice!" });
+          });
         },
         onmessage: handleMessage,
         onerror: (e) => {
