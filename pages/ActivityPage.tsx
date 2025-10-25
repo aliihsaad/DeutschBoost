@@ -35,6 +35,7 @@ const ActivityPage: React.FC = () => {
   // Vocabulary state
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set());
 
   // Listening state
   const [audioLoading, setAudioLoading] = useState<boolean[]>([]);
@@ -262,7 +263,14 @@ const ActivityPage: React.FC = () => {
         </div>
 
         <Card className="min-h-96 flex flex-col items-center justify-center cursor-pointer hover:shadow-xl transition-shadow"
-              onClick={() => setShowAnswer(!showAnswer)}>
+              onClick={() => {
+                const newShowAnswer = !showAnswer;
+                setShowAnswer(newShowAnswer);
+                // Mark card as flipped when user views the answer
+                if (newShowAnswer) {
+                  setFlippedCards(prev => new Set(prev).add(currentCardIndex));
+                }
+              }}>
           <div className="text-center">
             {!showAnswer ? (
               <>
@@ -307,12 +315,21 @@ const ActivityPage: React.FC = () => {
           ) : (
             <button
               onClick={() => {
-                markActivityComplete(100);
-                navigate('/learning-plan');
+                if (flippedCards.size === activity.cards.length) {
+                  markActivityComplete(100);
+                  navigate('/learning-plan');
+                } else {
+                  toast.error(`Please flip all ${activity.cards.length} cards to complete the activity!`);
+                }
               }}
-              className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-emerald-700 dark:hover:from-green-800 dark:hover:to-emerald-800 transition-all duration-300 shadow-lg"
+              disabled={flippedCards.size !== activity.cards.length}
+              className={`flex-1 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 shadow-lg ${
+                flippedCards.size === activity.cards.length
+                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 dark:hover:from-green-800 dark:hover:to-emerald-800'
+                  : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+              }`}
             >
-              Complete
+              Complete ({flippedCards.size}/{activity.cards.length} flipped)
             </button>
           )}
         </div>

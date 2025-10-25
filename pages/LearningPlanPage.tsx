@@ -7,7 +7,6 @@ import LoadingSpinner from '../components/LoadingSpinner';
 interface LearningPlanPageProps {
   learningPlan: LearningPlan | null;
   loading: boolean;
-  onToggleItem: (weekIndex: number, itemIndex: number) => void;
 }
 
 const getIconForSkill = (skill: string) => {
@@ -22,7 +21,7 @@ const getIconForSkill = (skill: string) => {
     }
 }
 
-const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loading, onToggleItem }) => {
+const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loading }) => {
   const navigate = useNavigate();
   const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([1])); // First week expanded by default
 
@@ -270,17 +269,12 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
                             </button>
                           )}
 
-                          <button
-                            onClick={() => onToggleItem(weekIndex, itemIndex)}
-                            className={`flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center transition-all duration-300 shadow-md ${
-                              item.completed
-                                ? 'bg-green-500 border-green-500 text-white'
-                                : 'border-gray-300 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-500 dark:hover:border-blue-400 active:scale-95'
-                            }`}
-                            aria-label={item.completed ? 'Mark as incomplete' : 'Mark as complete'}
-                          >
-                            {item.completed && <i className="fa-solid fa-check text-base sm:text-lg"></i>}
-                          </button>
+                          {/* Completion Indicator (Read-only) */}
+                          {item.completed && (
+                            <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-green-500 border-2 border-green-500 flex items-center justify-center shadow-md">
+                              <i className="fa-solid fa-check text-white text-base sm:text-lg"></i>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}

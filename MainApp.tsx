@@ -110,29 +110,7 @@ const MainApp: React.FC = () => {
     [user, navigate]
   );
 
-  const handleTogglePlanItem = async (weekIndex: number, itemIndex: number) => {
-    if (!user || !learningPlan) return;
-
-    const newPlan = JSON.parse(JSON.stringify(learningPlan)); // Deep copy
-    const item = newPlan.weeks[weekIndex].items[itemIndex];
-    const newCompletedStatus = !item.completed;
-    item.completed = newCompletedStatus;
-    setLearningPlan(newPlan);
-
-    try {
-      // Update using the service
-      const weekNumber = newPlan.weeks[weekIndex].week;
-      const { error } = await updatePlanItemCompletion(user.id, weekNumber, itemIndex, newCompletedStatus);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error updating plan item:', error);
-      toast.error('Failed to update progress');
-      // Revert the change
-      item.completed = !newCompletedStatus;
-      setLearningPlan(learningPlan);
-    }
-  };
+  // Removed handleTogglePlanItem - activities are now auto-completed when user finishes them
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -141,7 +119,7 @@ const MainApp: React.FC = () => {
         <Routes>
           <Route path="/" element={<HomePage setPage={setCurrentPage} learningPlan={learningPlan} userLevel={userLevel} />} />
           <Route path="/placement-test" element={<EnhancedPlacementTestPage onTestComplete={handleTestComplete} />} />
-          <Route path="/learning-plan" element={<LearningPlanPage learningPlan={learningPlan} loading={loadingPlan} onToggleItem={handleTogglePlanItem} />} />
+          <Route path="/learning-plan" element={<LearningPlanPage learningPlan={learningPlan} loading={loadingPlan} />} />
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/conversation" element={<ConversationPage />} />
           <Route path="/profile" element={<ProfilePage userLevel={userLevel} />} />
