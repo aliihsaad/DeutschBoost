@@ -193,22 +193,32 @@ const SpeakingActivityPage: React.FC = () => {
     setStatus('stopping');
 
     try {
-      // Stop audio input
+      // Close the live session
+      if (sessionPromiseRef.current) {
+        const session = await sessionPromiseRef.current;
+        session.close();
+        sessionPromiseRef.current = null;
+      }
+
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
       }
+
       if (scriptProcessorRef.current) {
         scriptProcessorRef.current.disconnect();
+        scriptProcessorRef.current = null;
       }
       if (mediaStreamSourceRef.current) {
         mediaStreamSourceRef.current.disconnect();
+        mediaStreamSourceRef.current = null;
       }
 
-      // Close Gemini session
-      const session = await sessionPromiseRef.current;
-      if (session) {
-        await session.disconnect();
+      for (const source of audioPlaybackSources.current.values()) {
+        source.stop();
       }
+      audioPlaybackSources.current.clear();
+      nextOutputStartTime.current = 0;
 
       setStatus('evaluating');
       toast.loading('Evaluating your speaking practice...');
