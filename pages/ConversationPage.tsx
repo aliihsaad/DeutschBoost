@@ -394,8 +394,29 @@ const ConversationPage: React.FC = () => {
                         // Mark learning plan item complete if this conversation was from a learning plan activity
                         if (user && weekNumber && itemIndex && parsedFeedback.overall_score >= 70) {
                             try {
-                                const { updatePlanItemCompletion } = await import('../services/learningPlanService');
+                                const { updatePlanItemCompletion, updateUserProgress } = await import('../services/learningPlanService');
+
+                                // Mark item complete
                                 await updatePlanItemCompletion(user.id, parseInt(weekNumber), parseInt(itemIndex), true);
+
+                                // Update user progress (calculate duration in seconds)
+                                const durationSeconds = sessionStartTimeRef.current
+                                    ? Math.round((new Date().getTime() - sessionStartTimeRef.current.getTime()) / 1000)
+                                    : 0;
+
+                                const { error: progressError, profile } = await updateUserProgress(
+                                    user.id,
+                                    'conversation',
+                                    durationSeconds,
+                                    1
+                                );
+
+                                if (progressError) {
+                                    console.error('Error updating user progress:', progressError);
+                                } else if (profile) {
+                                    console.log('✅ User progress updated:', profile);
+                                }
+
                                 toast.success(`Speaking activity completed! Score: ${parsedFeedback.overall_score}%`);
                             } catch (err) {
                                 console.error('Error marking learning plan item complete:', err);

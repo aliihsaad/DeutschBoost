@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LearningPlan } from '../types';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useAuth } from '../src/contexts/AuthContext';
 
 interface LearningPlanPageProps {
   learningPlan: LearningPlan | null;
@@ -23,7 +24,11 @@ const getIconForSkill = (skill: string) => {
 
 const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loading }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([1])); // First week expanded by default
+  const [studyStreak, setStudyStreak] = useState<number>(0);
+  const [totalStudyTime, setTotalStudyTime] = useState<number>(0);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   const handleStartActivity = (
     skill: string,
@@ -71,6 +76,38 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
       return newSet;
     });
   };
+
+  // Load user profile data for study streak and total time
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!user) {
+        setProfileLoading(false);
+        return;
+      }
+
+      try {
+        const { supabase } = await import('../src/lib/supabase');
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('study_streak, total_study_time')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error loading user profile:', error);
+        } else if (data) {
+          setStudyStreak(data.study_streak || 0);
+          setTotalStudyTime(data.total_study_time || 0);
+        }
+      } catch (err) {
+        console.error('Error in loadUserProfile:', err);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    loadUserProfile();
+  }, [user]);
 
   if (loading) {
     return (
@@ -129,13 +166,34 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
         </Card>
 
         {/* Progress Overview - Responsive Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
           <Card hover className="relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-emerald-600 opacity-100 group-hover:opacity-90 transition-opacity"></div>
             <div className="relative z-10 flex flex-col items-center justify-center text-white py-6 sm:py-8">
               <span className="text-base sm:text-lg font-bold mb-2">Overall Progress</span>
               <span className="text-5xl sm:text-6xl md:text-7xl font-bold mb-2">{progressPercentage}%</span>
               <span className="text-xs sm:text-sm opacity-90 font-medium">{completedItems} of {totalItems} completed</span>
+            </div>
+          </Card>
+
+          <Card hover className="relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-red-600 opacity-100 group-hover:opacity-90 transition-opacity"></div>
+            <div className="relative z-10 flex flex-col items-center justify-center text-white py-6 sm:py-8">
+              <span className="text-base sm:text-lg font-bold mb-2">Study Streak</span>
+              <div className="flex items-center gap-2 mb-2">
+                <i className="fa-solid fa-fire text-5xl sm:text-6xl md:text-7xl"></i>
+                <span className="text-5xl sm:text-6xl md:text-7xl font-bold">{studyStreak}</span>
+              </div>
+              <span className="text-xs sm:text-sm opacity-90 font-medium">{studyStreak === 1 ? 'day' : 'days'} in a row</span>
+            </div>
+          </Card>
+
+          <Card hover className="relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-blue-600 opacity-100 group-hover:opacity-90 transition-opacity"></div>
+            <div className="relative z-10 flex flex-col items-center justify-center text-white py-6 sm:py-8">
+              <span className="text-base sm:text-lg font-bold mb-2">Study Time</span>
+              <span className="text-5xl sm:text-6xl md:text-7xl font-bold mb-2">{Math.round(totalStudyTime / 60)}</span>
+              <span className="text-xs sm:text-sm opacity-90 font-medium">hours total ({totalStudyTime} min)</span>
             </div>
           </Card>
 
@@ -148,7 +206,7 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
             </div>
           </Card>
 
-          <Card hover className="relative overflow-hidden group sm:col-span-2 lg:col-span-1">
+          <Card hover className="relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-pink-600 opacity-100 group-hover:opacity-90 transition-opacity"></div>
             <div className="relative z-10 flex flex-col items-center justify-center text-white py-6 sm:py-8">
               <span className="text-base sm:text-lg font-bold mb-2">Activities</span>

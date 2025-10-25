@@ -273,3 +273,129 @@ export const updatePlanItemCompletion = async (
     return { error: err as Error };
   }
 };
+
+/**
+ * Update user progress tracking
+ * Updates total study time, study streak, and creates study session record
+ */
+export const updateUserProgress = async (
+  userId: string,
+  activityType: 'conversation' | 'flashcards' | 'listening' | 'reading' | 'writing' | 'grammar',
+  durationSeconds: number,
+  itemsCompleted: number = 1
+): Promise<{ error: Error | null; profile?: any }> => {
+  try {
+    console.log('📊 Updating user progress:', { userId, activityType, durationSeconds, itemsCompleted });
+
+    const durationMinutes = Math.round(durationSeconds / 60);
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    // 1. Get current user profile
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('study_streak, total_study_time')
+      .eq('id', userId)
+      .single();
+
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError);
+      return { error: profileError };
+    }
+
+    const currentStreak = profile?.study_streak || 0;
+    const currentTotalTime = profile?.total_study_time || 0;
+
+    // 2. Check if user studied today
+    const { data: todaySessions, error: todayError } = await supabase
+      .from('study_sessions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('date', today)
+      .limit(1);
+
+    if (todayError) {
+      console.error('Error checking today sessions:', todayError);
+      return { error: todayError };
+    }
+
+    let newStreak = currentStreak;
+
+    // If no session today, update streak
+    if (!todaySessions || todaySessions.length === 0) {
+      // Check yesterday's sessions to determine if streak continues
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayDate = yesterday.toISOString().split('T')[0];
+
+      const { data: yesterdaySessions, error: yesterdayError } = await supabase
+        .from('study_sessions')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('date', yesterdayDate)
+        .limit(1);
+
+      if (yesterdayError) {
+        console.error('Error checking yesterday sessions:', yesterdayError);
+        return { error: yesterdayError };
+      }
+
+      // If studied yesterday, increment streak. Otherwise, reset to 1
+      if (yesterdaySessions && yesterdaySessions.length > 0) {
+        newStreak = currentStreak + 1;
+        console.log('🔥 Streak continued! New streak:', newStreak);
+      } else {
+        newStreak = 1;
+        console.log('🔥 Streak started/reset! New streak:', newStreak);
+      }
+    } else {
+      console.log('✅ Already studied today, maintaining streak:', currentStreak);
+    }
+
+    // 3. Update user profile
+    const newTotalTime = currentTotalTime + durationMinutes;
+    const { error: updateError } = await supabase
+      .from('user_profiles')
+      .update({
+        study_streak: newStreak,
+        total_study_time: newTotalTime,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('Error updating user profile:', updateError);
+      return { error: updateError };
+    }
+
+    console.log('✅ Profile updated:', { newStreak, newTotalTime });
+
+    // 4. Create study session record
+    const { error: sessionError } = await supabase
+      .from('study_sessions')
+      .insert({
+        user_id: userId,
+        activity_type: activityType,
+        duration_minutes: durationMinutes,
+        items_completed: itemsCompleted,
+        date: today,
+      });
+
+    if (sessionError) {
+      console.error('Error creating study session:', sessionError);
+      return { error: sessionError };
+    }
+
+    console.log('✅ Study session created');
+
+    return {
+      error: null,
+      profile: {
+        study_streak: newStreak,
+        total_study_time: newTotalTime,
+      },
+    };
+  } catch (err) {
+    console.error('Unexpected error updating user progress:', err);
+    return { error: err as Error };
+  }
+};

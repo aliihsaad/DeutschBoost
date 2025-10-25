@@ -149,10 +149,34 @@ const ActivityPage: React.FC = () => {
     try {
       const timeSpent = Math.round((Date.now() - startTime) / 1000);
 
-      // Import the service
-      const { updatePlanItemCompletion } = await import('../services/learningPlanService');
+      // Import the services
+      const { updatePlanItemCompletion, updateUserProgress } = await import('../services/learningPlanService');
 
+      // Mark the learning plan item as complete
       await updatePlanItemCompletion(user.id, parseInt(weekNumber), parseInt(itemIndex), true);
+
+      // Update user progress (study time, streak, session tracking)
+      const activityTypeMap: Record<string, 'conversation' | 'grammar' | 'listening' | 'reading' | 'writing'> = {
+        'grammar': 'grammar',
+        'vocabulary': 'flashcards',
+        'listening': 'listening',
+        'reading': 'reading',
+        'writing': 'writing',
+      };
+
+      const progressActivityType = activityTypeMap[activityType] || 'grammar';
+      const { error: progressError, profile } = await updateUserProgress(
+        user.id,
+        progressActivityType,
+        timeSpent,
+        1
+      );
+
+      if (progressError) {
+        console.error('Error updating user progress:', progressError);
+      } else if (profile) {
+        console.log('✅ User progress updated:', profile);
+      }
 
       toast.success(`Activity completed! Score: ${finalScore}%`);
     } catch (error) {
