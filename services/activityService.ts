@@ -352,8 +352,8 @@ User's Native Language: ${motherLanguage}
 
 Generate 3 reading comprehension questions. Each should have:
 - A German text appropriate for ${level} level
-- A comprehension question in ${motherLanguage} about the text (asking about main idea, detail, or inference)
-- 4 multiple choice answers in ${motherLanguage}
+- A comprehension question in German about the text (asking about main idea, detail, or inference)
+- 4 multiple choice answers in German
 - The correct answer index (0-3)
 - A brief explanation of why the answer is correct (in ${motherLanguage})
 
@@ -366,8 +366,8 @@ Return a JSON object with this structure:
   "questions": [
     {
       "text": "Maria wohnt in Berlin. Sie ist Lehrerin und arbeitet in einer Grundschule. Jeden Morgen fährt sie mit dem Fahrrad zur Arbeit.",
-      "question": "What is Maria's profession?",
-      "options": ["Doctor", "Teacher", "Engineer", "Student"],
+      "question": "Was ist Marias Beruf?",
+      "options": ["Ärztin", "Lehrerin", "Ingenieurin", "Studentin"],
       "correct_option": 1,
       "explanation": "The text states 'Sie ist Lehrerin' which means 'She is a teacher'."
     }
