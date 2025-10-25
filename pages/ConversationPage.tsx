@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { LiveConnectSession, LiveServerMessage } from '@google/genai';
 import { startConversationSession as startGeminiSession, decode, decodeAudioData, createPcmBlob } from '../services/geminiService';
-import { Transcript } from '../types';
+import { Transcript, ConversationMode, ConversationModeInfo } from '../types';
 import Card from '../components/Card';
 import { useAuth } from '../src/contexts/AuthContext';
 import { CEFRLevel } from '../types';
@@ -27,6 +27,41 @@ const ConversationPage: React.FC = () => {
     const [conversationHistory, setConversationHistory] = useState<any[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     const [previousFeedback, setPreviousFeedback] = useState<ConversationFeedback | null>(null);
+    const [selectedMode, setSelectedMode] = useState<ConversationMode>(ConversationMode.FREE_CONVERSATION);
+
+    // Define available conversation modes
+    const conversationModes: ConversationModeInfo[] = [
+        {
+            mode: ConversationMode.FREE_CONVERSATION,
+            name: 'Free Conversation',
+            description: 'Natural conversation practice with Alex',
+            icon: '💬'
+        },
+        {
+            mode: ConversationMode.READING_PRACTICE,
+            name: 'Reading Practice',
+            description: 'Practice reading German texts aloud with feedback',
+            icon: '📖'
+        },
+        {
+            mode: ConversationMode.VOCABULARY_BUILDER,
+            name: 'Vocabulary Builder',
+            description: 'Learn and practice new German words',
+            icon: '📚'
+        },
+        {
+            mode: ConversationMode.GRAMMAR_DRILL,
+            name: 'Grammar Drill',
+            description: 'Interactive grammar exercises with corrections',
+            icon: '✏️'
+        },
+        {
+            mode: ConversationMode.LISTENING_COMPREHENSION,
+            name: 'Listening Comprehension',
+            description: 'Listen to stories and answer questions',
+            icon: '👂'
+        }
+    ];
 
     // Get learning plan params if conversation started from a learning plan item
     const weekNumber = searchParams.get('week');
@@ -180,7 +215,7 @@ const ConversationPage: React.FC = () => {
             // Start database session
             console.log('💾 Starting database session...');
             sessionStartTimeRef.current = new Date();
-            const { sessionId, error: dbError } = await startDBSession(user.id);
+            const { sessionId, error: dbError } = await startDBSession(user.id, selectedMode);
 
             if (dbError || !sessionId) {
                 console.error('❌ Failed to start DB session:', dbError);
@@ -208,7 +243,7 @@ const ConversationPage: React.FC = () => {
             const userName = userData?.full_name?.split(' ')[0]; // First name only
             const motherLanguage = userProfile?.mother_language;
 
-            console.log('🤖 Starting Gemini session with:', { userLevel, userName, motherLanguage, hasPreviousFeedback: !!lastFeedback });
+            console.log('🤖 Starting Gemini session with:', { userLevel, userName, motherLanguage, hasPreviousFeedback: !!lastFeedback, mode: selectedMode });
             sessionPromiseRef.current = startGeminiSession({
                 onopen: () => {
                     console.log('✅ Gemini session opened - connected!');
@@ -235,7 +270,7 @@ const ConversationPage: React.FC = () => {
                 onclose: () => {
                     // This can be handled if needed, but stopping handles cleanup.
                 },
-            }, userLevel, userName, motherLanguage, lastFeedback);
+            }, userLevel, userName, motherLanguage, lastFeedback, selectedMode);
 
         } catch (err) {
             console.error("❌ Failed to start conversation:", err);
@@ -408,6 +443,32 @@ const ConversationPage: React.FC = () => {
                     </div>
                 </div>
             </Card>
+
+            {/* Mode Selector */}
+            {status === 'idle' || status === 'error' ? (
+                <div className="max-w-3xl mx-auto mb-6">
+                    <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Choose Your Learning Mode</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                        {conversationModes.map((modeInfo) => (
+                            <button
+                                key={modeInfo.mode}
+                                onClick={() => setSelectedMode(modeInfo.mode)}
+                                className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                                    selectedMode === modeInfo.mode
+                                        ? 'bg-gradient-to-br from-blue-600 to-indigo-600 border-blue-600 text-white shadow-lg scale-105'
+                                        : 'bg-white border-gray-200 text-gray-700 hover:border-blue-300 hover:shadow-md'
+                                }`}
+                            >
+                                <div className="text-3xl mb-2">{modeInfo.icon}</div>
+                                <div className="font-bold text-sm mb-1">{modeInfo.name}</div>
+                                <div className={`text-xs ${selectedMode === modeInfo.mode ? 'text-blue-100' : 'text-gray-500'}`}>
+                                    {modeInfo.description}
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
 
             <Card className="max-w-3xl mx-auto">
                 <div className="flex justify-center items-center mb-6 space-x-4">

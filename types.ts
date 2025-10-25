@@ -54,3 +54,18 @@ export interface Transcript {
     speaker: 'user' | 'model';
     text: string;
 }
+
+export enum ConversationMode {
+  FREE_CONVERSATION = "FREE_CONVERSATION",
+  READING_PRACTICE = "READING_PRACTICE",
+  VOCABULARY_BUILDER = "VOCABULARY_BUILDER",
+  GRAMMAR_DRILL = "GRAMMAR_DRILL",
+  LISTENING_COMPREHENSION = "LISTENING_COMPREHENSION",
+}
+
+export interface ConversationModeInfo {
+  mode: ConversationMode;
+  name: string;
+  description: string;
+  icon: string;
+}

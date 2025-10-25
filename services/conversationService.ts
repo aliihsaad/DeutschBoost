@@ -1,6 +1,6 @@
 import { supabase } from '../src/lib/supabase';
 import { ai } from './geminiService';
-import { CEFRLevel } from '../types';
+import { CEFRLevel, ConversationMode } from '../types';
 import { Transcript } from '../types';
 
 /**
@@ -25,7 +25,8 @@ export interface ConversationFeedback {
  * Returns the session ID to be used for updates
  */
 export const startConversationSession = async (
-  userId: string
+  userId: string,
+  mode: ConversationMode = ConversationMode.FREE_CONVERSATION
 ): Promise<{ sessionId: string | null; error: Error | null }> => {
   try {
     const { data, error } = await supabase
@@ -34,6 +35,7 @@ export const startConversationSession = async (
         user_id: userId,
         transcript: [],
         started_at: new Date().toISOString(),
+        mode: mode,
       })
       .select('id')
       .single();
