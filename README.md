@@ -6,6 +6,13 @@ A personalized German language learning platform powered by AI. Learn German thr
 
 ## 🎉 What's New (Latest Updates)
 
+### Recent Improvements (2025)
+- ✅ **Fixed Activity Completion System**: Learning plan items now use database IDs for accurate completion tracking - no more wrong activities being marked complete!
+- ✅ **Reading in German**: Reading comprehension questions and answer choices now in German for authentic practice
+- ✅ **Speaking Practice Overhaul**: Dedicated speaking activity page with real-time AI audio, automatic scoring, and learning plan integration
+- ✅ **Enhanced Placement Test**: 3-section comprehensive assessment (Reading + Grammar + Writing) for more accurate level evaluation
+- ✅ **Study Streak Tracking**: Track consecutive study days and total study time across all activities
+
 ### Conversation History & AI Context Awareness
 - ✅ **Session Memory**: Every conversation is saved with complete transcripts and AI feedback
 - ✅ **Smart History View**: Browse past conversations with expandable cards showing scores, feedback, and full transcripts
@@ -29,13 +36,20 @@ A personalized German language learning platform powered by AI. Learn German thr
 - Automatic progress tracking and completion status
 
 ### 🎮 Interactive Learning Activities
-Five types of AI-generated activities:
+Six types of AI-generated activities, all fully working:
 
-1. **Grammar Exercises**: Fill-in-the-blank questions with detailed explanations
+1. **Grammar Exercises**: Fill-in-the-blank questions with detailed explanations in your native language
 2. **Vocabulary Practice**: Flashcard-style matching and translation exercises
-3. **Listening Comprehension**: Audio-based exercises with questions (coming soon)
-4. **Writing Tasks**: AI-evaluated writing with feedback on grammar, vocabulary, and fluency
-5. **Speaking Practice**: Real-time AI conversation partner using voice recognition
+3. **Reading Comprehension**: German texts with questions and answer choices in German (authentic exam-style practice)
+4. **Listening Comprehension**: Audio-based exercises with comprehension questions
+5. **Writing Tasks**: AI-evaluated writing with feedback on grammar, vocabulary, and fluency
+6. **Speaking Practice**: Real-time AI conversation partner with topic-specific guidance from your learning plan
+
+**Integrated Learning Plan Activities:**
+- Each week's learning plan includes specific activities across all six skill areas
+- Activities are dynamically generated based on your CEFR level
+- Automatic completion tracking when you achieve 70%+ score
+- Progress syncs with study streak and total study time
 
 ### 💬 AI Conversation Partner (with Memory!)
 **Real-time voice conversations with Alex, your AI German tutor:**
@@ -53,13 +67,58 @@ Five types of AI-generated activities:
 - 🌐 **CEFR-Adapted**: Alex adjusts speaking style, vocabulary, and complexity based on your level (A1-C2)
 - 🔄 **Continuous Improvement**: AI tracks recurring grammar patterns and suggests vocabulary naturally
 
+### 🎭 Multiple Conversation Modes
+Choose from 5 specialized learning modes in the AI Conversation Partner:
+
+1. **Free Conversation** 💬
+   - Natural, open-ended conversation practice
+   - Alex adapts topics to your interests
+   - Perfect for building conversational confidence
+
+2. **Reading Practice** 📖
+   - Alex presents German texts appropriate for your level
+   - Read aloud and receive pronunciation feedback
+   - Patient AI that waits for you to finish before commenting
+   - Detailed feedback on articulation and fluency
+
+3. **Vocabulary Builder** 📚
+   - Learn 2-3 new words each session
+   - Instructions in your native language, German words with examples
+   - Practice creating sentences with new vocabulary
+   - Immediate corrections and better phrasing suggestions
+
+4. **Grammar Drill** ✏️
+   - Interactive error identification exercises
+   - Conducted 90% in German for immersion
+   - Find mistakes in sentences and explain corrections
+   - Multiple examples of the same grammar pattern for reinforcement
+
+5. **Listening Comprehension** 👂
+   - Alex tells stories or describes situations
+   - Answer comprehension questions verbally
+   - Improves listening skills at natural speaking speeds
+   - Questions about main ideas, details, and inferences
+
+### 🎤 Integrated Speaking Practice
+**Speaking activities from your learning plan with dedicated AI support:**
+- Topic-specific conversations based on learning plan items
+- AI focuses conversation on the assigned topic (e.g., "Introducing yourself", "Family", "Hobbies")
+- Real-time voice interaction with Gemini Live AI
+- Automatic evaluation and scoring after session ends
+- Auto-completes learning plan item when you score 70%+
+- Returns you to learning plan with progress saved
+- Study time and streak tracking included
+
 ### 📊 Progress Tracking & Analytics
 - 📈 **Conversation History**: View all past conversation sessions with scores and detailed feedback
-- ✅ **Learning Plan Progress**: Track completion of weekly learning activities
-- 📅 **Study Streak**: Monitor your daily learning consistency
+- ✅ **Learning Plan Progress**: Track completion of weekly learning activities with database-backed accuracy
+- 🔥 **Study Streak**: Monitor consecutive days of study - streak increments when you study on consecutive days
+- ⏱️ **Total Study Time**: Track cumulative study time across all activities (conversations, exercises, reading, etc.)
+- 📝 **Study Sessions**: Detailed records of each study session with activity type, duration, and items completed
 - 📊 **Performance Metrics**: Detailed analytics on your strengths and improvement areas
 - 🎯 **Score Trends**: See your progress over time across multiple conversations
 - 🏆 **Achievements**: Celebrate milestones and learning goals
+- 💯 **Auto-Completion**: Learning plan items automatically mark complete when you score 70%+ on activities
 
 ### 🌍 Multi-Language Support
 - Set your native language for better learning experience
@@ -193,13 +252,27 @@ DeutschBoost/
 │   ├── pages/          # Auth pages (Login, Signup)
 │   └── types/          # TypeScript type definitions
 ├── components/         # Main components
-│   └── ConversationHistoryCard.tsx  # NEW: History display component
+│   ├── ConversationHistoryCard.tsx  # History display component
+│   ├── Card.tsx                     # Reusable card component
+│   └── LoadingSpinner.tsx           # Loading state component
 ├── pages/             # Application pages
-│   └── ConversationPage.tsx  # UPDATED: Now with history & context
+│   ├── ConversationPage.tsx       # AI conversation with 5 modes & history
+│   ├── SpeakingActivityPage.tsx   # NEW: Dedicated speaking practice
+│   ├── ActivityPage.tsx           # Learning plan activity handler
+│   ├── LearningPlanPage.tsx       # 4-week learning plan display
+│   ├── EnhancedPlacementTestPage.tsx  # 3-section placement test
+│   ├── ProfilePage.tsx            # User profile & settings
+│   └── HomePage.tsx               # Landing page
 ├── services/          # API services
-│   ├── geminiService.ts        # UPDATED: Context-aware prompts
-│   └── conversationService.ts  # NEW: History & feedback management
+│   ├── geminiService.ts           # AI prompts for all 5 conversation modes
+│   ├── conversationService.ts     # History & feedback management
+│   ├── learningPlanService.ts     # Learning plan & progress tracking
+│   └── activityService.ts         # Activity generation (Grammar, Vocab, Reading, etc.)
 ├── supabase_migrations/  # Database migrations
+│   ├── 00_diagnostic_and_fix.sql       # Initial schema setup
+│   ├── 001_add_reading_skill.sql       # Add Reading skill support
+│   ├── 002_add_mother_language.sql     # Multi-language support
+│   └── 003_add_speaking_activity_mode.sql  # Speaking activity mode
 └── public/            # Static assets
 ```
 
