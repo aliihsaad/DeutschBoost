@@ -12,6 +12,7 @@ export enum Page {
   Home = "Home",
   PlacementTest = "PlacementTest",
   LearningPlan = "LearningPlan",
+  Practice = "Practice",
   Conversation = "Conversation",
   Profile = "Profile",
 }
@@ -70,4 +71,76 @@ export interface ConversationModeInfo {
   name: string;
   description: string;
   icon: string;
+}
+
+// Practice-related types
+export type SkillType = 'Grammar' | 'Vocabulary' | 'Listening' | 'Writing' | 'Speaking' | 'Reading';
+export type ActivityTypeExtended = SkillType | 'Mock Exam';
+
+export interface PracticeSession {
+  id: string;
+  user_id: string;
+  activity_type: ActivityTypeExtended;
+  topic?: string;
+  level: CEFRLevel;
+  score?: number;
+  duration_minutes: number;
+  items_completed?: number;
+  is_mock_exam: boolean;
+  exam_sections?: {
+    reading?: number;
+    writing?: number;
+    listening?: number;
+    speaking?: number;
+  };
+  feedback?: string;
+  strengths?: string[];
+  areas_for_improvement?: string[];
+  started_at: string;
+  completed_at: string;
+}
+
+export interface DailyPracticeSuggestion {
+  id: string;
+  user_id: string;
+  skill_type: SkillType;
+  topic: string;
+  reason: string;
+  level: CEFRLevel;
+  priority: number; // 1-5, 1 being highest
+  is_completed: boolean;
+  is_dismissed: boolean;
+  suggested_date: string;
+  completed_at?: string;
+  created_at: string;
+}
+
+export interface PracticeStats {
+  total_sessions: number;
+  total_minutes: number;
+  average_score: number;
+  skills_practiced: Record<ActivityTypeExtended, number>;
+  recent_sessions: Array<{
+    id: string;
+    activity_type: ActivityTypeExtended;
+    topic?: string;
+    score?: number;
+    completed_at: string;
+  }>;
+}
+
+export interface ExamSection {
+  name: 'Lesen' | 'Hören' | 'Schreiben' | 'Sprechen';
+  description: string;
+  duration_minutes: number;
+  score?: number;
+  feedback?: string;
+}
+
+export interface MockExam {
+  level: CEFRLevel;
+  sections: ExamSection[];
+  total_duration_minutes: number;
+  started_at?: string;
+  completed_at?: string;
 }

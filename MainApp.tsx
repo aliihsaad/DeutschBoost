@@ -8,6 +8,8 @@ import ConversationPage from './pages/ConversationPage';
 import SpeakingActivityPage from './pages/SpeakingActivityPage';
 import ProfilePage from './pages/ProfilePage';
 import ActivityPage from './pages/ActivityPage';
+import { PracticePage } from './pages/PracticePage';
+import { ExamSimulatorPage } from './pages/ExamSimulatorPage';
 import { Page, CEFRLevel, TestResult, LearningPlan } from './types';
 import { generateLearningPlan } from './services/geminiService';
 import { loadActiveLearningPlan, saveLearningPlan, updatePlanItemCompletion } from './services/learningPlanService';
@@ -143,6 +145,8 @@ const MainApp: React.FC = () => {
           <Route path="/" element={<HomePage setPage={setCurrentPage} learningPlan={learningPlan} userLevel={userLevel} />} />
           <Route path="/placement-test" element={<EnhancedPlacementTestPage onTestComplete={handleTestComplete} />} />
           <Route path="/learning-plan" element={<LearningPlanPage learningPlan={learningPlan} loading={loadingPlan} />} />
+          <Route path="/practice" element={<PracticePage />} />
+          <Route path="/exam-simulator" element={<ExamSimulatorPage />} />
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/speaking-activity" element={<SpeakingActivityPage />} />
           <Route path="/conversation" element={<ConversationPage />} />

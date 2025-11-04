@@ -81,6 +81,9 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setPage }) => {
             <NavItem to="/learning-plan" icon="fa-map-signs" isActive={isActive('/learning-plan')}>
               Plan
             </NavItem>
+            <NavItem to="/practice" icon="fa-dumbbell" isActive={isActive('/practice')}>
+              Practice
+            </NavItem>
             <NavItem to="/conversation" icon="fa-microphone-alt" isActive={isActive('/conversation')}>
               Speak
             </NavItem>
@@ -118,6 +121,9 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setPage }) => {
             </NavItem>
             <NavItem to="/learning-plan" icon="fa-map-signs" isActive={isActive('/learning-plan')} onClick={closeMobileMenu}>
               Plan
+            </NavItem>
+            <NavItem to="/practice" icon="fa-dumbbell" isActive={isActive('/practice')} onClick={closeMobileMenu}>
+              Practice
             </NavItem>
             <NavItem to="/conversation" icon="fa-microphone-alt" isActive={isActive('/conversation')} onClick={closeMobileMenu}>
               Speak
