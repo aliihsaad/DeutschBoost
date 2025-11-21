@@ -140,8 +140,8 @@ User's Native Language: ${motherLanguage}
 
 Generate 3 listening questions. Each should have:
 - A short German text (2-4 sentences) that will be read aloud to the student
-- A comprehension question in ${motherLanguage}
-- 4 multiple choice answers in ${motherLanguage}
+- A comprehension question in German
+- 4 multiple choice answers in German
 - The correct answer index (0-3)
 
 Return a JSON object with this structure:
@@ -151,8 +151,8 @@ Return a JSON object with this structure:
   "questions": [
     {
       "audio_text": "Heute ist das Wetter sehr schön. Die Sonne scheint und es ist warm. Perfekt für einen Spaziergang im Park.",
-      "question": "What is the weather like today?",
-      "options": ["Cold and rainy", "Sunny and warm", "Cloudy", "Snowy"],
+      "question": "Wie ist das Wetter heute?",
+      "options": ["Kalt und regnerisch", "Sonnig und warm", "Bewölkt", "Schnee"],
       "correct_option": 1
     }
   ]
