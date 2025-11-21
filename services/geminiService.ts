@@ -2,6 +2,7 @@
 import { GoogleGenAI, LiveConnectSession, LiveServerMessage, Modality, Type, GenerateContentResponse, Blob } from "@google/genai";
 import { CEFRLevel, LearningPlan, TestResult, ConversationMode } from '../types';
 import { ConversationFeedback } from './conversationService';
+import { parseAiJsonResponse } from '../utils/safeJsonParse';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable is not set");
@@ -155,8 +156,8 @@ Provide detailed feedback on strengths, weaknesses, and specific recommendations
             thinkingConfig: { thinkingBudget: 32768 }
         }
     });
-    const resultJson = JSON.parse(response.text);
-    return resultJson as TestResult;
+    const resultJson = parseAiJsonResponse<TestResult>(response.text, 'placement test evaluation');
+    return resultJson;
 };
 
 // Legacy function for simple writing evaluation
@@ -185,8 +186,8 @@ export const evaluateWriting = async (prompt: string, userText: string): Promise
             thinkingConfig: { thinkingBudget: 32768 }
         }
     });
-    const resultJson = JSON.parse(response.text);
-    return resultJson as TestResult;
+    const resultJson = parseAiJsonResponse<TestResult>(response.text, 'writing evaluation');
+    return resultJson;
 };
 
 
@@ -236,16 +237,20 @@ export const generateLearningPlan = async (evaluation: TestResult): Promise<Lear
             thinkingConfig: { thinkingBudget: 32768 }
         }
     });
-    
-    const parsedJson = JSON.parse(response.text);
-    // Add 'completed' field to each item
-    parsedJson.weeks.forEach((week: any) => {
-        week.items.forEach((item: any) => {
-            item.completed = false;
-        });
-    });
 
-    return parsedJson as LearningPlan;
+    const parsedJson = parseAiJsonResponse<LearningPlan>(response.text, 'learning plan');
+    // Add 'completed' field to each item
+    if (parsedJson.weeks) {
+        parsedJson.weeks.forEach((week: any) => {
+            if (week.items) {
+                week.items.forEach((item: any) => {
+                    item.completed = false;
+                });
+            }
+        });
+    }
+
+    return parsedJson;
 };
 
 

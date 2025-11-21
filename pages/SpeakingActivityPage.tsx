@@ -9,6 +9,7 @@ import { startConversationSession as startGeminiSession, decode, decodeAudioData
 import { startConversationSession as startDBSession, endConversationSession } from '../services/conversationService';
 import { ConversationMode, Transcript } from '../types';
 import { LiveConnectSession, LiveServerMessage } from "@google/genai";
+import { safeJsonParse } from '../utils/safeJsonParse';
 
 const SpeakingActivityPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -145,11 +146,19 @@ const SpeakingActivityPage: React.FC = () => {
 
       sessionIdRef.current = sessionId;
 
+      // Create audio contexts with browser compatibility
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) {
+        toast.error('Your browser does not support audio features');
+        setStatus('error');
+        return;
+      }
+
       if (!outputAudioContextRef.current) {
-        outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        outputAudioContextRef.current = new AudioContextClass({ sampleRate: 24000 });
       }
       if (!inputAudioContextRef.current) {
-        inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+        inputAudioContextRef.current = new AudioContextClass({ sampleRate: 16000 });
       }
 
       mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -169,6 +178,8 @@ const SpeakingActivityPage: React.FC = () => {
             const pcmBlob = createPcmBlob(inputData);
             sessionPromiseRef.current?.then((session) => {
               session.sendRealtimeInput({ media: pcmBlob });
+            }).catch((err) => {
+              console.error('Failed to send audio input:', err);
             });
           };
           mediaStreamSourceRef.current.connect(scriptProcessorRef.current);
@@ -250,9 +261,18 @@ const SpeakingActivityPage: React.FC = () => {
           .single();
 
         if (data?.feedback) {
-          const parsedFeedback = typeof data.feedback === 'string' ? JSON.parse(data.feedback) : data.feedback;
+          const parsedFeedback = typeof data.feedback === 'string'
+            ? safeJsonParse(data.feedback)
+            : data.feedback;
+
+          if (!parsedFeedback) {
+            toast.dismiss();
+            toast.error('Failed to parse evaluation');
+            return;
+          }
+
           setEvaluation(parsedFeedback);
-          setScore(parsedFeedback.overall_score);
+          setScore(parsedFeedback.overall_score || 0);
           setShowResults(true);
           toast.dismiss();
 
@@ -260,6 +280,9 @@ const SpeakingActivityPage: React.FC = () => {
           if (parsedFeedback.overall_score >= 70) {
             await markActivityComplete(parsedFeedback.overall_score);
           }
+        } else {
+          toast.dismiss();
+          toast.error('No evaluation received');
         }
       }
     } catch (err) {

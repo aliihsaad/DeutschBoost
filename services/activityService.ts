@@ -10,6 +10,7 @@ import {
   WritingEvaluation,
   ActivityType,
 } from '../src/types/activity.types';
+import { parseAiJsonResponse } from '../utils/safeJsonParse';
 
 /**
  * Generate a grammar exercise based on topic and level
@@ -63,7 +64,7 @@ Return a JSON object with this exact structure:
     },
   });
 
-  return JSON.parse(response.text);
+  return parseAiJsonResponse<GrammarActivity>(response.text, 'grammar activity');
 };
 
 /**
@@ -107,7 +108,7 @@ Return a JSON object with this structure:
     },
   });
 
-  return JSON.parse(response.text);
+  return parseAiJsonResponse<VocabularyActivity>(response.text, 'vocabulary activity');
 };
 
 /**
@@ -161,7 +162,7 @@ Return a JSON object with this structure:
     },
   });
 
-  return JSON.parse(response.text);
+  return parseAiJsonResponse<ListeningActivity>(response.text, 'listening activity');
 };
 
 /**
@@ -216,7 +217,7 @@ Return a JSON object with this structure:
     },
   });
 
-  return JSON.parse(response.text);
+  return parseAiJsonResponse<WritingActivity>(response.text, 'writing activity');
 };
 
 /**
@@ -269,7 +270,7 @@ Return a JSON object with this structure:
     },
   });
 
-  return JSON.parse(response.text);
+  return parseAiJsonResponse<WritingEvaluation>(response.text, 'writing evaluation');
 };
 
 /**
@@ -320,7 +321,7 @@ Return a JSON object with this structure:
     },
   });
 
-  return JSON.parse(response.text);
+  return parseAiJsonResponse<SpeakingActivity>(response.text, 'speaking activity');
 };
 
 /**
@@ -378,7 +379,7 @@ Return a JSON object with this structure:
     },
   });
 
-  return JSON.parse(response.text);
+  return parseAiJsonResponse<ReadingActivity>(response.text, 'reading activity');
 };
 
 /**
