@@ -5,7 +5,6 @@ import LocalDashboardPage from './pages/LocalDashboardPage';
 import LocalSettingsPage from './pages/LocalSettingsPage';
 import EnhancedPlacementTestPage from './pages/EnhancedPlacementTestPage';
 import LearningPlanPage from './pages/LearningPlanPage';
-import ConversationPage from './pages/ConversationPage';
 import SpeakingActivityPage from './pages/SpeakingActivityPage';
 import ProfilePage from './pages/ProfilePage';
 import ActivityPage from './pages/ActivityPage';
@@ -101,6 +100,7 @@ const MainApp: React.FC = () => {
 
   const providerRuntime = useMemo(() => createLocalProviderRuntime(providerSettings), [providerSettings]);
   const runtimeAiProvider = providerRuntime.aiProvider ?? undefined;
+  const runtimeSpeechProvider = providerRuntime.speechProvider ?? undefined;
 
   const handleTestComplete = useCallback(
     async (result: TestResult) => {
@@ -182,8 +182,24 @@ const MainApp: React.FC = () => {
           <Route path="/exam" element={<ExamSimulatorPage />} />
           <Route path="/exam-simulator" element={<ExamSimulatorPage />} />
           <Route path="/activity" element={<ActivityPage aiProvider={runtimeAiProvider} />} />
-          <Route path="/speaking-activity" element={<SpeakingActivityPage aiProvider={runtimeAiProvider} />} />
-          <Route path="/conversation" element={<ConversationPage />} />
+          <Route
+            path="/speaking-activity"
+            element={
+              <SpeakingActivityPage
+                aiProvider={runtimeAiProvider}
+                speechProvider={runtimeSpeechProvider}
+              />
+            }
+          />
+          <Route
+            path="/conversation"
+            element={
+              <SpeakingActivityPage
+                aiProvider={runtimeAiProvider}
+                speechProvider={runtimeSpeechProvider}
+              />
+            }
+          />
           <Route
             path="/settings"
             element={

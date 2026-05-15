@@ -92,6 +92,7 @@ const buildTranscriptionUrl = (
   params.set('model', request.options?.model ?? providerOptions.model ?? DEFAULT_MODEL);
   params.set('language', request.options?.language ?? providerOptions.language ?? DEFAULT_LANGUAGE);
   appendOptionalBoolean(params, 'punctuate', request.options?.punctuation);
+  appendOptionalBoolean(params, 'smart_format', request.options?.smartFormat);
   appendOptionalBoolean(params, 'diarize', request.options?.diarize);
 
   return `${providerOptions.baseUrl ?? DEFAULT_BASE_URL}?${params.toString()}`;

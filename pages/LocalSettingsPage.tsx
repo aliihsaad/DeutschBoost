@@ -15,18 +15,13 @@ import {
   type DeepgramApiKeyTestResult,
 } from '../src/domain/speech/deepgramProvider';
 import type { SpeechTranscriptionResult } from '../src/domain/speech/speechProvider';
+import { recordAudioSample, type RecordedAudioSample } from '../src/infrastructure/browser/audioRecorder';
 import { browserProviderSettingsRepository } from '../src/infrastructure/browser/providerSettingsStorage';
 import { describeProviderStatus, type ProviderSettingsSnapshot } from '../src/ui/providerStatusModel';
 
 type DeepgramApiKeyTester = (apiKey: string) => Promise<DeepgramApiKeyTestResult>;
 type DeepgramAudioRecorder = () => Promise<RecordedAudioSample>;
 type DeepgramAudioTester = (request: DeepgramAudioTestRequest) => Promise<SpeechTranscriptionResult>;
-
-interface RecordedAudioSample {
-  audio: Blob;
-  mimeType: string;
-  playbackUrl?: string;
-}
 
 interface DeepgramAudioTestRequest {
   apiKey: string;
@@ -50,7 +45,7 @@ type ConnectionTestState = 'idle' | 'testing' | 'success' | 'error';
 const defaultDeepgramApiKeyTester: DeepgramApiKeyTester = apiKey =>
   testDeepgramApiKey({ apiKey });
 
-const defaultDeepgramAudioRecorder: DeepgramAudioRecorder = () => recordDeepgramTestAudio();
+const defaultDeepgramAudioRecorder: DeepgramAudioRecorder = () => recordAudioSample();
 
 const defaultDeepgramAudioTester: DeepgramAudioTester = request =>
   createDeepgramSpeechProvider({
@@ -557,79 +552,10 @@ function hasSecret(value: string | undefined): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-async function recordDeepgramTestAudio(durationMs = 3500): Promise<RecordedAudioSample> {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error('Microphone recording is not available in this browser');
-  }
-
-  if (typeof MediaRecorder === 'undefined') {
-    throw new Error('Audio recording is not available in this browser');
-  }
-
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-  try {
-    const mimeType = selectRecordingMimeType();
-    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-    const chunks: Blob[] = [];
-    const stopped = new Promise<void>((resolve, reject) => {
-      recorder.ondataavailable = event => {
-        if (event.data.size > 0) {
-          chunks.push(event.data);
-        }
-      };
-      recorder.onerror = () => reject(new Error('Microphone recording failed'));
-      recorder.onstop = () => resolve();
-    });
-
-    recorder.start();
-    await delay(durationMs);
-
-    if (recorder.state !== 'inactive') {
-      recorder.stop();
-    }
-
-    await stopped;
-
-    const recordedMimeType = recorder.mimeType || mimeType || 'audio/webm';
-    const audio = new Blob(chunks, { type: recordedMimeType });
-
-    if (audio.size === 0) {
-      throw new Error('No audio was recorded');
-    }
-
-    return {
-      audio,
-      mimeType: recordedMimeType,
-      playbackUrl: createPlaybackUrl(audio),
-    };
-  } finally {
-    stream.getTracks().forEach(track => track.stop());
-  }
-}
-
-function selectRecordingMimeType(): string | undefined {
-  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
-
-  if (typeof MediaRecorder.isTypeSupported !== 'function') {
-    return undefined;
-  }
-
-  return candidates.find(candidate => MediaRecorder.isTypeSupported(candidate));
-}
-
-function createPlaybackUrl(audio: Blob): string | undefined {
-  return typeof URL.createObjectURL === 'function' ? URL.createObjectURL(audio) : undefined;
-}
-
 function releasePlaybackUrl(url: string | null | undefined): void {
   if (url && typeof URL.revokeObjectURL === 'function') {
     URL.revokeObjectURL(url);
   }
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
 export default LocalSettingsPage;

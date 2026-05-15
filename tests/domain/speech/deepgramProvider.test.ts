@@ -43,6 +43,7 @@ describe('createDeepgramSpeechProvider', () => {
       mimeType: 'audio/webm',
       options: {
         punctuation: true,
+        smartFormat: true,
         diarize: true,
       },
     });
@@ -56,7 +57,7 @@ describe('createDeepgramSpeechProvider', () => {
     });
     expect(result.rawText).toBe('  Guten   Morgen, ich lerne Deutsch. ');
     expect(fetchFn).toHaveBeenCalledWith(
-      '/api/deepgram/v1/listen?model=nova-3&language=de&punctuate=true&diarize=true',
+      '/api/deepgram/v1/listen?model=nova-3&language=de&punctuate=true&smart_format=true&diarize=true',
       expect.objectContaining({
         method: 'POST',
         headers: {

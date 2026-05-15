@@ -6,6 +6,10 @@ const activityPageProps = vi.hoisted(() => ({
   latest: null as null | { aiProvider?: { id: string } },
 }));
 
+const speakingPageProps = vi.hoisted(() => ({
+  latest: null as null | { aiProvider?: { id: string }; speechProvider?: { id: string } },
+}));
+
 const providerSettingsRepository = vi.hoisted(() => ({
   load: vi.fn(),
 }));
@@ -56,7 +60,10 @@ vi.mock('../pages/ConversationPage', () => ({
 }));
 
 vi.mock('../pages/SpeakingActivityPage', () => ({
-  default: () => <main>Speaking</main>,
+  default: (props: { aiProvider?: { id: string }; speechProvider?: { id: string } }) => {
+    speakingPageProps.latest = props;
+    return <main>Speaking</main>;
+  },
 }));
 
 vi.mock('../pages/ProfilePage', () => ({
@@ -105,6 +112,37 @@ describe('MainApp provider runtime', () => {
 
     await waitFor(() => {
       expect(activityPageProps.latest?.aiProvider?.id).toBe('openrouter');
+    });
+  });
+
+  it('passes saved OpenRouter and Deepgram providers into the local conversation route', async () => {
+    providerSettingsRepository.load.mockResolvedValue({
+      ai: {
+        enabled: true,
+        provider: 'openrouter',
+        apiKey: 'openrouter-key',
+        model: 'openrouter/auto',
+      },
+      speech: {
+        enabled: true,
+        provider: 'deepgram',
+        apiKey: 'deepgram-key',
+        model: 'nova-3',
+        language: 'de',
+      },
+    });
+
+    const { default: MainApp } = await import('../MainApp');
+
+    render(
+      <MemoryRouter initialEntries={['/conversation']}>
+        <MainApp />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(speakingPageProps.latest?.aiProvider?.id).toBe('openrouter');
+      expect(speakingPageProps.latest?.speechProvider?.id).toBe('deepgram');
     });
   });
 });

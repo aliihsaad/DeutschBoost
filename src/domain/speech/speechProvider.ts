@@ -4,6 +4,7 @@ export interface SpeechTranscriptionOptions {
   language?: string;
   model?: string;
   punctuation?: boolean;
+  smartFormat?: boolean;
   diarize?: boolean;
 }
 

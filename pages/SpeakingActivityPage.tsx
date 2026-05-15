@@ -1,492 +1,484 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { CEFRLevel } from '../types';
-import Card from '../components/Card';
-import LoadingSpinner from '../components/LoadingSpinner';
-import toast from 'react-hot-toast';
-import { useAuth } from '../src/contexts/AuthContext';
-import { startConversationSession as startGeminiSession, decode, decodeAudioData, createPcmBlob } from '../services/geminiService';
-import { startConversationSession as startDBSession, endConversationSession } from '../services/conversationService';
-import { ConversationMode, Transcript } from '../types';
-import { LiveConnectSession, LiveServerMessage } from "@google/genai";
-import { safeJsonParse } from '../utils/safeJsonParse';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { generateLocalConversationFeedback } from '../src/application/conversationFeedback';
+import { runTurnBasedConversationTurn } from '../src/application/turnBasedConversation';
 import type { AiProvider } from '../src/domain/ai/aiProvider';
+import type {
+  ConversationFeedbackRecord,
+  ConversationRepository,
+} from '../src/domain/conversation/conversationRepository';
+import type { SpeechProvider } from '../src/domain/speech/speechProvider';
+import type { TranscriptTurn } from '../src/domain/speech/transcriptTypes';
+import {
+  browserConversationRepository,
+} from '../src/infrastructure/browser/conversationStorage';
+import {
+  startBrowserAudioRecording,
+  type ActiveAudioRecording,
+} from '../src/infrastructure/browser/audioRecorder';
+import { useAuth } from '../src/contexts/AuthContext';
+import { CEFRLevel, ConversationMode } from '../types';
+
+type ConversationStatus =
+  | 'idle'
+  | 'starting'
+  | 'ready'
+  | 'recording'
+  | 'processing'
+  | 'ending'
+  | 'ended'
+  | 'error';
+
+type ConversationAudioRecorder = () => Promise<ActiveAudioRecording>;
 
 interface SpeakingActivityPageProps {
   aiProvider?: AiProvider;
+  speechProvider?: SpeechProvider;
+  conversationRepository?: ConversationRepository;
+  audioRecorder?: ConversationAudioRecorder;
 }
 
-const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({ aiProvider }) => {
+interface ConversationModeOption {
+  mode: ConversationMode;
+  label: string;
+  detail: string;
+  icon: string;
+}
+
+const LOCAL_LEARNER_ID = 'local-learner';
+
+const MODE_OPTIONS: ConversationModeOption[] = [
+  {
+    mode: ConversationMode.FREE_CONVERSATION,
+    label: 'Free talk',
+    detail: 'Short everyday turns with a natural follow-up.',
+    icon: 'fa-comments',
+  },
+  {
+    mode: ConversationMode.SPEAKING_ACTIVITY,
+    label: 'Roleplay',
+    detail: 'Practice a task, scene, or plan item.',
+    icon: 'fa-user-group',
+  },
+  {
+    mode: ConversationMode.GRAMMAR_DRILL,
+    label: 'Grammar repair',
+    detail: 'The tutor focuses each reply on one useful correction.',
+    icon: 'fa-wrench',
+  },
+  {
+    mode: ConversationMode.VOCABULARY_BUILDER,
+    label: 'Vocabulary activation',
+    detail: 'Use new words in complete spoken answers.',
+    icon: 'fa-layer-group',
+  },
+  {
+    mode: ConversationMode.READING_PRACTICE,
+    label: 'Reading aloud',
+    detail: 'Read a phrase, then answer a follow-up question.',
+    icon: 'fa-book-open',
+  },
+];
+
+const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
+  aiProvider,
+  speechProvider,
+  conversationRepository = browserConversationRepository,
+  audioRecorder = startBrowserAudioRecording,
+}) => {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { user, userProfile, userData } = useAuth();
+  const { user, userData, userProfile } = useAuth();
+  const activityTopic = searchParams.get('topic')?.trim() ?? '';
+  const activityDescription = searchParams.get('description')?.trim() ?? '';
+  const isPlanActivity = activityTopic.length > 0 || activityDescription.length > 0;
+  const routeLevel = searchParams.get('level') as CEFRLevel | null;
+  const initialMode = isPlanActivity ? ConversationMode.SPEAKING_ACTIVITY : ConversationMode.FREE_CONVERSATION;
 
-  // Get activity params from URL
-  const activityTopic = searchParams.get('topic') || '';
-  const activityDescription = searchParams.get('description') || '';
-  const level = searchParams.get('level') as CEFRLevel || CEFRLevel.A2;
-  const itemId = searchParams.get('itemId');
+  const [selectedMode, setSelectedMode] = useState<ConversationMode>(initialMode);
+  const [status, setStatus] = useState<ConversationStatus>('idle');
+  const [turns, setTurns] = useState<TranscriptTurn[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [lastAudioUrl, setLastAudioUrl] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<ConversationFeedbackRecord | null>(null);
+  const activeRecordingRef = useRef<ActiveAudioRecording | null>(null);
+  const transcriptRef = useRef<HTMLDivElement>(null);
 
-  const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'stopping' | 'evaluating' | 'error'>('idle');
-  const [transcripts, setTranscripts] = useState<Transcript[]>([]);
-  const [showResults, setShowResults] = useState(false);
-  const [evaluation, setEvaluation] = useState<any>(null);
-  const [score, setScore] = useState(0);
-  const [startTime] = useState(Date.now());
+  const providersReady = Boolean(aiProvider && speechProvider);
+  const learnerId = user?.id ?? LOCAL_LEARNER_ID;
+  const level = routeLevel ?? ((userProfile?.current_level as CEFRLevel | undefined) || CEFRLevel.A2);
+  const motherLanguage = userProfile?.mother_language || 'English';
+  const firstName = userData?.full_name?.split(' ')[0] || 'Learner';
 
-  const sessionIdRef = useRef<string | null>(null);
-  const sessionStartTimeRef = useRef<Date | null>(null);
-  const sessionPromiseRef = useRef<Promise<LiveConnectSession> | null>(null);
-  const inputAudioContextRef = useRef<AudioContext | null>(null);
-  const outputAudioContextRef = useRef<AudioContext | null>(null);
-  const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
-  const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const transcriptContainerRef = useRef<HTMLDivElement>(null);
+  const selectedModeOption = useMemo(
+    () => MODE_OPTIONS.find(option => option.mode === selectedMode) ?? MODE_OPTIONS[0],
+    [selectedMode]
+  );
 
-  const nextOutputStartTime = useRef(0);
-  const audioPlaybackSources = useRef(new Set<AudioBufferSourceNode>());
-  const currentInputTranscription = useRef('');
-  const currentOutputTranscription = useRef('');
-
-  // Auto-scroll transcripts
   useEffect(() => {
-    if (transcriptContainerRef.current) {
-      transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight;
+    if (isPlanActivity) {
+      setSelectedMode(ConversationMode.SPEAKING_ACTIVITY);
     }
-  }, [transcripts]);
+  }, [isPlanActivity]);
 
-  // Validate params
   useEffect(() => {
-    if (!activityTopic || !activityDescription) {
-      toast.error('Invalid activity parameters');
-      navigate('/learning-plan');
+    if (transcriptRef.current && typeof transcriptRef.current.scrollTo === 'function') {
+      transcriptRef.current.scrollTo({ top: transcriptRef.current.scrollHeight });
     }
-  }, [activityTopic, activityDescription, navigate]);
+  }, [turns]);
 
-  const handleMessage = useCallback(async (message: LiveServerMessage) => {
-    let inputTranscriptPart = '';
-    let outputTranscriptPart = '';
+  useEffect(() => {
+    return () => {
+      activeRecordingRef.current?.cancel();
+      releasePlaybackUrl(lastAudioUrl);
+    };
+  }, [lastAudioUrl]);
 
-    if (message.serverContent?.inputTranscription) {
-      inputTranscriptPart = message.serverContent.inputTranscription.text;
-      currentInputTranscription.current += inputTranscriptPart;
-    }
-    if (message.serverContent?.outputTranscription) {
-      outputTranscriptPart = message.serverContent.outputTranscription.text;
-      currentOutputTranscription.current += outputTranscriptPart;
-    }
-
-    setTranscripts(prev => {
-      const newTranscripts = [...prev];
-      if (inputTranscriptPart) {
-        const last = newTranscripts[newTranscripts.length - 1];
-        if (last && last.speaker === 'user') {
-          last.text += inputTranscriptPart;
-        } else {
-          newTranscripts.push({ id: Date.now(), speaker: 'user', text: inputTranscriptPart });
-        }
-      }
-      if (outputTranscriptPart) {
-        const last = newTranscripts[newTranscripts.length - 1];
-        if (last && last.speaker === 'model') {
-          last.text += outputTranscriptPart;
-        } else {
-          newTranscripts.push({ id: Date.now() + 1, speaker: 'model', text: outputTranscriptPart });
-        }
-      }
-      return newTranscripts;
-    });
-
-    if (message.serverContent?.turnComplete) {
-      currentInputTranscription.current = '';
-      currentOutputTranscription.current = '';
-    }
-
-    const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData.data;
-    if (base64Audio && outputAudioContextRef.current) {
-      const audioCtx = outputAudioContextRef.current;
-      nextOutputStartTime.current = Math.max(nextOutputStartTime.current, audioCtx.currentTime);
-      const audioBuffer = await decodeAudioData(decode(base64Audio), audioCtx, 24000, 1);
-
-      const source = audioCtx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioCtx.destination);
-      source.addEventListener('ended', () => {
-        audioPlaybackSources.current.delete(source);
-      });
-      source.start(nextOutputStartTime.current);
-      nextOutputStartTime.current += audioBuffer.duration;
-      audioPlaybackSources.current.add(source);
-    }
-
-    if (message.serverContent?.interrupted) {
-      for (const source of audioPlaybackSources.current.values()) {
-        source.stop();
-        audioPlaybackSources.current.delete(source);
-      }
-      nextOutputStartTime.current = 0;
-    }
-  }, []);
-
-  const startActivity = async () => {
-    if (!user) {
-      toast.error('Please log in to start activity');
+  async function handleStartSession() {
+    if (!providersReady) {
+      setMessage('Connect OpenRouter and Deepgram before starting a voice session.');
       return;
     }
 
-    setStatus('connecting');
-    setTranscripts([]);
+    setStatus('starting');
+    setMessage(null);
+    setTurns([]);
+    setFeedback(null);
+    setLastAudioUrl(current => {
+      releasePlaybackUrl(current);
+      return null;
+    });
 
     try {
-      // Start database session
-      sessionStartTimeRef.current = new Date();
-      const { sessionId, error: dbError } = await startDBSession(user.id, ConversationMode.SPEAKING_ACTIVITY);
-
-      if (dbError || !sessionId) {
-        toast.error('Failed to start session');
-        setStatus('error');
-        return;
-      }
-
-      sessionIdRef.current = sessionId;
-
-      // Create audio contexts with browser compatibility
-      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextClass) {
-        toast.error('Your browser does not support audio features');
-        setStatus('error');
-        return;
-      }
-
-      if (!outputAudioContextRef.current) {
-        outputAudioContextRef.current = new AudioContextClass({ sampleRate: 24000 });
-      }
-      if (!inputAudioContextRef.current) {
-        inputAudioContextRef.current = new AudioContextClass({ sampleRate: 16000 });
-      }
-
-      mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      const userLevel = userProfile?.current_level || CEFRLevel.A2;
-      const userName = userData?.full_name?.split(' ')[0];
-      const motherLanguage = userProfile?.mother_language;
-
-      sessionPromiseRef.current = startGeminiSession({
-        onopen: () => {
-          setStatus('connected');
-          const inputCtx = inputAudioContextRef.current!;
-          mediaStreamSourceRef.current = inputCtx.createMediaStreamSource(mediaStreamRef.current!);
-          scriptProcessorRef.current = inputCtx.createScriptProcessor(4096, 1, 1);
-          scriptProcessorRef.current.onaudioprocess = (audioProcessingEvent) => {
-            const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
-            const pcmBlob = createPcmBlob(inputData);
-            sessionPromiseRef.current?.then((session) => {
-              session.sendRealtimeInput({ media: pcmBlob });
-            }).catch((err) => {
-              console.error('Failed to send audio input:', err);
-            });
-          };
-          mediaStreamSourceRef.current.connect(scriptProcessorRef.current);
-          scriptProcessorRef.current.connect(inputCtx.destination);
-        },
-        onmessage: handleMessage,
-        onerror: (e) => {
-          toast.error('Connection error');
-          setStatus('error');
-        },
-        onclose: () => {},
-      }, userLevel, userName, motherLanguage, null, ConversationMode.SPEAKING_ACTIVITY, activityTopic, activityDescription);
-
-    } catch (err) {
-      console.error('Failed to start activity:', err);
-      toast.error('Failed to start activity');
-      setStatus('error');
-    }
-  };
-
-  const stopActivity = async () => {
-    setStatus('stopping');
-
-    try {
-      // Close the live session
-      if (sessionPromiseRef.current) {
-        const session = await sessionPromiseRef.current;
-        session.close();
-        sessionPromiseRef.current = null;
-      }
-
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-        mediaStreamRef.current = null;
-      }
-
-      if (scriptProcessorRef.current) {
-        scriptProcessorRef.current.disconnect();
-        scriptProcessorRef.current = null;
-      }
-      if (mediaStreamSourceRef.current) {
-        mediaStreamSourceRef.current.disconnect();
-        mediaStreamSourceRef.current = null;
-      }
-
-      for (const source of audioPlaybackSources.current.values()) {
-        source.stop();
-      }
-      audioPlaybackSources.current.clear();
-      nextOutputStartTime.current = 0;
-
-      setStatus('evaluating');
-      toast.loading('Evaluating your speaking practice...');
-
-      if (sessionIdRef.current && sessionStartTimeRef.current && transcripts.length > 0) {
-        const userLevel = userProfile?.current_level || CEFRLevel.A2;
-        const motherLanguage = userProfile?.mother_language || 'English';
-
-        const { error } = await endConversationSession(
-          sessionIdRef.current,
-          transcripts,
-          sessionStartTimeRef.current,
-          userLevel,
-          motherLanguage,
-          aiProvider
-        );
-
-        if (error) {
-          toast.dismiss();
-          toast.error('Failed to save session');
-          return;
-        }
-
-        // Load feedback
-        const { supabase } = await import('../src/lib/supabase');
-        const { data } = await supabase
-          .from('conversation_sessions')
-          .select('feedback')
-          .eq('id', sessionIdRef.current)
-          .single();
-
-        if (data?.feedback) {
-          const parsedFeedback = typeof data.feedback === 'string'
-            ? safeJsonParse(data.feedback)
-            : data.feedback;
-
-          if (!parsedFeedback) {
-            toast.dismiss();
-            toast.error('Failed to parse evaluation');
-            return;
-          }
-
-          setEvaluation(parsedFeedback);
-          setScore(parsedFeedback.overall_score || 0);
-          setShowResults(true);
-          toast.dismiss();
-
-          // Mark activity complete if score >= 70%
-          if (parsedFeedback.overall_score >= 70) {
-            await markActivityComplete(parsedFeedback.overall_score);
-          }
-        } else {
-          toast.dismiss();
-          toast.error('No evaluation received');
-        }
-      }
-    } catch (err) {
-      console.error('Error stopping activity:', err);
-      toast.dismiss();
-      toast.error('Failed to evaluate');
-    }
-  };
-
-  const markActivityComplete = async (finalScore: number) => {
-    if (!user || !itemId) return;
-
-    const loadingToast = toast.loading('Saving your progress...');
-
-    try {
-      const timeSpent = Math.round((Date.now() - startTime) / 1000);
-      const { updatePlanItemCompletion, updateUserProgress } = await import('../services/learningPlanService');
-
-      const { error: completionError } = await updatePlanItemCompletion(
-        user.id,
-        itemId,
-        true
-      );
-
-      if (completionError) {
-        toast.dismiss(loadingToast);
-        toast.error('Failed to mark activity complete');
-        return;
-      }
-
-      const { error: progressError } = await updateUserProgress(
-        user.id,
-        'conversation',
-        timeSpent,
-        1
-      );
-
-      if (progressError) {
-        console.error('Error updating progress:', progressError);
-      }
-
-      toast.dismiss(loadingToast);
-      toast.success(`Activity completed! Score: ${finalScore}%`);
-
-      setTimeout(() => {
-        navigate('/learning-plan');
-      }, 2000);
+      const startedAt = new Date().toISOString();
+      const id = await conversationRepository.startSession({
+        learnerId,
+        mode: selectedMode,
+        startedAt,
+      });
+      setSessionId(id);
+      setSessionStartedAt(startedAt);
+      setStatus('ready');
     } catch (error) {
-      console.error('Error marking complete:', error);
-      toast.dismiss(loadingToast);
-      toast.error('Error saving progress');
+      setStatus('error');
+      setMessage(getErrorMessage(error));
     }
-  };
+  }
 
-  if (showResults && evaluation) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-        <div className="container mx-auto p-4 md:p-8 max-w-4xl">
-          <Card glass hover className="backdrop-blur-xl border-2 border-white/30 mb-6">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2">
-              {activityTopic}
-            </h1>
-            <p className="text-gray-600 text-lg">{activityDescription}</p>
-          </Card>
+  async function handleStartRecording() {
+    if (!providersReady || status !== 'ready') {
+      return;
+    }
 
-          <div className="space-y-6">
-            <div className="text-center mb-8">
-              <div className={`text-8xl font-bold mb-4 ${score >= 70 ? 'text-green-600' : 'text-orange-600'}`}>
-                {score}%
-              </div>
-              <h2 className="text-3xl font-bold mb-2">
-                {score >= 90 ? 'Excellent Speaking!' : score >= 70 ? 'Good Work!' : 'Keep Practicing!'}
-              </h2>
-            </div>
+    setStatus('recording');
+    setMessage(null);
 
-            <Card className="bg-green-50 border-2 border-green-200">
-              <h3 className="text-xl font-bold text-green-800 mb-3">✨ Strengths</h3>
-              <ul className="list-disc list-inside space-y-1">
-                {evaluation.strengths.map((strength: string, index: number) => (
-                  <li key={index} className="text-gray-700">{strength}</li>
-                ))}
-              </ul>
-            </Card>
+    try {
+      activeRecordingRef.current = await audioRecorder();
+    } catch (error) {
+      activeRecordingRef.current = null;
+      setStatus('ready');
+      setMessage(getErrorMessage(error));
+    }
+  }
 
-            <Card className="bg-orange-50 border-2 border-orange-200">
-              <h3 className="text-xl font-bold text-orange-800 mb-3">📚 Areas for Improvement</h3>
-              <ul className="list-disc list-inside space-y-1">
-                {evaluation.areas_for_improvement.map((area: string, index: number) => (
-                  <li key={index} className="text-gray-700">{area}</li>
-                ))}
-              </ul>
-            </Card>
+  async function handleStopAndSend() {
+    if (!activeRecordingRef.current || !aiProvider || !speechProvider) {
+      return;
+    }
 
-            {evaluation.grammar_corrections && evaluation.grammar_corrections.length > 0 && (
-              <Card className="bg-blue-50 border-2 border-blue-200">
-                <h3 className="text-xl font-bold text-blue-800 mb-3">✏️ Grammar Corrections</h3>
-                <div className="space-y-2">
-                  {evaluation.grammar_corrections.slice(0, 5).map((correction: any, index: number) => (
-                    <div key={index} className="p-3 bg-white rounded-lg">
-                      <p className="text-sm text-gray-700">{correction.explanation}</p>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
+    setStatus('processing');
+    setMessage(null);
 
-            <button
-              onClick={() => navigate('/learning-plan')}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg"
-            >
-              Back to Learning Plan
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    try {
+      const sample = await activeRecordingRef.current.stop();
+      activeRecordingRef.current = null;
+      setLastAudioUrl(current => {
+        releasePlaybackUrl(current);
+        return sample.playbackUrl ?? null;
+      });
+
+      const result = await runTurnBasedConversationTurn({
+        speechProvider,
+        aiProvider,
+        audio: sample.audio,
+        mimeType: sample.mimeType,
+        history: turns,
+        level,
+        motherLanguage,
+        mode: selectedMode,
+        topic: activityTopic || selectedModeOption.label,
+        description: activityDescription || selectedModeOption.detail,
+      });
+
+      setTurns(result.transcript);
+
+      if (sessionId) {
+        await conversationRepository.appendTranscript(sessionId, result.learnerTurn);
+        await conversationRepository.appendTranscript(sessionId, result.tutorTurn);
+      }
+
+      setStatus('ready');
+    } catch (error) {
+      activeRecordingRef.current = null;
+      setStatus('ready');
+      setMessage(getErrorMessage(error));
+    }
+  }
+
+  async function handleEndSession() {
+    if (!sessionId || !sessionStartedAt) {
+      setStatus('ended');
+      return;
+    }
+
+    setStatus('ending');
+    setMessage(null);
+
+    try {
+      const endedAt = new Date().toISOString();
+      const sessionFeedback =
+        aiProvider && turns.length > 0
+          ? await generateLocalConversationFeedback({
+              aiProvider,
+              turns,
+              level,
+              motherLanguage,
+            })
+          : undefined;
+
+      await conversationRepository.endSession({
+        id: sessionId,
+        learnerId,
+        mode: selectedMode,
+        startedAt: sessionStartedAt,
+        endedAt,
+        durationSeconds: Math.max(0, Math.round((Date.parse(endedAt) - Date.parse(sessionStartedAt)) / 1000)),
+        transcript: turns,
+        feedback: sessionFeedback,
+      });
+      setFeedback(sessionFeedback ?? null);
+      setStatus('ended');
+      setMessage('Session saved locally.');
+    } catch (error) {
+      setStatus('error');
+      setMessage(getErrorMessage(error));
+    }
+  }
+
+  function handlePlayTutorTurn(text: string) {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+      setMessage('German playback is not available in this browser.');
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'de-DE';
+    utterance.rate = 0.95;
+    window.speechSynthesis.speak(utterance);
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <div className="container mx-auto p-4 md:p-8 max-w-4xl">
-        <Card glass hover className="backdrop-blur-xl border-2 border-white/30 mb-6">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2">
-            Speaking Practice
-          </h1>
-        </Card>
-
-        <div className="max-w-3xl mx-auto mb-6">
-          <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center text-white text-2xl flex-shrink-0">
-                🎯
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-purple-800 mb-1">Today's Topic</h3>
-                <h4 className="text-xl font-bold text-gray-800 mb-2">{activityTopic}</h4>
-                <p className="text-gray-700">{activityDescription}</p>
-              </div>
-            </div>
-          </Card>
+    <main className="db-dashboard db-conversation" aria-label="Conversation tutor">
+      <header className="db-dashboard-header">
+        <div>
+          <h1>Conversation Tutor</h1>
+          <p>Turn-based German speaking with local transcripts and optional AI providers.</p>
         </div>
+        <div className="db-level-meter" aria-label="Conversation level">
+          <div>
+            <strong>{level}</strong>
+            <span>{firstName}</span>
+          </div>
+          <div className="db-ring">{turns.length}</div>
+        </div>
+      </header>
 
-        <Card className="max-w-3xl mx-auto">
-          <div className="flex justify-center items-center mb-6 space-x-4">
-            {status === 'idle' || status === 'error' ? (
+      <div className="db-conversation-grid">
+        <section className="db-panel db-conversation-session-panel" aria-labelledby="conversation-session-heading">
+          <div className="db-panel-heading">
+            <h2 id="conversation-session-heading">Voice Session</h2>
+            <span>{formatStatus(status)}</span>
+          </div>
+
+          {!providersReady ? <ProviderSetupState /> : null}
+
+          <div className="db-conversation-task">
+            <span className="db-section-label">{isPlanActivity ? 'Plan task' : 'Tutor mode'}</span>
+            <h3>{activityTopic || selectedModeOption.label}</h3>
+            <p>{activityDescription || selectedModeOption.detail}</p>
+          </div>
+
+          <div className="db-mode-list" aria-label="Conversation mode">
+            {MODE_OPTIONS.map(option => (
               <button
-                onClick={startActivity}
-                className="bg-green-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-green-700 transition shadow-lg flex items-center space-x-2"
+                key={option.mode}
+                type="button"
+                className={`db-mode-option ${selectedMode === option.mode ? 'is-selected' : ''}`}
+                onClick={() => setSelectedMode(option.mode)}
+                disabled={status !== 'idle' && status !== 'ended'}
               >
-                <i className="fa-solid fa-microphone-alt"></i>
-                <span>Start Speaking Practice</span>
+                <i className={`fa-solid ${option.icon}`} aria-hidden="true" />
+                <span>{option.label}</span>
               </button>
-            ) : status === 'connecting' ? (
-              <button disabled className="bg-yellow-600 text-white px-8 py-4 rounded-full font-bold text-lg opacity-75 cursor-not-allowed shadow-lg flex items-center space-x-2">
-                <i className="fa-solid fa-spinner fa-spin"></i>
-                <span>Connecting...</span>
-              </button>
-            ) : status === 'connected' ? (
+            ))}
+          </div>
+
+          <div className="db-conversation-actions">
+            {status === 'idle' || status === 'ended' || status === 'error' ? (
               <button
-                onClick={stopActivity}
-                className="bg-red-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-red-700 transition shadow-lg flex items-center space-x-2"
+                type="button"
+                className="db-primary-button"
+                onClick={handleStartSession}
+                disabled={!providersReady || status === 'starting'}
               >
-                <i className="fa-solid fa-stop"></i>
-                <span>End Practice</span>
+                Start session
               </button>
-            ) : status === 'stopping' || status === 'evaluating' ? (
-              <button disabled className="bg-blue-600 text-white px-8 py-4 rounded-full font-bold text-lg opacity-75 cursor-not-allowed shadow-lg flex items-center space-x-2">
-                <i className="fa-solid fa-spinner fa-spin"></i>
-                <span>{status === 'stopping' ? 'Stopping...' : 'Evaluating...'}</span>
+            ) : null}
+            {status === 'ready' ? (
+              <>
+                <button type="button" className="db-primary-button" onClick={handleStartRecording}>
+                  Record answer
+                </button>
+                <button type="button" className="db-secondary-button" onClick={handleEndSession}>
+                  End session
+                </button>
+              </>
+            ) : null}
+            {status === 'recording' ? (
+              <button type="button" className="db-primary-button db-danger-button" onClick={handleStopAndSend}>
+                Stop and send
+              </button>
+            ) : null}
+            {status === 'starting' || status === 'processing' || status === 'ending' ? (
+              <button type="button" className="db-primary-button" disabled>
+                {status === 'processing' ? 'Transcribing...' : 'Working...'}
               </button>
             ) : null}
           </div>
 
-          {transcripts.length > 0 && (
-            <div ref={transcriptContainerRef} className="h-96 bg-gray-200 rounded-lg p-4 overflow-y-auto space-y-4">
-              {transcripts.map((t) => (
-                <div key={t.id} className={`flex ${t.speaker === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-2xl p-4 rounded-xl ${
-                    t.speaker === 'user'
-                      ? 'bg-blue-600 text-white ml-12'
-                      : 'bg-white text-gray-800 mr-12 border-2 border-gray-300'
-                  }`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white font-bold text-sm">
-                        {t.speaker === 'user' ? 'U' : 'A'}
-                      </div>
-                      <span className="font-bold text-sm">{t.speaker === 'user' ? 'You' : 'Alex'}</span>
-                    </div>
-                    <p className="text-sm leading-relaxed">{t.text}</p>
-                  </div>
-                </div>
-              ))}
+          {lastAudioUrl ? (
+            <audio
+              className="db-conversation-audio"
+              controls
+              src={lastAudioUrl}
+              aria-label="Last recorded learner audio"
+            />
+          ) : null}
+
+          {message ? <p className={`db-conversation-message db-conversation-message-${status}`}>{message}</p> : null}
+
+          <div className="db-transcript-panel" ref={transcriptRef} aria-label="Conversation transcript">
+            {turns.length === 0 ? (
+              <div className="db-transcript-empty">
+                <i className="fa-solid fa-microphone-lines" aria-hidden="true" />
+                <strong>Start, record one German answer, then send it.</strong>
+                <span>The tutor will correct one useful point and ask the next question.</span>
+              </div>
+            ) : (
+              turns.map((turn, index) => (
+                <TranscriptBubble
+                  key={`${turn.occurredAt}-${index}`}
+                  turn={turn}
+                  onPlayTutorTurn={handlePlayTutorTurn}
+                />
+              ))
+            )}
+          </div>
+        </section>
+
+        <aside className="db-panel db-conversation-side-panel" aria-label="Session context">
+          <span className="db-section-label">Local session</span>
+          <h2>Practice shape</h2>
+          <dl>
+            <div>
+              <dt>Input</dt>
+              <dd>Deepgram turn transcript</dd>
             </div>
-          )}
-        </Card>
+            <div>
+              <dt>Tutor</dt>
+              <dd>OpenRouter text response</dd>
+            </div>
+            <div>
+              <dt>Storage</dt>
+              <dd>Local conversation history</dd>
+            </div>
+          </dl>
+          <p className="db-local-save">
+            <i className="fa-solid fa-lock" aria-hidden="true" />
+            Transcript data stays in local app storage.
+          </p>
+          {feedback ? (
+            <div className="db-feedback-summary" aria-label="Latest session feedback">
+              <strong>{feedback.overallScore}%</strong>
+              <span>{feedback.areasForImprovement[0] ?? feedback.encouragement}</span>
+            </div>
+          ) : null}
+        </aside>
       </div>
-    </div>
+    </main>
   );
 };
+
+const ProviderSetupState: React.FC = () => (
+  <div className="db-provider-required" role="status">
+    <div>
+      <strong>Connect OpenRouter and Deepgram</strong>
+      <span>Voice conversation needs both providers enabled in local settings.</span>
+    </div>
+    <Link className="db-secondary-button" to="/settings">
+      Open settings
+    </Link>
+  </div>
+);
+
+const TranscriptBubble: React.FC<{
+  turn: TranscriptTurn;
+  onPlayTutorTurn: (text: string) => void;
+}> = ({ turn, onPlayTutorTurn }) => {
+  const isLearner = turn.speaker === 'learner';
+
+  return (
+    <article className={`db-transcript-turn ${isLearner ? 'db-transcript-learner' : 'db-transcript-tutor'}`}>
+      <div>
+        <span>{isLearner ? 'You' : 'Alex'}</span>
+        {typeof turn.confidence === 'number' ? <em>{Math.round(turn.confidence * 100)}%</em> : null}
+      </div>
+      <p>{turn.text}</p>
+      {!isLearner ? (
+        <button type="button" className="db-icon-button" onClick={() => onPlayTutorTurn(turn.text)} aria-label="Play tutor reply">
+          <i className="fa-solid fa-volume-high" aria-hidden="true" />
+        </button>
+      ) : null}
+    </article>
+  );
+};
+
+function formatStatus(status: ConversationStatus): string {
+  const labels: Record<ConversationStatus, string> = {
+    idle: 'Ready to start',
+    starting: 'Starting',
+    ready: 'Ready',
+    recording: 'Recording',
+    processing: 'Transcribing',
+    ending: 'Saving',
+    ended: 'Saved',
+    error: 'Needs attention',
+  };
+
+  return labels[status];
+}
+
+function releasePlaybackUrl(url: string | null | undefined): void {
+  if (url && typeof URL.revokeObjectURL === 'function') {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Conversation action failed';
+}
 
 export default SpeakingActivityPage;
