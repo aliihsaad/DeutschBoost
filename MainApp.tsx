@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import ExperienceAppShell from './components/ExperienceAppShell';
 import LocalDashboardPage from './pages/LocalDashboardPage';
+import LocalSettingsPage from './pages/LocalSettingsPage';
 import EnhancedPlacementTestPage from './pages/EnhancedPlacementTestPage';
 import LearningPlanPage from './pages/LearningPlanPage';
 import ConversationPage from './pages/ConversationPage';
@@ -16,14 +17,44 @@ import { loadActiveLearningPlan, saveLearningPlan, updatePlanItemCompletion } fr
 import { useAuth } from './src/contexts/AuthContext';
 import { supabase } from './src/lib/supabase';
 import toast from 'react-hot-toast';
+import {
+  buildProviderSettingsSnapshots,
+  createDefaultLocalProviderSettings,
+  type LocalProviderSettings,
+} from './src/domain/settings/providerSettings';
+import { browserProviderSettingsRepository } from './src/infrastructure/browser/providerSettingsStorage';
 
 const MainApp: React.FC = () => {
   const [userLevel, setUserLevel] = useState<CEFRLevel>(CEFRLevel.A1);
   const [learningPlan, setLearningPlan] = useState<LearningPlan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
+  const [providerSettings, setProviderSettings] = useState<LocalProviderSettings>(
+    createDefaultLocalProviderSettings
+  );
   const { user, userProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProviderSettings() {
+      try {
+        const loadedSettings = await browserProviderSettingsRepository.load();
+        if (!cancelled) {
+          setProviderSettings(loadedSettings);
+        }
+      } catch (error) {
+        console.error('Error loading local provider settings:', error);
+      }
+    }
+
+    loadProviderSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Load user's level and active learning plan from database
   useEffect(() => {
@@ -135,8 +166,10 @@ const MainApp: React.FC = () => {
 
   // Removed handleTogglePlanItem - activities are now auto-completed when user finishes them
 
+  const providerSettingsSnapshots = buildProviderSettingsSnapshots(providerSettings);
+
   return (
-    <ExperienceAppShell>
+    <ExperienceAppShell providerSettings={providerSettingsSnapshots}>
         <Routes>
           <Route path="/" element={<LocalDashboardPage />} />
           <Route path="/placement-test" element={<EnhancedPlacementTestPage onTestComplete={handleTestComplete} />} />
@@ -148,7 +181,15 @@ const MainApp: React.FC = () => {
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/speaking-activity" element={<SpeakingActivityPage />} />
           <Route path="/conversation" element={<ConversationPage />} />
-          <Route path="/settings" element={<ProfilePage userLevel={userLevel} />} />
+          <Route
+            path="/settings"
+            element={
+              <LocalSettingsPage
+                repository={browserProviderSettingsRepository}
+                onSettingsChange={setProviderSettings}
+              />
+            }
+          />
           <Route path="/profile" element={<ProfilePage userLevel={userLevel} />} />
           <Route path="/review" element={<LocalWorkspacePlaceholderPage title="Review" description="Due vocabulary, phrases, grammar mistakes, and saved corrections will live here." />} />
           <Route path="/writing" element={<LocalWorkspacePlaceholderPage title="Writing" description="Prompts, drafts, AI feedback, and revision history will live here." />} />

@@ -1,6 +1,12 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import {
+  buildProviderSettingsSnapshots,
+  createDefaultLocalProviderSettings,
+  type ProviderSettingsSnapshots,
+} from '../src/domain/settings/providerSettings';
 import { appDestinations, isDestinationActive, type AppDestination } from '../src/ui/navigationModel';
+import { describeProviderStatus, type ProviderSettingsSnapshot } from '../src/ui/providerStatusModel';
 
 const iconClassByName: Record<string, string> = {
   'layout-dashboard': 'fa-table-columns',
@@ -17,9 +23,15 @@ const iconClassByName: Record<string, string> = {
 
 interface ExperienceAppShellProps {
   children: React.ReactNode;
+  providerSettings?: ProviderSettingsSnapshots;
 }
 
-const ExperienceAppShell: React.FC<ExperienceAppShellProps> = ({ children }) => {
+const defaultProviderSettings = buildProviderSettingsSnapshots(createDefaultLocalProviderSettings());
+
+const ExperienceAppShell: React.FC<ExperienceAppShellProps> = ({
+  children,
+  providerSettings = defaultProviderSettings,
+}) => {
   const location = useLocation();
   const route = `${location.pathname}${location.search}`;
 
@@ -47,8 +59,14 @@ const ExperienceAppShell: React.FC<ExperienceAppShellProps> = ({ children }) => 
 
         <div className="db-sidebar-status" aria-label="Workspace status">
           <StatusDot label="Local files" tone="success" />
-          <StatusDot label="AI ready" tone="accent" />
-          <StatusDot label="Voice ready" tone="success" />
+          <StatusDot
+            label={formatSidebarProviderLabel(providerSettings.ai)}
+            tone={getSidebarProviderTone(providerSettings.ai)}
+          />
+          <StatusDot
+            label={formatSidebarProviderLabel(providerSettings.speech)}
+            tone={getSidebarProviderTone(providerSettings.speech)}
+          />
         </div>
       </aside>
 
@@ -83,7 +101,7 @@ const ShellLink: React.FC<ShellLinkProps> = ({ destination, active }) => (
 
 interface StatusDotProps {
   label: string;
-  tone: 'success' | 'accent';
+  tone: 'success' | 'accent' | 'muted' | 'danger';
 }
 
 const StatusDot: React.FC<StatusDotProps> = ({ label, tone }) => (
@@ -92,5 +110,33 @@ const StatusDot: React.FC<StatusDotProps> = ({ label, tone }) => (
     <span>{label}</span>
   </div>
 );
+
+function formatSidebarProviderLabel(snapshot: ProviderSettingsSnapshot): string {
+  const status = describeProviderStatus(snapshot);
+
+  if (status.state === 'configured') {
+    return `${snapshot.providerName} ready`;
+  }
+
+  if (status.state === 'error') {
+    return `${snapshot.providerName} error`;
+  }
+
+  return `${snapshot.providerName} off`;
+}
+
+function getSidebarProviderTone(snapshot: ProviderSettingsSnapshot): StatusDotProps['tone'] {
+  const status = describeProviderStatus(snapshot);
+
+  if (status.state === 'configured') {
+    return 'success';
+  }
+
+  if (status.state === 'error') {
+    return 'danger';
+  }
+
+  return 'muted';
+}
 
 export default ExperienceAppShell;

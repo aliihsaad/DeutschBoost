@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import ExperienceAppShell from '../../components/ExperienceAppShell';
+import { buildProviderSettingsSnapshots } from '../../src/domain/settings/providerSettings';
 
 describe('ExperienceAppShell', () => {
   it('renders the approved desktop navigation in the left rail', () => {
@@ -34,7 +35,7 @@ describe('ExperienceAppShell', () => {
     expect(screen.getByRole('link', { name: /Dashboard/i })).not.toHaveAttribute('aria-current');
   });
 
-  it('keeps provider and local storage status visible', () => {
+  it('shows local storage and disabled provider status by default', () => {
     render(
       <MemoryRouter>
         <ExperienceAppShell>
@@ -44,7 +45,36 @@ describe('ExperienceAppShell', () => {
     );
 
     expect(screen.getByText('Local files')).toBeInTheDocument();
-    expect(screen.getByText('AI ready')).toBeInTheDocument();
-    expect(screen.getByText('Voice ready')).toBeInTheDocument();
+    expect(screen.getByText('OpenRouter off')).toBeInTheDocument();
+    expect(screen.getByText('Deepgram off')).toBeInTheDocument();
+  });
+
+  it('shows configured provider status from local settings', () => {
+    const providerSettings = buildProviderSettingsSnapshots({
+      ai: {
+        enabled: true,
+        provider: 'openrouter',
+        apiKey: 'openrouter-key',
+        model: 'openai/gpt-4o-mini',
+      },
+      speech: {
+        enabled: true,
+        provider: 'deepgram',
+        apiKey: 'deepgram-key',
+        model: 'nova-3',
+        language: 'de',
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <ExperienceAppShell providerSettings={providerSettings}>
+          <main>Dashboard content</main>
+        </ExperienceAppShell>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('OpenRouter ready')).toBeInTheDocument();
+    expect(screen.getByText('Deepgram ready')).toBeInTheDocument();
   });
 });
