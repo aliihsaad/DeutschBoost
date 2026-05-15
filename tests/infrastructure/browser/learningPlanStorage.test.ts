@@ -5,7 +5,7 @@ import {
 } from '../../../src/infrastructure/browser/learningPlanStorage';
 
 describe('learningPlanStorage', () => {
-  it('adapts browser localStorage to learning-plan storage', () => {
+  it('adapts browser localStorage to learning-plan storage', async () => {
     const localStorageLike = {
       getItem: vi.fn(() => 'stored-value'),
       setItem: vi.fn(),
@@ -13,13 +13,27 @@ describe('learningPlanStorage', () => {
     };
     const storage = createBrowserLearningPlanStorage(localStorageLike);
 
-    expect(storage.getItem('plans')).toBe('stored-value');
-    storage.setItem('plans', 'new-value');
-    storage.removeItem('plans');
+    await expect(storage.getItem('plans')).resolves.toBe('stored-value');
+    await storage.setItem('plans', 'new-value');
+    await storage.removeItem('plans');
 
     expect(localStorageLike.getItem).toHaveBeenCalledWith('plans');
     expect(localStorageLike.setItem).toHaveBeenCalledWith('plans', 'new-value');
     expect(localStorageLike.removeItem).toHaveBeenCalledWith('plans');
+    expect(storage.runtime).toBe('browser');
+    expect(storage.durability).toBe('browser-managed');
+  });
+
+  it('falls back to memory storage when browser storage is unavailable', async () => {
+    const storage = createBrowserLearningPlanStorage(null);
+
+    await storage.setItem('plans', 'stored-value');
+    await expect(storage.getItem('plans')).resolves.toBe('stored-value');
+
+    await storage.removeItem('plans');
+    await expect(storage.getItem('plans')).resolves.toBeNull();
+    expect(storage.runtime).toBe('memory');
+    expect(storage.durability).toBe('ephemeral');
   });
 
   it('exports the browser learning-plan repository singleton', () => {

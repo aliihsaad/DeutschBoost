@@ -2,61 +2,18 @@ import {
   createStorageProfileRepository,
   type ProfileStorage,
 } from '../../domain/profile/profileRepository';
-
-interface BrowserStorageLike {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
+import {
+  createBrowserKeyValueStorage,
+  type BrowserStorageLike,
+} from '../platform/keyValueStorage';
+import type { KeyValueStorage } from '../../domain/storage/keyValueStorage';
 
 export function createBrowserProfileStorage(
-  storage: BrowserStorageLike | null | undefined = resolveBrowserLocalStorage()
-): ProfileStorage {
-  if (!storage) {
-    return createMemoryProfileStorage();
-  }
-
-  return {
-    getItem(key: string): string | null {
-      return storage.getItem(key);
-    },
-    setItem(key: string, value: string): void {
-      storage.setItem(key, value);
-    },
-    removeItem(key: string): void {
-      storage.removeItem(key);
-    },
-  };
+  storage?: BrowserStorageLike | null
+): ProfileStorage & Pick<KeyValueStorage, 'runtime' | 'durability'> {
+  return createBrowserKeyValueStorage(storage);
 }
 
 export const browserProfileRepository = createStorageProfileRepository({
   storage: createBrowserProfileStorage(),
 });
-
-function resolveBrowserLocalStorage(): BrowserStorageLike | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    return window.localStorage ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function createMemoryProfileStorage(): ProfileStorage {
-  const values = new Map<string, string>();
-
-  return {
-    getItem(key: string): string | null {
-      return values.get(key) ?? null;
-    },
-    setItem(key: string, value: string): void {
-      values.set(key, value);
-    },
-    removeItem(key: string): void {
-      values.delete(key);
-    },
-  };
-}

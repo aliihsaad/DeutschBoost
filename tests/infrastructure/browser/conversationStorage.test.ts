@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_CONVERSATION_STORAGE_KEY,
+  createBrowserConversationStorage,
   createStorageConversationRepository,
   type ConversationStorage,
 } from '../../../src/infrastructure/browser/conversationStorage';
@@ -10,6 +11,8 @@ function createMemoryStorage(initial: Record<string, string> = {}): Conversation
   const values = new Map(Object.entries(initial));
 
   return {
+    runtime: 'memory',
+    durability: 'ephemeral',
     getItem: vi.fn((key: string) => values.get(key) ?? null),
     setItem: vi.fn((key: string, value: string) => {
       values.set(key, value);
@@ -21,6 +24,24 @@ function createMemoryStorage(initial: Record<string, string> = {}): Conversation
 }
 
 describe('createStorageConversationRepository', () => {
+  it('adapts browser storage through the shared platform boundary', async () => {
+    const localStorageLike = {
+      getItem: vi.fn((key: string) => (key === 'conversations' ? 'stored-value' : null)),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    };
+    const storage = createBrowserConversationStorage(localStorageLike);
+
+    await expect(storage.getItem('conversations')).resolves.toBe('stored-value');
+    await storage.setItem('conversations', 'new-value');
+    await storage.removeItem('conversations');
+
+    expect(storage.runtime).toBe('browser');
+    expect(storage.durability).toBe('browser-managed');
+    expect(localStorageLike.setItem).toHaveBeenCalledWith('conversations', 'new-value');
+    expect(localStorageLike.removeItem).toHaveBeenCalledWith('conversations');
+  });
+
   it('starts a local session and appends transcript turns', async () => {
     const storage = createMemoryStorage();
     const repository = createStorageConversationRepository({

@@ -5,12 +5,13 @@ import type {
 } from '../../domain/conversation/conversationRepository';
 import type { TranscriptTurn } from '../../domain/speech/transcriptTypes';
 import type { LearnerId } from '../../domain/learning/types';
+import type { KeyValueStorage } from '../../domain/storage/keyValueStorage';
+import {
+  createBrowserKeyValueStorage,
+  type BrowserStorageLike,
+} from '../platform/keyValueStorage';
 
-export interface ConversationStorage {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
+export type ConversationStorage = KeyValueStorage;
 
 interface ConversationStore {
   sessions: ConversationSessionRecord[];
@@ -31,14 +32,14 @@ export function createStorageConversationRepository(
   const storageKey = options.storageKey ?? DEFAULT_CONVERSATION_STORAGE_KEY;
   const idFactory = options.idFactory ?? createConversationSessionId;
 
-  const loadStore = (): ConversationStore => readConversationStore(storage, storageKey);
-  const saveStore = (store: ConversationStore): void => {
-    storage.setItem(storageKey, JSON.stringify(store));
+  const loadStore = (): Promise<ConversationStore> => readConversationStore(storage, storageKey);
+  const saveStore = async (store: ConversationStore): Promise<void> => {
+    await storage.setItem(storageKey, JSON.stringify(store));
   };
 
   return {
     async startSession(input) {
-      const store = loadStore();
+      const store = await loadStore();
       const id = idFactory();
       store.sessions.unshift({
         id,
@@ -47,19 +48,19 @@ export function createStorageConversationRepository(
         startedAt: input.startedAt,
         transcript: [],
       });
-      saveStore(store);
+      await saveStore(store);
       return id;
     },
 
     async appendTranscript(sessionId: string, turn: TranscriptTurn) {
-      const store = loadStore();
+      const store = await loadStore();
       const session = findSession(store, sessionId);
       session.transcript = [...session.transcript, turn];
-      saveStore(store);
+      await saveStore(store);
     },
 
     async endSession(session: ConversationSessionRecord) {
-      const store = loadStore();
+      const store = await loadStore();
       const existingIndex = store.sessions.findIndex(item => item.id === session.id);
 
       if (existingIndex >= 0) {
@@ -68,18 +69,18 @@ export function createStorageConversationRepository(
         store.sessions.unshift(session);
       }
 
-      saveStore(store);
+      await saveStore(store);
     },
 
     async loadRecentSessions(learnerId: LearnerId, limit: number) {
-      return loadStore().sessions
+      return (await loadStore()).sessions
         .filter(session => session.learnerId === learnerId)
         .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
         .slice(0, limit);
     },
 
     async loadLastFeedback(learnerId: LearnerId): Promise<ConversationFeedbackRecord | null> {
-      const session = loadStore().sessions
+      const session = (await loadStore()).sessions
         .filter(item => item.learnerId === learnerId && item.feedback)
         .sort((left, right) => {
           const rightDate = right.endedAt ?? right.startedAt;
@@ -94,8 +95,17 @@ export function createStorageConversationRepository(
 
 export const browserConversationRepository = createStorageConversationRepository();
 
-function readConversationStore(storage: ConversationStorage, storageKey: string): ConversationStore {
-  const raw = storage.getItem(storageKey);
+export function createBrowserConversationStorage(
+  storage?: BrowserStorageLike | null
+): ConversationStorage {
+  return createBrowserKeyValueStorage(storage);
+}
+
+async function readConversationStore(
+  storage: ConversationStorage,
+  storageKey: string
+): Promise<ConversationStore> {
+  const raw = await storage.getItem(storageKey);
 
   if (!raw) {
     return { sessions: [] };
@@ -124,23 +134,5 @@ function createConversationSessionId(): string {
 }
 
 function getDefaultStorage(): ConversationStorage {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    return window.localStorage;
-  }
-
-  return createMemoryConversationStorage();
-}
-
-function createMemoryConversationStorage(): ConversationStorage {
-  const values = new Map<string, string>();
-
-  return {
-    getItem: key => values.get(key) ?? null,
-    setItem: (key, value) => {
-      values.set(key, value);
-    },
-    removeItem: key => {
-      values.delete(key);
-    },
-  };
+  return createBrowserConversationStorage();
 }
