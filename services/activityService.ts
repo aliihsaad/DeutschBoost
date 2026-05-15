@@ -10,7 +10,35 @@ import {
   WritingEvaluation,
   ActivityType,
 } from '../src/types/activity.types';
-import { parseAiJsonResponse } from '../utils/safeJsonParse';
+import type { AiProvider } from '../src/domain/ai/aiProvider';
+import { createGeminiAiProvider, type GeminiClientLike } from '../src/domain/ai/geminiProvider';
+import { generateJsonWithProvider } from '../src/domain/ai/jsonGeneration';
+
+const defaultActivityAiProvider = createGeminiAiProvider({
+  client: ai as unknown as GeminiClientLike,
+});
+
+const generateActivityJson = <T>(
+  aiProvider: AiProvider,
+  feature: string,
+  schemaName: string,
+  prompt: string,
+  model: string = 'gemini-2.5-flash'
+): Promise<T> => {
+  return generateJsonWithProvider<T>(aiProvider, {
+    feature,
+    schemaName,
+    messages: [
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    options: {
+      model,
+    },
+  });
+};
 
 /**
  * Generate a grammar exercise based on topic and level
@@ -19,7 +47,8 @@ export const generateGrammarActivity = async (
   topic: string,
   description: string,
   level: CEFRLevel,
-  motherLanguage: string = 'English'
+  motherLanguage: string = 'English',
+  aiProvider: AiProvider = defaultActivityAiProvider
 ): Promise<GrammarActivity> => {
   const levelGuidance = {
     A1: 'very basic grammar (present tense, articles, simple word order)',
@@ -30,9 +59,11 @@ export const generateGrammarActivity = async (
     C2: 'native-level grammar (all grammatical nuances, stylistic variations)',
   };
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: `Create a grammar exercise for German learners at ${level} level.
+  return generateActivityJson<GrammarActivity>(
+    aiProvider,
+    'grammar activity',
+    'GrammarActivity',
+    `Create a grammar exercise for German learners at ${level} level.
 
 Topic: ${topic}
 Description: ${description}
@@ -58,13 +89,8 @@ Return a JSON object with this exact structure:
       "explanation": "Use 'bin' with 'gehen' because it's a verb of movement. Perfect tense requires 'sein' as auxiliary."
     }
   ]
-}`,
-    config: {
-      responseMimeType: 'application/json',
-    },
-  });
-
-  return parseAiJsonResponse<GrammarActivity>(response.text, 'grammar activity');
+}`
+  );
 };
 
 /**
@@ -74,11 +100,14 @@ export const generateVocabularyActivity = async (
   topic: string,
   description: string,
   level: CEFRLevel,
-  motherLanguage: string = 'English'
+  motherLanguage: string = 'English',
+  aiProvider: AiProvider = defaultActivityAiProvider
 ): Promise<VocabularyActivity> => {
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: `Create vocabulary flashcards for German learners at ${level} level.
+  return generateActivityJson<VocabularyActivity>(
+    aiProvider,
+    'vocabulary activity',
+    'VocabularyActivity',
+    `Create vocabulary flashcards for German learners at ${level} level.
 
 Topic: ${topic}
 Description: ${description}
@@ -102,13 +131,8 @@ Return a JSON object with this structure:
       "example_sentence": "Ich esse jeden Tag einen Apfel."
     }
   ]
-}`,
-    config: {
-      responseMimeType: 'application/json',
-    },
-  });
-
-  return parseAiJsonResponse<VocabularyActivity>(response.text, 'vocabulary activity');
+}`
+  );
 };
 
 /**
@@ -118,7 +142,8 @@ export const generateListeningActivity = async (
   topic: string,
   description: string,
   level: CEFRLevel,
-  motherLanguage: string = 'English'
+  motherLanguage: string = 'English',
+  aiProvider: AiProvider = defaultActivityAiProvider
 ): Promise<ListeningActivity> => {
   const levelGuidance = {
     A1: 'very slow, simple sentences, basic vocabulary',
@@ -129,9 +154,11 @@ export const generateListeningActivity = async (
     C2: 'native speed, any topic including academic and professional',
   };
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: `Create a listening comprehension exercise for German learners at ${level} level.
+  return generateActivityJson<ListeningActivity>(
+    aiProvider,
+    'listening activity',
+    'ListeningActivity',
+    `Create a listening comprehension exercise for German learners at ${level} level.
 
 Topic: ${topic}
 Description: ${description}
@@ -156,13 +183,8 @@ Return a JSON object with this structure:
       "correct_option": 1
     }
   ]
-}`,
-    config: {
-      responseMimeType: 'application/json',
-    },
-  });
-
-  return parseAiJsonResponse<ListeningActivity>(response.text, 'listening activity');
+}`
+  );
 };
 
 /**
@@ -172,7 +194,8 @@ export const generateWritingActivity = async (
   topic: string,
   description: string,
   level: CEFRLevel,
-  motherLanguage: string = 'English'
+  motherLanguage: string = 'English',
+  aiProvider: AiProvider = defaultActivityAiProvider
 ): Promise<WritingActivity> => {
   const wordCounts = {
     A1: 30,
@@ -183,9 +206,11 @@ export const generateWritingActivity = async (
     C2: 250,
   };
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: `Create a writing prompt for German learners at ${level} level.
+  return generateActivityJson<WritingActivity>(
+    aiProvider,
+    'writing activity',
+    'WritingActivity',
+    `Create a writing prompt for German learners at ${level} level.
 
 Topic: ${topic}
 Description: ${description}
@@ -211,13 +236,8 @@ Return a JSON object with this structure:
     "Sentence structure",
     "Grammar accuracy"
   ]
-}`,
-    config: {
-      responseMimeType: 'application/json',
-    },
-  });
-
-  return parseAiJsonResponse<WritingActivity>(response.text, 'writing activity');
+}`
+  );
 };
 
 /**
@@ -228,11 +248,14 @@ export const evaluateWriting = async (
   prompt: string,
   level: CEFRLevel,
   criteria: string[],
-  motherLanguage: string = 'English'
+  motherLanguage: string = 'English',
+  aiProvider: AiProvider = defaultActivityAiProvider
 ): Promise<WritingEvaluation> => {
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-pro',
-    contents: `You are a German language teacher evaluating a student's writing at ${level} level.
+  return generateActivityJson<WritingEvaluation>(
+    aiProvider,
+    'writing evaluation',
+    'WritingEvaluation',
+    `You are a German language teacher evaluating a student's writing at ${level} level.
 
 User's Native Language: ${motherLanguage}
 
@@ -265,12 +288,8 @@ Return a JSON object with this structure:
   "detailed_feedback": "Your writing shows...",
   "corrected_text": "..."
 }`,
-    config: {
-      responseMimeType: 'application/json',
-    },
-  });
-
-  return parseAiJsonResponse<WritingEvaluation>(response.text, 'writing evaluation');
+    'gemini-2.5-pro'
+  );
 };
 
 /**
@@ -280,7 +299,8 @@ export const generateSpeakingActivity = async (
   topic: string,
   description: string,
   level: CEFRLevel,
-  motherLanguage: string = 'English'
+  motherLanguage: string = 'English',
+  aiProvider: AiProvider = defaultActivityAiProvider
 ): Promise<SpeakingActivity> => {
   const durations = {
     A1: 60,
@@ -291,9 +311,11 @@ export const generateSpeakingActivity = async (
     C2: 300,
   };
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: `Create a speaking practice scenario for German learners at ${level} level.
+  return generateActivityJson<SpeakingActivity>(
+    aiProvider,
+    'speaking activity',
+    'SpeakingActivity',
+    `Create a speaking practice scenario for German learners at ${level} level.
 
 Topic: ${topic}
 Description: ${description}
@@ -315,13 +337,8 @@ Return a JSON object with this structure:
     "Haben Sie Empfehlungen?",
     "Was ist die Tagessuppe?"
   ]
-}`,
-    config: {
-      responseMimeType: 'application/json',
-    },
-  });
-
-  return parseAiJsonResponse<SpeakingActivity>(response.text, 'speaking activity');
+}`
+  );
 };
 
 /**
@@ -331,7 +348,8 @@ export const generateReadingActivity = async (
   topic: string,
   description: string,
   level: CEFRLevel,
-  motherLanguage: string = 'English'
+  motherLanguage: string = 'English',
+  aiProvider: AiProvider = defaultActivityAiProvider
 ): Promise<ReadingActivity> => {
   const levelGuidance = {
     A1: 'very simple text with basic vocabulary (family, food, numbers), present tense only, 2-3 sentences',
@@ -342,9 +360,11 @@ export const generateReadingActivity = async (
     C2: 'native-level text with advanced vocabulary and structures, 10+ sentences',
   };
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: `Create a reading comprehension exercise for German learners at ${level} level.
+  return generateActivityJson<ReadingActivity>(
+    aiProvider,
+    'reading activity',
+    'ReadingActivity',
+    `Create a reading comprehension exercise for German learners at ${level} level.
 
 Topic: ${topic}
 Description: ${description}
@@ -373,13 +393,8 @@ Return a JSON object with this structure:
       "explanation": "The text states 'Sie ist Lehrerin' which means 'She is a teacher'."
     }
   ]
-}`,
-    config: {
-      responseMimeType: 'application/json',
-    },
-  });
-
-  return parseAiJsonResponse<ReadingActivity>(response.text, 'reading activity');
+}`
+  );
 };
 
 /**
@@ -390,21 +405,22 @@ export const generateActivity = async (
   topic: string,
   description: string,
   level: CEFRLevel,
-  motherLanguage: string = 'English'
+  motherLanguage: string = 'English',
+  aiProvider: AiProvider = defaultActivityAiProvider
 ): Promise<GrammarActivity | VocabularyActivity | ListeningActivity | WritingActivity | SpeakingActivity | ReadingActivity> => {
   switch (activityType) {
     case 'grammar':
-      return await generateGrammarActivity(topic, description, level, motherLanguage);
+      return await generateGrammarActivity(topic, description, level, motherLanguage, aiProvider);
     case 'vocabulary':
-      return await generateVocabularyActivity(topic, description, level, motherLanguage);
+      return await generateVocabularyActivity(topic, description, level, motherLanguage, aiProvider);
     case 'listening':
-      return await generateListeningActivity(topic, description, level, motherLanguage);
+      return await generateListeningActivity(topic, description, level, motherLanguage, aiProvider);
     case 'writing':
-      return await generateWritingActivity(topic, description, level, motherLanguage);
+      return await generateWritingActivity(topic, description, level, motherLanguage, aiProvider);
     case 'speaking':
-      return await generateSpeakingActivity(topic, description, level, motherLanguage);
+      return await generateSpeakingActivity(topic, description, level, motherLanguage, aiProvider);
     case 'reading':
-      return await generateReadingActivity(topic, description, level, motherLanguage);
+      return await generateReadingActivity(topic, description, level, motherLanguage, aiProvider);
     default:
       throw new Error(`Unknown activity type: ${activityType}`);
   }
