@@ -230,3 +230,184 @@ function skillToActivityType(skill: SkillType): ActivityType {
 
   return map[skill];
 }
+
+export type ActivitySessionState = 'prepare' | 'active' | 'feedback' | 'saving-memory' | 'complete';
+
+export interface ActivitySessionModel {
+  id: string;
+  activityType: ActivityType;
+  topic: string;
+  level: CEFRLevel;
+  state: ActivitySessionState;
+  startedAt?: string;
+  result?: ActivityResult;
+  savedEffects: LearningMemoryEffect[];
+}
+
+export type ActivitySessionEvent =
+  | { type: 'start' }
+  | { type: 'submit-result'; result: ActivityResult }
+  | { type: 'save-memory' }
+  | { type: 'finish' };
+
+export type LearningMemoryEffectType =
+  | 'mistake-note'
+  | 'vocabulary-card'
+  | 'review-card'
+  | 'writing-revision';
+
+export interface LearningMemoryEffect {
+  id: string;
+  type: LearningMemoryEffectType;
+  title: string;
+  skill: SkillType;
+  reviewPrompt: string;
+  reviewAnswer: string;
+  explanation: string;
+}
+
+interface ActivityCorrection {
+  id: string;
+  skill: SkillType;
+  original: string;
+  corrected: string;
+  explanation: string;
+}
+
+interface ActivityVocabularyCapture {
+  id: string;
+  german: string;
+  translation: string;
+  example: string;
+}
+
+interface ActivityResultData {
+  corrections?: ActivityCorrection[];
+  vocabulary?: ActivityVocabularyCapture[];
+  corrected_text?: string;
+}
+
+export function createActivitySession(input: {
+  id: string;
+  activityType: ActivityType;
+  topic: string;
+  level: CEFRLevel;
+  startedAt?: string;
+}): ActivitySessionModel {
+  return {
+    id: input.id,
+    activityType: input.activityType,
+    topic: input.topic,
+    level: input.level,
+    state: 'prepare',
+    startedAt: input.startedAt,
+    savedEffects: [],
+  };
+}
+
+export function advanceActivitySession(
+  session: ActivitySessionModel,
+  event: ActivitySessionEvent
+): ActivitySessionModel {
+  if (event.type === 'start' && session.state === 'prepare') {
+    return {
+      ...session,
+      state: 'active',
+      startedAt: session.startedAt ?? new Date().toISOString(),
+    };
+  }
+
+  if (event.type === 'submit-result' && session.state === 'active') {
+    return {
+      ...session,
+      state: 'feedback',
+      result: event.result,
+    };
+  }
+
+  if (event.type === 'save-memory' && session.state === 'feedback') {
+    return {
+      ...session,
+      state: 'saving-memory',
+      savedEffects: session.result ? createLearningMemoryEffects(session.result) : [],
+    };
+  }
+
+  if (event.type === 'finish' && session.state === 'saving-memory') {
+    return {
+      ...session,
+      state: 'complete',
+    };
+  }
+
+  throw new Error(`Cannot ${event.type.replace('-', ' ')} activity session from ${session.state}`);
+}
+
+export function createLearningMemoryEffects(result: ActivityResult): LearningMemoryEffect[] {
+  const data = (result.data ?? {}) as ActivityResultData;
+  const effects: LearningMemoryEffect[] = [];
+
+  for (const correction of data.corrections ?? []) {
+    effects.push({
+      id: `mistake-${correction.id}`,
+      type: 'mistake-note',
+      title: `${correction.skill} correction`,
+      skill: correction.skill,
+      reviewPrompt: correction.original,
+      reviewAnswer: correction.corrected,
+      explanation: correction.explanation,
+    });
+  }
+
+  for (const vocabulary of data.vocabulary ?? []) {
+    effects.push({
+      id: `vocabulary-${vocabulary.id}`,
+      type: 'vocabulary-card',
+      title: vocabulary.german,
+      skill: 'Vocabulary',
+      reviewPrompt: vocabulary.german,
+      reviewAnswer: vocabulary.translation,
+      explanation: vocabulary.example,
+    });
+  }
+
+  if (result.activity_type === 'writing' && data.corrected_text) {
+    effects.push({
+      id: 'writing-revision-writing',
+      type: 'writing-revision',
+      title: 'Saved writing revision',
+      skill: 'Writing',
+      reviewPrompt: 'Review the corrected version of your writing.',
+      reviewAnswer: data.corrected_text,
+      explanation: 'Saved from writing feedback.',
+    });
+  }
+
+  if (result.score < 80) {
+    const skill = activityTypeToSkill(result.activity_type);
+    effects.push({
+      id: `review-${result.activity_type}-${result.score}`,
+      type: 'review-card',
+      title: `Review ${result.activity_type} score ${result.score}%`,
+      skill,
+      reviewPrompt: `Practice the corrections from this ${result.activity_type} session.`,
+      reviewAnswer: 'Open the saved feedback and rewrite the answer.',
+      explanation: 'Scores below 80% return to review.',
+    });
+  }
+
+  return effects;
+}
+
+function activityTypeToSkill(activityType: ActivityType): SkillType {
+  const map: Record<ActivityType, SkillType> = {
+    grammar: 'Grammar',
+    vocabulary: 'Vocabulary',
+    listening: 'Listening',
+    writing: 'Writing',
+    speaking: 'Speaking',
+    reading: 'Reading',
+  };
+
+  return map[activityType];
+}
