@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import ExperienceAppShell from './components/ExperienceAppShell';
 import LocalDashboardPage from './pages/LocalDashboardPage';
@@ -18,10 +18,10 @@ import { useAuth } from './src/contexts/AuthContext';
 import { supabase } from './src/lib/supabase';
 import toast from 'react-hot-toast';
 import {
-  buildProviderSettingsSnapshots,
   createDefaultLocalProviderSettings,
   type LocalProviderSettings,
 } from './src/domain/settings/providerSettings';
+import { createLocalProviderRuntime } from './src/application/providerRuntime';
 import { browserProviderSettingsRepository } from './src/infrastructure/browser/providerSettingsStorage';
 import { browserProfileRepository } from './src/infrastructure/browser/profileStorage';
 
@@ -99,6 +99,9 @@ const MainApp: React.FC = () => {
     reloadPlan();
   }, [location.pathname, user]);
 
+  const providerRuntime = useMemo(() => createLocalProviderRuntime(providerSettings), [providerSettings]);
+  const runtimeAiProvider = providerRuntime.aiProvider ?? undefined;
+
   const handleTestComplete = useCallback(
     async (result: TestResult) => {
       if (!user) return;
@@ -131,7 +134,7 @@ const MainApp: React.FC = () => {
 
         // Generate learning plan
         console.log('🤖 Generating learning plan with AI...');
-        const plan = await generateLearningPlan(result);
+        const plan = await generateLearningPlan(result, runtimeAiProvider);
         console.log('✅ AI generated plan:', plan);
         setLearningPlan(plan);
 
@@ -155,25 +158,31 @@ const MainApp: React.FC = () => {
         setLoadingPlan(false);
       }
     },
-    [user, navigate]
+    [user, navigate, runtimeAiProvider]
   );
 
   // Removed handleTogglePlanItem - activities are now auto-completed when user finishes them
 
-  const providerSettingsSnapshots = buildProviderSettingsSnapshots(providerSettings);
-
   return (
-    <ExperienceAppShell providerSettings={providerSettingsSnapshots}>
+    <ExperienceAppShell providerSettings={providerRuntime.snapshots}>
         <Routes>
           <Route path="/" element={<LocalDashboardPage />} />
-          <Route path="/placement-test" element={<EnhancedPlacementTestPage onTestComplete={handleTestComplete} />} />
+          <Route
+            path="/placement-test"
+            element={
+              <EnhancedPlacementTestPage
+                onTestComplete={handleTestComplete}
+                aiProvider={runtimeAiProvider}
+              />
+            }
+          />
           <Route path="/plan" element={<LearningPlanPage learningPlan={learningPlan} loading={loadingPlan} />} />
           <Route path="/learning-plan" element={<LearningPlanPage learningPlan={learningPlan} loading={loadingPlan} />} />
           <Route path="/practice" element={<PracticePage />} />
           <Route path="/exam" element={<ExamSimulatorPage />} />
           <Route path="/exam-simulator" element={<ExamSimulatorPage />} />
-          <Route path="/activity" element={<ActivityPage />} />
-          <Route path="/speaking-activity" element={<SpeakingActivityPage />} />
+          <Route path="/activity" element={<ActivityPage aiProvider={runtimeAiProvider} />} />
+          <Route path="/speaking-activity" element={<SpeakingActivityPage aiProvider={runtimeAiProvider} />} />
           <Route path="/conversation" element={<ConversationPage />} />
           <Route
             path="/settings"

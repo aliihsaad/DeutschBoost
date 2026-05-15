@@ -8,8 +8,13 @@ import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { useAuth } from '../src/contexts/AuthContext';
+import type { AiProvider } from '../src/domain/ai/aiProvider';
 
-const ActivityPage: React.FC = () => {
+interface ActivityPageProps {
+  aiProvider?: AiProvider;
+}
+
+const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, userProfile } = useAuth();
@@ -49,13 +54,20 @@ const ActivityPage: React.FC = () => {
     }
 
     loadActivity();
-  }, [activityType, topic, description, level]);
+  }, [activityType, topic, description, level, aiProvider]);
 
   const loadActivity = async () => {
     setLoading(true);
     try {
       const motherLanguage = userProfile?.mother_language || 'English';
-      const generatedActivity = await generateActivity(activityType, topic, description, level, motherLanguage);
+      const generatedActivity = await generateActivity(
+        activityType,
+        topic,
+        description,
+        level,
+        motherLanguage,
+        aiProvider
+      );
       setActivity(generatedActivity);
 
       // Initialize answers array for question-based activities
@@ -124,7 +136,8 @@ const ActivityPage: React.FC = () => {
         activity.prompt,
         level,
         activity.evaluation_criteria,
-        motherLanguage
+        motherLanguage,
+        aiProvider
       );
       setEvaluation(result);
       setScore(result.score);

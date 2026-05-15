@@ -6,9 +6,11 @@ import Card from '../components/Card';
 import { useAuth } from '../src/contexts/AuthContext';
 import { supabase } from '../src/lib/supabase';
 import toast from 'react-hot-toast';
+import type { AiProvider } from '../src/domain/ai/aiProvider';
 
 interface EnhancedPlacementTestPageProps {
   onTestComplete: (result: TestResult) => void;
+  aiProvider?: AiProvider;
 }
 
 type TestSection = 'Intro' | 'Reading' | 'Grammar' | 'Writing' | 'Evaluating' | 'Complete';
@@ -21,7 +23,10 @@ interface Question {
   correctOptionIndex: number;
 }
 
-const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({ onTestComplete }) => {
+const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
+  onTestComplete,
+  aiProvider,
+}) => {
   const { user, updateProfile } = useAuth();
   const [section, setSection] = useState<TestSection>('Intro');
   const [loading, setLoading] = useState(false);
@@ -173,7 +178,8 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({ o
         readingScore,
         grammarScore,
         userWriting,
-        writingPrompt
+        writingPrompt,
+        aiProvider
       );
 
       setEvaluationResult(result);

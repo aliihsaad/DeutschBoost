@@ -10,8 +10,13 @@ import { startConversationSession as startDBSession, endConversationSession } fr
 import { ConversationMode, Transcript } from '../types';
 import { LiveConnectSession, LiveServerMessage } from "@google/genai";
 import { safeJsonParse } from '../utils/safeJsonParse';
+import type { AiProvider } from '../src/domain/ai/aiProvider';
 
-const SpeakingActivityPage: React.FC = () => {
+interface SpeakingActivityPageProps {
+  aiProvider?: AiProvider;
+}
+
+const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({ aiProvider }) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, userProfile, userData } = useAuth();
@@ -243,7 +248,8 @@ const SpeakingActivityPage: React.FC = () => {
           transcripts,
           sessionStartTimeRef.current,
           userLevel,
-          motherLanguage
+          motherLanguage,
+          aiProvider
         );
 
         if (error) {
