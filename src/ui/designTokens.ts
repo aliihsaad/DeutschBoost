@@ -1,0 +1,35 @@
+export const experienceDesignTokens = {
+  color: {
+    background: '#f6f7f8',
+    surface: '#ffffff',
+    surfaceMuted: '#f1f3f5',
+    border: '#dfe3e8',
+    borderStrong: '#c5cad3',
+    text: '#18181b',
+    textMuted: '#666f7b',
+    accent: '#f2b705',
+    accentSoft: '#fff4bf',
+    danger: '#d92d20',
+    dangerSoft: '#fff1ef',
+    success: '#16833a',
+    successSoft: '#e8f7ee',
+    charcoal: '#2b2f33',
+  },
+  radius: {
+    panel: '8px',
+    control: '6px',
+    pill: '999px',
+  },
+  layout: {
+    sidebarWidth: '148px',
+    contentMaxWidth: '1180px',
+    appMinWidth: '320px',
+  },
+  typography: {
+    family: 'Plus Jakarta Sans, system-ui, sans-serif',
+    chromeSize: '12px',
+    bodySize: '13px',
+    titleSize: '20px',
+    labelSize: '11px',
+  },
+} as const;

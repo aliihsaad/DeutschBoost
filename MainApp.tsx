@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import Header from './components/Header';
-import HomePage from './pages/HomePage';
+import ExperienceAppShell from './components/ExperienceAppShell';
+import LocalDashboardPage from './pages/LocalDashboardPage';
 import EnhancedPlacementTestPage from './pages/EnhancedPlacementTestPage';
 import LearningPlanPage from './pages/LearningPlanPage';
 import ConversationPage from './pages/ConversationPage';
@@ -10,7 +10,7 @@ import ProfilePage from './pages/ProfilePage';
 import ActivityPage from './pages/ActivityPage';
 import { PracticePage } from './pages/PracticePage';
 import { ExamSimulatorPage } from './pages/ExamSimulatorPage';
-import { Page, CEFRLevel, TestResult, LearningPlan } from './types';
+import { CEFRLevel, TestResult, LearningPlan } from './types';
 import { generateLearningPlan } from './services/geminiService';
 import { loadActiveLearningPlan, saveLearningPlan, updatePlanItemCompletion } from './services/learningPlanService';
 import { useAuth } from './src/contexts/AuthContext';
@@ -18,7 +18,6 @@ import { supabase } from './src/lib/supabase';
 import toast from 'react-hot-toast';
 
 const MainApp: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState<Page>(Page.Home);
   const [userLevel, setUserLevel] = useState<CEFRLevel>(CEFRLevel.A1);
   const [learningPlan, setLearningPlan] = useState<LearningPlan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
@@ -122,7 +121,6 @@ const MainApp: React.FC = () => {
 
         console.log('✅ Learning plan saved with ID:', planId);
         toast.success('Learning plan created successfully!');
-        setCurrentPage(Page.LearningPlan);
         navigate('/learning-plan');
       } catch (error) {
         console.error('❌ Failed to generate/save learning plan:', error);
@@ -138,26 +136,37 @@ const MainApp: React.FC = () => {
   // Removed handleTogglePlanItem - activities are now auto-completed when user finishes them
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header currentPage={currentPage} setPage={setCurrentPage} />
-      <main className="flex-grow">
+    <ExperienceAppShell>
         <Routes>
-          <Route path="/" element={<HomePage setPage={setCurrentPage} learningPlan={learningPlan} userLevel={userLevel} />} />
+          <Route path="/" element={<LocalDashboardPage />} />
           <Route path="/placement-test" element={<EnhancedPlacementTestPage onTestComplete={handleTestComplete} />} />
+          <Route path="/plan" element={<LearningPlanPage learningPlan={learningPlan} loading={loadingPlan} />} />
           <Route path="/learning-plan" element={<LearningPlanPage learningPlan={learningPlan} loading={loadingPlan} />} />
           <Route path="/practice" element={<PracticePage />} />
+          <Route path="/exam" element={<ExamSimulatorPage />} />
           <Route path="/exam-simulator" element={<ExamSimulatorPage />} />
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/speaking-activity" element={<SpeakingActivityPage />} />
           <Route path="/conversation" element={<ConversationPage />} />
+          <Route path="/settings" element={<ProfilePage userLevel={userLevel} />} />
           <Route path="/profile" element={<ProfilePage userLevel={userLevel} />} />
+          <Route path="/review" element={<LocalWorkspacePlaceholderPage title="Review" description="Due vocabulary, phrases, grammar mistakes, and saved corrections will live here." />} />
+          <Route path="/writing" element={<LocalWorkspacePlaceholderPage title="Writing" description="Prompts, drafts, AI feedback, and revision history will live here." />} />
+          <Route path="/mistakes" element={<LocalWorkspacePlaceholderPage title="Mistakes" description="The searchable mistake notebook and review card workflow will live here." />} />
+          <Route path="/library" element={<LocalWorkspacePlaceholderPage title="Library" description="Saved readings, listening items, grammar notes, and local content packs will live here." />} />
         </Routes>
-      </main>
-      <footer className="bg-slate-800 text-white text-center p-4">
-        <p>&copy; 2024 DeutschBoost. Learn German smarter with AI.</p>
-      </footer>
-    </div>
+    </ExperienceAppShell>
   );
 };
+
+const LocalWorkspacePlaceholderPage: React.FC<{ title: string; description: string }> = ({ title, description }) => (
+  <main className="db-dashboard" aria-label={`${title} workspace`}>
+    <section className="db-panel db-empty-workspace">
+      <span className="db-section-label">Lokaler Arbeitsbereich</span>
+      <h1>{title}</h1>
+      <p>{description}</p>
+    </section>
+  </main>
+);
 
 export default MainApp;
