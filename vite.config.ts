@@ -12,27 +12,36 @@ import {
 // Vite configuration for DeutschBoost
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
+    const tauriDevHost = process.env.TAURI_DEV_HOST;
+    const deepgramProxy = {
+      [DEEPGRAM_PROXY_PATH]: {
+        target: DEEPGRAM_API_TARGET,
+        changeOrigin: true,
+        rewrite: rewriteDeepgramProxyPath,
+      },
+    };
+
     return {
+      clearScreen: false,
       server: {
         port: 5173,
-        host: '0.0.0.0',
-        proxy: {
-          [DEEPGRAM_PROXY_PATH]: {
-            target: DEEPGRAM_API_TARGET,
-            changeOrigin: true,
-            rewrite: rewriteDeepgramProxyPath,
-          },
+        strictPort: true,
+        host: tauriDevHost || '0.0.0.0',
+        hmr: tauriDevHost
+          ? {
+              protocol: 'ws',
+              host: tauriDevHost,
+              port: 1421,
+            }
+          : undefined,
+        watch: {
+          ignored: ['**/src-tauri/**'],
         },
+        proxy: deepgramProxy,
       },
       preview: {
         host: '0.0.0.0',
-        proxy: {
-          [DEEPGRAM_PROXY_PATH]: {
-            target: DEEPGRAM_API_TARGET,
-            changeOrigin: true,
-            rewrite: rewriteDeepgramProxyPath,
-          },
-        },
+        proxy: deepgramProxy,
       },
       plugins: [
         react(),
@@ -102,6 +111,12 @@ export default defineConfig(({ mode }) => {
       define: {
         'process.env.API_KEY': JSON.stringify(env.API_KEY || env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.API_KEY || env.GEMINI_API_KEY)
+      },
+      envPrefix: ['VITE_', 'TAURI_ENV_'],
+      build: {
+        target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'safari13',
+        minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
+        sourcemap: Boolean(process.env.TAURI_ENV_DEBUG),
       },
       resolve: {
         alias: {

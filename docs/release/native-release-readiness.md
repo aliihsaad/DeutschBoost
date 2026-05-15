@@ -1,6 +1,6 @@
 # DeutschBoost Native Release Readiness
 
-This project now has a shared storage boundary and optional native storage adapter shapes. The next release work is platform packaging, not more browser storage.
+This project now has a shared storage boundary, optional native storage adapter shapes, and a working Tauri desktop shell. The next release work is Android packaging plus replacing browser-managed provider secrets with production-grade native secure storage.
 
 ## Current Targets
 
@@ -24,41 +24,38 @@ The checker validates:
 - Tauri package/scripts/config files and Rust toolchain.
 - Capacitor package/scripts/config files, Android project, Java, and Android SDK environment.
 
+Current status after the desktop-shell stage:
+
+- PWA release: ready.
+- Desktop installable release: ready on this machine after installing Rust with rustup.
+- Android APK release: blocked until the Capacitor packages/project, Java JDK, and Android SDK are installed.
+
 ## Desktop Installable Release Path
 
 Use Tauri for desktop because the app already has a local-first React core and needs device-local storage, offline support, and installable releases.
 
-1. Install Rust with `rustup` so `rustc` and `cargo` are on `PATH`.
-2. Add Tauri packages:
+Implemented desktop foundation:
+
+- `@tauri-apps/api`, `@tauri-apps/plugin-store`, `@tauri-apps/plugin-stronghold`, and `@tauri-apps/cli` are installed.
+- `src-tauri/` is initialized for the existing Vite app with `devUrl` `http://localhost:5173` and frontend output `../dist`.
+- Tauri Store and Stronghold permissions are enabled in `src-tauri/capabilities/default.json`.
+- The Rust shell initializes the Store and Stronghold plugins.
+- `npm run tauri:build` produced `src-tauri/target/release/bundle/nsis/DeutschBoost_0.1.0_x64-setup.exe`.
+
+Useful commands:
 
 ```bash
-npm i @tauri-apps/api @tauri-apps/plugin-store @tauri-apps/plugin-stronghold
-npm i -D @tauri-apps/cli
+npm run tauri:dev
+npm run tauri:build
 ```
 
-3. Initialize the Tauri shell for the existing Vite app:
+If a shell was open before Rust was installed, restart it or prepend Cargo manually for the current session:
 
-```bash
-npx tauri init
+```powershell
+$env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
 ```
 
-Use:
-
-- Dev URL: `http://localhost:5173`
-- Frontend dev command: `npm run dev`
-- Frontend build command: `npm run build`
-- Web assets: `../dist`
-
-4. Add scripts:
-
-```json
-{
-  "tauri:dev": "tauri dev",
-  "tauri:build": "tauri build"
-}
-```
-
-5. Configure Tauri plugin permissions for store/stronghold before treating packaged secrets as production-safe.
+Desktop follow-up before public release: replace the current provider secret wrapper with a true Stronghold-backed adapter so OpenRouter and Deepgram keys are recoverable for provider calls but not stored in ordinary app JSON.
 
 ## Android APK Path
 
