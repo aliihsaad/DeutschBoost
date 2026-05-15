@@ -55,10 +55,6 @@ vi.mock('../pages/LearningPlanPage', () => ({
   default: () => <main>Plan</main>,
 }));
 
-vi.mock('../pages/ConversationPage', () => ({
-  default: () => <main>Conversation</main>,
-}));
-
 vi.mock('../pages/SpeakingActivityPage', () => ({
   default: (props: { aiProvider?: { id: string }; speechProvider?: { id: string } }) => {
     speakingPageProps.latest = props;

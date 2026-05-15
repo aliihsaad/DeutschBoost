@@ -13,9 +13,9 @@ The useful core of the old app is the learning product model: CEFR placement, ad
 
 - The repo is a React 19, TypeScript, Vite app with React Router, Tailwind, Supabase, Gemini, PWA, Vitest, and Vercel config.
 - `MainApp.tsx`, `src/contexts/AuthContext.tsx`, `src/lib/supabase.ts`, and service files assume a logged-in Supabase user.
-- `services/geminiService.ts` contains both reusable prompt design and hard-coded Google Gemini SDK calls, including Gemini Live.
+- `services/geminiService.ts` now keeps legacy Gemini text/JSON generation helpers only; Gemini Live helpers have been removed from the active codebase.
 - `services/learningPlanService.ts`, `services/conversationService.ts`, and `services/practiceService.ts` are persistence services, but they are tied directly to Supabase tables.
-- `pages/ConversationPage.tsx` and `pages/SpeakingActivityPage.tsx` are the most browser-coupled areas because they use microphone access, Web Audio, Gemini Live, and database session writes in the same component flow.
+- `pages/ConversationPage.tsx` has been deleted. `pages/SpeakingActivityPage.tsx` is now the active conversation surface, with microphone capture, Deepgram transcription, AI-provider tutor replies, and interim browser-local transcript storage.
 - Tests and production build pass when the sandbox allows the esbuild worker to spawn: 42 Vitest tests passed, and `npm run build` completed successfully.
 
 ## Recommended Direction

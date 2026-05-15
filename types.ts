@@ -66,13 +66,6 @@ export enum ConversationMode {
   SPEAKING_ACTIVITY = "SPEAKING_ACTIVITY",
 }
 
-export interface ConversationModeInfo {
-  mode: ConversationMode;
-  name: string;
-  description: string;
-  icon: string;
-}
-
 // Practice-related types
 export type SkillType = 'Grammar' | 'Vocabulary' | 'Listening' | 'Writing' | 'Speaking' | 'Reading';
 export type ActivityTypeExtended = SkillType | 'Mock Exam';

@@ -67,7 +67,7 @@ Steps:
 - `MainApp.tsx`
 - `pages/HomePage.tsx`
 - `pages/LearningPlanPage.tsx`
-- `pages/ConversationPage.tsx`
+- `pages/SpeakingActivityPage.tsx`
 - `pages/ActivityPage.tsx`
 - `pages/ProfilePage.tsx`
 
@@ -184,7 +184,6 @@ Steps:
 
 - `src/vite-env.d.ts`
 - `services/conversationService.ts`
-- `pages/ConversationPage.tsx`
 - `pages/SpeakingActivityPage.tsx`
 
 Steps:
@@ -209,18 +208,17 @@ Steps:
 
 **Files to modify:**
 
-- `pages/ConversationPage.tsx`
 - `pages/SpeakingActivityPage.tsx`
 - `services/conversationService.ts`
 - `services/geminiService.ts`
 
 Steps:
 
-- [ ] Remove `@google/genai` Live session usage from the active conversation flow.
-- [ ] Build a text-first conversation tutor that sends full local conversation context to the AI provider.
-- [ ] Add a voice-turn mode that uses Deepgram transcript output as the learner message.
-- [ ] Persist each tutor/user exchange locally.
-- [ ] Generate feedback at session end using local transcripts and learner level.
+- [x] Remove `@google/genai` Live session usage from the active conversation flow.
+- [x] Build a text-first conversation tutor that sends full local conversation context to the AI provider.
+- [x] Add a voice-turn mode that uses Deepgram transcript output as the learner message.
+- [x] Persist each tutor/user exchange locally in the browser adapter as an interim step.
+- [x] Generate feedback at session end using local transcripts and learner level.
 - [ ] Keep German speech synthesis as optional output for tutor messages.
 - [ ] Keep fully live streaming voice behind a later feature flag.
 - [ ] Add tests for session start, message append, feedback generation, and history loading.

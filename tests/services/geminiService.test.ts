@@ -4,7 +4,6 @@ import type { AiProvider } from '../../src/domain/ai/aiProvider';
 
 const geminiMock = vi.hoisted(() => ({
   generateContent: vi.fn(),
-  liveConnect: vi.fn(),
 }));
 
 vi.mock('@google/genai', () => ({
@@ -13,9 +12,6 @@ vi.mock('@google/genai', () => ({
       generateContent: geminiMock.generateContent,
     };
 
-    live = {
-      connect: geminiMock.liveConnect,
-    };
   },
   Type: {
     OBJECT: 'object',
@@ -23,10 +19,6 @@ vi.mock('@google/genai', () => ({
     STRING: 'string',
     INTEGER: 'integer',
   },
-  Modality: {
-    AUDIO: 'audio',
-  },
-  Blob: vi.fn(),
 }));
 
 const testResult: TestResult = {
@@ -67,7 +59,6 @@ describe('geminiService provider boundaries', () => {
     vi.resetModules();
     vi.stubEnv('API_KEY', 'test-key');
     geminiMock.generateContent.mockReset();
-    geminiMock.liveConnect.mockReset();
   });
 
   it('can evaluate comprehensive placement tests through an injected AI provider', async () => {

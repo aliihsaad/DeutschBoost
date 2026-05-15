@@ -6,10 +6,10 @@ A personalized German language learning platform powered by AI. Learn German thr
 
 ## 🎉 What's New (Latest Updates)
 
-### Recent Improvements (2025)
+### Recent Improvements (2026)
 - ✅ **Fixed Activity Completion System**: Learning plan items now use database IDs for accurate completion tracking - no more wrong activities being marked complete!
 - ✅ **Reading in German**: Reading comprehension questions and answer choices now in German for authentic practice
-- ✅ **Speaking Practice Overhaul**: Dedicated speaking activity page with real-time AI audio, automatic scoring, and learning plan integration
+- ✅ **Speaking Practice Overhaul**: Dedicated speaking activity page with turn-based AI tutoring, Deepgram transcription, automatic scoring, and learning plan integration
 - ✅ **Enhanced Placement Test**: 3-section comprehensive assessment (Reading + Grammar + Writing) for more accurate level evaluation
 - ✅ **Study Streak Tracking**: Track consecutive study days and total study time across all activities
 
@@ -52,8 +52,8 @@ Six types of AI-generated activities, all fully working:
 - Progress syncs with study streak and total study time
 
 ### 💬 AI Conversation Partner (with Memory!)
-**Real-time voice conversations with Alex, your AI German tutor:**
-- 🎙️ **Natural Voice Conversations**: Speak and listen with Google Gemini Live AI
+**Turn-based voice conversations with Alex, your AI German tutor:**
+- 🎙️ **Natural Voice Conversations**: Speak, transcribe with Deepgram, and continue with the configured AI tutor provider
 - 🧠 **Context Awareness**: Alex remembers your previous conversations and builds on them
 - 📊 **Detailed Feedback**: After each session, receive comprehensive feedback including:
   - Overall performance score (0-100)
@@ -103,7 +103,7 @@ Choose from 5 specialized learning modes in the AI Conversation Partner:
 **Speaking activities from your learning plan with dedicated AI support:**
 - Topic-specific conversations based on learning plan items
 - AI focuses conversation on the assigned topic (e.g., "Introducing yourself", "Family", "Hobbies")
-- Real-time voice interaction with Gemini Live AI
+- Turn-based voice interaction with Deepgram transcription and AI tutor replies
 - Automatic evaluation and scoring after session ends
 - Auto-completes learning plan item when you score 70%+
 - Returns you to learning plan with progress saved
@@ -150,7 +150,8 @@ DeutschBoost's AI Conversation Partner uses advanced context awareness to provid
 - **AI**:
   - Google Gemini 2.5 Flash (activities, assessments)
   - Google Gemini 2.5 Pro (feedback generation, deep thinking)
-  - Google Gemini Live (real-time voice conversations)
+  - OpenRouter-compatible AI providers for local-first tutor flows
+  - Deepgram for speech-to-text transcription
 - **Backend**: Supabase
   - PostgreSQL Database with JSONB for conversation storage
   - Row Level Security (RLS) policies
@@ -256,8 +257,7 @@ DeutschBoost/
 │   ├── Card.tsx                     # Reusable card component
 │   └── LoadingSpinner.tsx           # Loading state component
 ├── pages/             # Application pages
-│   ├── ConversationPage.tsx       # AI conversation with 5 modes & history
-│   ├── SpeakingActivityPage.tsx   # NEW: Dedicated speaking practice
+│   ├── SpeakingActivityPage.tsx   # Provider-based conversation and speaking practice
 │   ├── ActivityPage.tsx           # Learning plan activity handler
 │   ├── LearningPlanPage.tsx       # 4-week learning plan display
 │   ├── EnhancedPlacementTestPage.tsx  # 3-section placement test

@@ -29,7 +29,7 @@ The codebase uses a mixed structure with top-level folders:
 
 - **`/App.tsx`** - Entry point with routing, auth provider, error boundary
 - **`/MainApp.tsx`** - Main authenticated app with nested routes and learning plan state
-- **`/pages/`** - Top-level page components (EnhancedPlacementTestPage, LearningPlanPage, ConversationPage, ActivityPage, etc.)
+- **`/pages/`** - Top-level page components (EnhancedPlacementTestPage, LearningPlanPage, SpeakingActivityPage, ActivityPage, etc.)
 - **`/services/`** - API and business logic:
   - `geminiService.ts` - All AI prompts and API calls for activities, assessments, conversation modes
   - `conversationService.ts` - Conversation history and feedback persistence
