@@ -118,6 +118,68 @@ describe('LocalSettingsPage', () => {
     expect(screen.getByLabelText('Deepgram API key')).toHaveValue('');
   });
 
+  it('tests a pasted Deepgram API key before saving settings', async () => {
+    const repository = createStorageProviderSettingsRepository({
+      storage: createMemoryStorage(),
+    });
+    const deepgramApiKeyTester = vi.fn().mockResolvedValue({
+      ok: true,
+      message: 'Deepgram API key is valid',
+      retryable: false,
+      status: 200,
+    });
+
+    render(<LocalSettingsPage repository={repository} deepgramApiKeyTester={deepgramApiKeyTester} />);
+
+    await screen.findByRole('heading', { name: 'Local Settings' });
+    fireEvent.change(screen.getByLabelText('Deepgram API key'), {
+      target: { value: 'deepgram-key' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Test Deepgram' }));
+
+    await waitFor(() => {
+      expect(deepgramApiKeyTester).toHaveBeenCalledWith('deepgram-key');
+    });
+    expect(screen.getByText('Deepgram API key is valid')).toBeInTheDocument();
+  });
+
+  it('tests the hidden saved Deepgram API key', async () => {
+    const repository = createStorageProviderSettingsRepository({
+      storage: createMemoryStorage({
+        [DEFAULT_PROVIDER_SETTINGS_STORAGE_KEY]: JSON.stringify({
+          ai: {
+            enabled: false,
+            provider: 'openrouter',
+            model: 'openrouter/auto',
+          },
+          speech: {
+            enabled: true,
+            provider: 'deepgram',
+            apiKey: 'saved-deepgram-key',
+            model: 'nova-3',
+            language: 'de',
+          },
+        }),
+      }),
+    });
+    const deepgramApiKeyTester = vi.fn().mockResolvedValue({
+      ok: true,
+      message: 'Deepgram API key is valid',
+      retryable: false,
+      status: 200,
+    });
+
+    render(<LocalSettingsPage repository={repository} deepgramApiKeyTester={deepgramApiKeyTester} />);
+
+    await screen.findByText('Saved key hidden');
+    fireEvent.click(screen.getByRole('button', { name: 'Test Deepgram' }));
+
+    await waitFor(() => {
+      expect(deepgramApiKeyTester).toHaveBeenCalledWith('saved-deepgram-key');
+    });
+    expect(screen.queryByDisplayValue('saved-deepgram-key')).not.toBeInTheDocument();
+  });
+
   it('resets saved provider settings back to local defaults', async () => {
     const repository = createStorageProviderSettingsRepository({
       storage: createMemoryStorage(),

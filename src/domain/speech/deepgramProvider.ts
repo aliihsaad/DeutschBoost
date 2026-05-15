@@ -17,6 +17,19 @@ interface DeepgramSpeechProviderOptions {
   now?: () => string;
 }
 
+interface DeepgramApiKeyTestOptions {
+  apiKey?: string;
+  authTokenUrl?: string;
+  fetchFn?: FetchLike;
+}
+
+export interface DeepgramApiKeyTestResult {
+  ok: boolean;
+  message: string;
+  retryable: boolean;
+  status?: number;
+}
+
 interface DeepgramAlternative {
   transcript?: string;
   confidence?: number;
@@ -41,6 +54,7 @@ interface DeepgramErrorBody {
 }
 
 const DEFAULT_BASE_URL = 'https://api.deepgram.com/v1/listen';
+const DEFAULT_AUTH_TOKEN_URL = 'https://api.deepgram.com/v1/auth/token';
 const DEFAULT_MODEL = 'nova-3';
 const DEFAULT_LANGUAGE = 'de';
 
@@ -86,6 +100,45 @@ const buildTranscriptionUrl = (
 const firstAlternative = (response: DeepgramResponse): DeepgramAlternative | undefined => {
   return response.results?.channels?.[0]?.alternatives?.[0];
 };
+
+export async function testDeepgramApiKey(
+  options: DeepgramApiKeyTestOptions
+): Promise<DeepgramApiKeyTestResult> {
+  const apiKey = options.apiKey?.trim();
+
+  if (!apiKey) {
+    return {
+      ok: false,
+      message: 'Deepgram API key is required',
+      retryable: false,
+    };
+  }
+
+  const fetchFn = options.fetchFn ?? fetch;
+  const response = await fetchFn(options.authTokenUrl ?? DEFAULT_AUTH_TOKEN_URL, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Token ${apiKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      message: `Deepgram key test failed: ${await readErrorMessage(response)}`,
+      retryable: isRetryableStatus(response.status),
+      status: response.status,
+    };
+  }
+
+  return {
+    ok: true,
+    message: 'Deepgram API key is valid',
+    retryable: false,
+    status: response.status,
+  };
+}
 
 export const createDeepgramSpeechProvider = (
   options: DeepgramSpeechProviderOptions

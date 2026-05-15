@@ -9,24 +9,40 @@ import {
   type LocalProviderSettings,
 } from '../src/domain/settings/providerSettings';
 import type { ProviderSettingsRepository } from '../src/domain/settings/providerSettingsRepository';
+import {
+  testDeepgramApiKey,
+  type DeepgramApiKeyTestResult,
+} from '../src/domain/speech/deepgramProvider';
 import { browserProviderSettingsRepository } from '../src/infrastructure/browser/providerSettingsStorage';
 import { describeProviderStatus, type ProviderSettingsSnapshot } from '../src/ui/providerStatusModel';
+
+type DeepgramApiKeyTester = (apiKey: string) => Promise<DeepgramApiKeyTestResult>;
 
 interface LocalSettingsPageProps {
   repository?: ProviderSettingsRepository;
   onSettingsChange?: (settings: LocalProviderSettings) => void;
+  deepgramApiKeyTester?: DeepgramApiKeyTester;
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'reset' | 'error';
+type ConnectionTestState = 'idle' | 'testing' | 'success' | 'error';
+
+const defaultDeepgramApiKeyTester: DeepgramApiKeyTester = apiKey =>
+  testDeepgramApiKey({ apiKey });
 
 const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
   repository = browserProviderSettingsRepository,
   onSettingsChange,
+  deepgramApiKeyTester = defaultDeepgramApiKeyTester,
 }) => {
   const [settings, setSettings] = useState<LocalProviderSettings>(createDefaultLocalProviderSettings);
   const [apiKeyDrafts, setApiKeyDrafts] = useState({ ai: '', speech: '' });
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [deepgramTest, setDeepgramTest] = useState<{
+    state: ConnectionTestState;
+    message: string | null;
+  }>({ state: 'idle', message: null });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,6 +54,7 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
         if (!cancelled) {
           setSettings(loaded);
           setApiKeyDrafts({ ai: '', speech: '' });
+          setDeepgramTest({ state: 'idle', message: null });
           onSettingsChange?.(loaded);
         }
       } catch (error) {
@@ -89,11 +106,39 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
       const resetSettings = await repository.reset();
       setSettings(resetSettings);
       setApiKeyDrafts({ ai: '', speech: '' });
+      setDeepgramTest({ state: 'idle', message: null });
       onSettingsChange?.(resetSettings);
       setSaveState('reset');
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
       setSaveState('error');
+    }
+  }
+
+  async function handleTestDeepgram() {
+    const apiKey = selectSecret(apiKeyDrafts.speech, settings.speech.apiKey);
+
+    if (!apiKey) {
+      setDeepgramTest({
+        state: 'error',
+        message: 'Add a Deepgram API key first',
+      });
+      return;
+    }
+
+    setDeepgramTest({ state: 'testing', message: null });
+
+    try {
+      const result = await deepgramApiKeyTester(apiKey);
+      setDeepgramTest({
+        state: result.ok ? 'success' : 'error',
+        message: result.message,
+      });
+    } catch (error) {
+      setDeepgramTest({
+        state: 'error',
+        message: getErrorMessage(error),
+      });
     }
   }
 
@@ -180,13 +225,25 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
               label="Deepgram API key"
               value={apiKeyDrafts.speech}
               saved={hasSecret(settings.speech.apiKey)}
-              onChange={value =>
+              onChange={value => {
+                setDeepgramTest({ state: 'idle', message: null });
                 setApiKeyDrafts(current => ({
                   ...current,
                   speech: value,
-                }))
-              }
+                }));
+              }}
             />
+            <div className="db-provider-test-row">
+              <button
+                className="db-inline-button"
+                type="button"
+                onClick={handleTestDeepgram}
+                disabled={loading || deepgramTest.state === 'testing'}
+              >
+                {deepgramTest.state === 'testing' ? 'Testing...' : 'Test Deepgram'}
+              </button>
+              <ProviderTestMessage state={deepgramTest.state} message={deepgramTest.message} />
+            </div>
             <SelectField
               label="Deepgram model"
               value={settings.speech.model}
@@ -323,6 +380,17 @@ const SettingsMessage: React.FC<{ state: SaveState; errorMessage: string | null 
   return null;
 };
 
+const ProviderTestMessage: React.FC<{ state: ConnectionTestState; message: string | null }> = ({
+  state,
+  message,
+}) => {
+  if (!message) {
+    return null;
+  }
+
+  return <p className={`db-provider-test-message db-provider-test-message-${state}`}>{message}</p>;
+};
+
 function formatProviderHeadline(snapshot: ProviderSettingsSnapshot): string {
   const status = describeProviderStatus(snapshot);
 
@@ -362,6 +430,10 @@ function optionalSecret<Key extends string>(
 ): Partial<Record<Key, string>> {
   const nextValue = draft.trim() || existing?.trim();
   return nextValue ? ({ [key]: nextValue } as Partial<Record<Key, string>>) : {};
+}
+
+function selectSecret(draft: string, existing?: string): string | undefined {
+  return draft.trim() || existing?.trim();
 }
 
 function hasSecret(value: string | undefined): boolean {

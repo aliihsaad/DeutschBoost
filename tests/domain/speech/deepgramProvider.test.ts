@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createDeepgramSpeechProvider } from '../../../src/domain/speech/deepgramProvider';
+import {
+  createDeepgramSpeechProvider,
+  testDeepgramApiKey,
+} from '../../../src/domain/speech/deepgramProvider';
 
 describe('createDeepgramSpeechProvider', () => {
   it('transcribes prerecorded audio and normalizes the learner transcript turn', async () => {
@@ -103,6 +106,44 @@ describe('createDeepgramSpeechProvider', () => {
       provider: 'deepgram',
       feature: 'conversation-turn',
       retryable: true,
+    });
+  });
+
+  it('tests a Deepgram API key through the auth token endpoint', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ member_id: 'member-123' }), { status: 200 })
+    );
+
+    await expect(
+      testDeepgramApiKey({ apiKey: ' deepgram-key ', fetchFn })
+    ).resolves.toEqual({
+      ok: true,
+      message: 'Deepgram API key is valid',
+      retryable: false,
+      status: 200,
+    });
+    expect(fetchFn).toHaveBeenCalledWith(
+      'https://api.deepgram.com/v1/auth/token',
+      expect.objectContaining({
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: 'Token deepgram-key',
+        },
+      })
+    );
+  });
+
+  it('returns a readable result when a Deepgram API key test fails', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ err_msg: 'invalid credentials' }), { status: 401 })
+    );
+
+    await expect(testDeepgramApiKey({ apiKey: 'bad-key', fetchFn })).resolves.toEqual({
+      ok: false,
+      message: 'Deepgram key test failed: invalid credentials',
+      retryable: false,
+      status: 401,
     });
   });
 });
