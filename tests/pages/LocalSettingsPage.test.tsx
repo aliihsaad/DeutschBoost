@@ -135,7 +135,7 @@ describe('LocalSettingsPage', () => {
     fireEvent.change(screen.getByLabelText('Deepgram API key'), {
       target: { value: 'deepgram-key' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Test Deepgram' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Test key' }));
 
     await waitFor(() => {
       expect(deepgramApiKeyTester).toHaveBeenCalledWith('deepgram-key');
@@ -172,12 +172,62 @@ describe('LocalSettingsPage', () => {
     render(<LocalSettingsPage repository={repository} deepgramApiKeyTester={deepgramApiKeyTester} />);
 
     await screen.findByText('Saved key hidden');
-    fireEvent.click(screen.getByRole('button', { name: 'Test Deepgram' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Test key' }));
 
     await waitFor(() => {
       expect(deepgramApiKeyTester).toHaveBeenCalledWith('saved-deepgram-key');
     });
     expect(screen.queryByDisplayValue('saved-deepgram-key')).not.toBeInTheDocument();
+  });
+
+  it('records, plays back, and transcribes a Deepgram test audio sample', async () => {
+    const repository = createStorageProviderSettingsRepository({
+      storage: createMemoryStorage(),
+    });
+    const audio = new Blob(['audio-bytes'], { type: 'audio/webm' });
+    const deepgramAudioRecorder = vi.fn().mockResolvedValue({
+      audio,
+      mimeType: 'audio/webm',
+      playbackUrl: 'blob:deepgram-test-sample',
+    });
+    const deepgramAudioTester = vi.fn().mockResolvedValue({
+      rawText: 'Hallo, ich lerne Deutsch.',
+      transcript: {
+        speaker: 'learner',
+        text: 'Hallo, ich lerne Deutsch.',
+        occurredAt: '2026-05-15T12:00:00.000Z',
+        provider: 'deepgram',
+      },
+    });
+
+    render(
+      <LocalSettingsPage
+        repository={repository}
+        deepgramAudioRecorder={deepgramAudioRecorder}
+        deepgramAudioTester={deepgramAudioTester}
+      />
+    );
+
+    await screen.findByRole('heading', { name: 'Local Settings' });
+    fireEvent.change(screen.getByLabelText('Deepgram API key'), {
+      target: { value: 'deepgram-key' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Record test audio' }));
+
+    await waitFor(() => {
+      expect(deepgramAudioTester).toHaveBeenCalledWith({
+        apiKey: 'deepgram-key',
+        model: 'nova-3',
+        language: 'de',
+        audio,
+        mimeType: 'audio/webm',
+      });
+    });
+    expect(screen.getByLabelText('Deepgram test sample playback')).toHaveAttribute(
+      'src',
+      'blob:deepgram-test-sample'
+    );
+    expect(screen.getByText('Transcript: Hallo, ich lerne Deutsch.')).toBeInTheDocument();
   });
 
   it('resets saved provider settings back to local defaults', async () => {

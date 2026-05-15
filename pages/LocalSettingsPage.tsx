@@ -10,18 +10,38 @@ import {
 } from '../src/domain/settings/providerSettings';
 import type { ProviderSettingsRepository } from '../src/domain/settings/providerSettingsRepository';
 import {
+  createDeepgramSpeechProvider,
   testDeepgramApiKey,
   type DeepgramApiKeyTestResult,
 } from '../src/domain/speech/deepgramProvider';
+import type { SpeechTranscriptionResult } from '../src/domain/speech/speechProvider';
 import { browserProviderSettingsRepository } from '../src/infrastructure/browser/providerSettingsStorage';
 import { describeProviderStatus, type ProviderSettingsSnapshot } from '../src/ui/providerStatusModel';
 
 type DeepgramApiKeyTester = (apiKey: string) => Promise<DeepgramApiKeyTestResult>;
+type DeepgramAudioRecorder = () => Promise<RecordedAudioSample>;
+type DeepgramAudioTester = (request: DeepgramAudioTestRequest) => Promise<SpeechTranscriptionResult>;
+
+interface RecordedAudioSample {
+  audio: Blob;
+  mimeType: string;
+  playbackUrl?: string;
+}
+
+interface DeepgramAudioTestRequest {
+  apiKey: string;
+  model: string;
+  language: string;
+  audio: Blob;
+  mimeType: string;
+}
 
 interface LocalSettingsPageProps {
   repository?: ProviderSettingsRepository;
   onSettingsChange?: (settings: LocalProviderSettings) => void;
   deepgramApiKeyTester?: DeepgramApiKeyTester;
+  deepgramAudioRecorder?: DeepgramAudioRecorder;
+  deepgramAudioTester?: DeepgramAudioTester;
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'reset' | 'error';
@@ -30,10 +50,30 @@ type ConnectionTestState = 'idle' | 'testing' | 'success' | 'error';
 const defaultDeepgramApiKeyTester: DeepgramApiKeyTester = apiKey =>
   testDeepgramApiKey({ apiKey });
 
+const defaultDeepgramAudioRecorder: DeepgramAudioRecorder = () => recordDeepgramTestAudio();
+
+const defaultDeepgramAudioTester: DeepgramAudioTester = request =>
+  createDeepgramSpeechProvider({
+    apiKey: request.apiKey,
+    model: request.model,
+    language: request.language,
+  }).transcribe({
+    feature: 'settings-deepgram-test',
+    audio: request.audio,
+    mimeType: request.mimeType,
+    options: {
+      model: request.model,
+      language: request.language,
+      punctuation: true,
+    },
+  });
+
 const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
   repository = browserProviderSettingsRepository,
   onSettingsChange,
   deepgramApiKeyTester = defaultDeepgramApiKeyTester,
+  deepgramAudioRecorder = defaultDeepgramAudioRecorder,
+  deepgramAudioTester = defaultDeepgramAudioTester,
 }) => {
   const [settings, setSettings] = useState<LocalProviderSettings>(createDefaultLocalProviderSettings);
   const [apiKeyDrafts, setApiKeyDrafts] = useState({ ai: '', speech: '' });
@@ -43,6 +83,11 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
     state: ConnectionTestState;
     message: string | null;
   }>({ state: 'idle', message: null });
+  const [deepgramAudioTest, setDeepgramAudioTest] = useState<{
+    state: ConnectionTestState;
+    message: string | null;
+  }>({ state: 'idle', message: null });
+  const [samplePlaybackUrl, setSamplePlaybackUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,7 +99,7 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
         if (!cancelled) {
           setSettings(loaded);
           setApiKeyDrafts({ ai: '', speech: '' });
-          setDeepgramTest({ state: 'idle', message: null });
+          resetDeepgramTestState();
           onSettingsChange?.(loaded);
         }
       } catch (error) {
@@ -75,6 +120,12 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
       cancelled = true;
     };
   }, [onSettingsChange, repository]);
+
+  useEffect(() => {
+    return () => {
+      releasePlaybackUrl(samplePlaybackUrl);
+    };
+  }, [samplePlaybackUrl]);
 
   const snapshots = useMemo(() => buildProviderSettingsSnapshots(settings), [settings]);
   const aiStatus = describeProviderStatus(snapshots.ai);
@@ -106,13 +157,22 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
       const resetSettings = await repository.reset();
       setSettings(resetSettings);
       setApiKeyDrafts({ ai: '', speech: '' });
-      setDeepgramTest({ state: 'idle', message: null });
+      resetDeepgramTestState();
       onSettingsChange?.(resetSettings);
       setSaveState('reset');
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
       setSaveState('error');
     }
+  }
+
+  function resetDeepgramTestState() {
+    setDeepgramTest({ state: 'idle', message: null });
+    setDeepgramAudioTest({ state: 'idle', message: null });
+    setSamplePlaybackUrl(current => {
+      releasePlaybackUrl(current);
+      return null;
+    });
   }
 
   async function handleTestDeepgram() {
@@ -136,6 +196,46 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
       });
     } catch (error) {
       setDeepgramTest({
+        state: 'error',
+        message: getErrorMessage(error),
+      });
+    }
+  }
+
+  async function handleRecordDeepgramAudio() {
+    const apiKey = selectSecret(apiKeyDrafts.speech, settings.speech.apiKey);
+
+    if (!apiKey) {
+      setDeepgramAudioTest({
+        state: 'error',
+        message: 'Add a Deepgram API key first',
+      });
+      return;
+    }
+
+    setDeepgramAudioTest({ state: 'testing', message: null });
+
+    try {
+      const sample = await deepgramAudioRecorder();
+      setSamplePlaybackUrl(current => {
+        releasePlaybackUrl(current);
+        return sample.playbackUrl ?? null;
+      });
+
+      const result = await deepgramAudioTester({
+        apiKey,
+        model: settings.speech.model,
+        language: settings.speech.language,
+        audio: sample.audio,
+        mimeType: sample.mimeType,
+      });
+      const transcriptText = result.transcript.text || result.rawText;
+      setDeepgramAudioTest({
+        state: 'success',
+        message: `Transcript: ${transcriptText}`,
+      });
+    } catch (error) {
+      setDeepgramAudioTest({
         state: 'error',
         message: getErrorMessage(error),
       });
@@ -226,7 +326,7 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
               value={apiKeyDrafts.speech}
               saved={hasSecret(settings.speech.apiKey)}
               onChange={value => {
-                setDeepgramTest({ state: 'idle', message: null });
+                resetDeepgramTestState();
                 setApiKeyDrafts(current => ({
                   ...current,
                   speech: value,
@@ -240,10 +340,27 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
                 onClick={handleTestDeepgram}
                 disabled={loading || deepgramTest.state === 'testing'}
               >
-                {deepgramTest.state === 'testing' ? 'Testing...' : 'Test Deepgram'}
+                {deepgramTest.state === 'testing' ? 'Testing...' : 'Test key'}
+              </button>
+              <button
+                className="db-inline-button"
+                type="button"
+                onClick={handleRecordDeepgramAudio}
+                disabled={loading || deepgramAudioTest.state === 'testing'}
+              >
+                {deepgramAudioTest.state === 'testing' ? 'Recording...' : 'Record test audio'}
               </button>
               <ProviderTestMessage state={deepgramTest.state} message={deepgramTest.message} />
             </div>
+            {samplePlaybackUrl ? (
+              <audio
+                className="db-provider-test-audio"
+                controls
+                src={samplePlaybackUrl}
+                aria-label="Deepgram test sample playback"
+              />
+            ) : null}
+            <ProviderTestMessage state={deepgramAudioTest.state} message={deepgramAudioTest.message} />
             <SelectField
               label="Deepgram model"
               value={settings.speech.model}
@@ -438,6 +555,81 @@ function selectSecret(draft: string, existing?: string): string | undefined {
 
 function hasSecret(value: string | undefined): boolean {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+async function recordDeepgramTestAudio(durationMs = 3500): Promise<RecordedAudioSample> {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error('Microphone recording is not available in this browser');
+  }
+
+  if (typeof MediaRecorder === 'undefined') {
+    throw new Error('Audio recording is not available in this browser');
+  }
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+  try {
+    const mimeType = selectRecordingMimeType();
+    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    const chunks: Blob[] = [];
+    const stopped = new Promise<void>((resolve, reject) => {
+      recorder.ondataavailable = event => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+      recorder.onerror = () => reject(new Error('Microphone recording failed'));
+      recorder.onstop = () => resolve();
+    });
+
+    recorder.start();
+    await delay(durationMs);
+
+    if (recorder.state !== 'inactive') {
+      recorder.stop();
+    }
+
+    await stopped;
+
+    const recordedMimeType = recorder.mimeType || mimeType || 'audio/webm';
+    const audio = new Blob(chunks, { type: recordedMimeType });
+
+    if (audio.size === 0) {
+      throw new Error('No audio was recorded');
+    }
+
+    return {
+      audio,
+      mimeType: recordedMimeType,
+      playbackUrl: createPlaybackUrl(audio),
+    };
+  } finally {
+    stream.getTracks().forEach(track => track.stop());
+  }
+}
+
+function selectRecordingMimeType(): string | undefined {
+  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+
+  if (typeof MediaRecorder.isTypeSupported !== 'function') {
+    return undefined;
+  }
+
+  return candidates.find(candidate => MediaRecorder.isTypeSupported(candidate));
+}
+
+function createPlaybackUrl(audio: Blob): string | undefined {
+  return typeof URL.createObjectURL === 'function' ? URL.createObjectURL(audio) : undefined;
+}
+
+function releasePlaybackUrl(url: string | null | undefined): void {
+  if (url && typeof URL.revokeObjectURL === 'function') {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
 export default LocalSettingsPage;

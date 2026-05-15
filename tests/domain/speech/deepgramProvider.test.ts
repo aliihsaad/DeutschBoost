@@ -56,7 +56,7 @@ describe('createDeepgramSpeechProvider', () => {
     });
     expect(result.rawText).toBe('  Guten   Morgen, ich lerne Deutsch. ');
     expect(fetchFn).toHaveBeenCalledWith(
-      'https://api.deepgram.com/v1/listen?model=nova-3&language=de&punctuate=true&diarize=true',
+      '/api/deepgram/v1/listen?model=nova-3&language=de&punctuate=true&diarize=true',
       expect.objectContaining({
         method: 'POST',
         headers: {
@@ -123,7 +123,7 @@ describe('createDeepgramSpeechProvider', () => {
       status: 200,
     });
     expect(fetchFn).toHaveBeenCalledWith(
-      'https://api.deepgram.com/v1/auth/token',
+      '/api/deepgram/v1/auth/token',
       expect.objectContaining({
         method: 'GET',
         headers: {

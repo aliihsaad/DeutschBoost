@@ -156,7 +156,7 @@ describe('providerSettings', () => {
       confidence: 0.92,
     });
     expect(fetchFn).toHaveBeenCalledWith(
-      'https://api.deepgram.com/v1/listen?model=nova-3&language=de',
+      '/api/deepgram/v1/listen?model=nova-3&language=de',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({

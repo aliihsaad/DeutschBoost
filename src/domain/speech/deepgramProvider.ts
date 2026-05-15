@@ -53,8 +53,8 @@ interface DeepgramErrorBody {
   error?: string | { message?: string };
 }
 
-const DEFAULT_BASE_URL = 'https://api.deepgram.com/v1/listen';
-const DEFAULT_AUTH_TOKEN_URL = 'https://api.deepgram.com/v1/auth/token';
+const DEFAULT_BASE_URL = '/api/deepgram/v1/listen';
+const DEFAULT_AUTH_TOKEN_URL = '/api/deepgram/v1/auth/token';
 const DEFAULT_MODEL = 'nova-3';
 const DEFAULT_LANGUAGE = 'de';
 

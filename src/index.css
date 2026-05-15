@@ -827,6 +827,7 @@ textarea {
 }
 
 .db-provider-test-message {
+  grid-column: 1 / -1;
   min-width: 0;
   margin: 0;
   font-size: 12px;
@@ -840,6 +841,12 @@ textarea {
 
 .db-provider-test-message-error {
   color: #d92d20;
+}
+
+.db-provider-test-audio {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 34px;
 }
 
 .db-settings-save-panel {
