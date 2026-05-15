@@ -44,6 +44,7 @@ export interface LearnerProfile {
   voicePreference: VoicePreference;
   studyStreak: number;
   totalStudyTimeMinutes: number;
+  lastStudyDate?: string;
   updatedAt: string;
 }
 
@@ -209,6 +210,7 @@ function normalizeLearnerProfile(value: unknown, now: () => string): LearnerProf
   const defaults = createDefaultLearnerProfile(now());
   const root = asRecord(value);
   const updatedAt = normalizeString(root.updatedAt, defaults.updatedAt);
+  const lastStudyDate = normalizeOptionalString(root.lastStudyDate);
 
   return {
     id: 'local-learner',
@@ -226,6 +228,7 @@ function normalizeLearnerProfile(value: unknown, now: () => string): LearnerProf
       root.totalStudyTimeMinutes,
       defaults.totalStudyTimeMinutes
     ),
+    ...(lastStudyDate ? { lastStudyDate } : {}),
     updatedAt,
   };
 }
@@ -254,6 +257,10 @@ function normalizeNonNegativeNumber(value: unknown, fallback: number): number {
 
 function normalizeString(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim().length > 0 ? value : fallback;
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

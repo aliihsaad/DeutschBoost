@@ -3,13 +3,10 @@
  * Main hub for practice activities - Goethe exam preparation focused
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DailySuggestions } from '../components/DailySuggestions';
-import { PracticeStatsWidget } from '../components/PracticeStatsWidget';
-import { useAuth } from '../src/contexts/AuthContext';
-import { CEFRLevel, SkillType, DailyPracticeSuggestion } from '../types';
-import { completeSuggestion, createPracticeSession } from '../services/practiceService';
+import { CEFRLevel, SkillType } from '../types';
+import { browserProfileRepository } from '../src/infrastructure/browser/profileStorage';
 
 interface SkillCardProps {
   icon: string;
@@ -33,13 +30,34 @@ const SkillCard: React.FC<SkillCardProps> = ({ icon, title, description, color, 
   );
 };
 
+const TOPIC_OPTIONS = [
+  'Daily routines',
+  'Travel',
+  'Work',
+  'Shopping',
+  'Food and restaurants',
+  'Appointments',
+  'Housing',
+  'Health',
+  'Exam practice',
+  'General conversation',
+];
+
+function createLocalSessionId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `local-practice-${Date.now()}`;
+}
+
 export const PracticePage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, userProfile } = useAuth();
   const [showSkillSelector, setShowSkillSelector] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<SkillType | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<CEFRLevel | null>(null);
-  const [customTopic, setCustomTopic] = useState('');
+  const [profileLevel, setProfileLevel] = useState<CEFRLevel>(CEFRLevel.A1);
+  const [selectedTopic, setSelectedTopic] = useState(TOPIC_OPTIONS[0]);
 
   const skills = [
     {
@@ -82,37 +100,43 @@ export const PracticePage: React.FC = () => {
 
   const levels: CEFRLevel[] = [CEFRLevel.A1, CEFRLevel.A2, CEFRLevel.B1, CEFRLevel.B2, CEFRLevel.C1, CEFRLevel.C2];
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLocalProfile() {
+      try {
+        const profile = await browserProfileRepository.loadProfile();
+
+        if (!cancelled) {
+          setProfileLevel(profile.currentLevel);
+        }
+      } catch (error) {
+        console.error('Error loading local practice profile:', error);
+      }
+    }
+
+    loadLocalProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleSkillClick = (skill: SkillType) => {
     setSelectedSkill(skill);
-    setSelectedLevel(userProfile?.current_level || CEFRLevel.A1);
+    setSelectedLevel(profileLevel);
+    setSelectedTopic(TOPIC_OPTIONS[0]);
     setShowSkillSelector(true);
   };
 
-  const handleStartPractice = async (skill: SkillType, level: CEFRLevel, topic?: string) => {
-    if (!user) return;
+  const handleStartPractice = (skill: SkillType, level: CEFRLevel, topic: string) => {
+    const sessionId = createLocalSessionId();
 
-    // Create practice session
-    const session = await createPracticeSession(user.id, skill, level, topic);
-
-    if (!session) {
-      alert('Failed to create practice session. Please try again.');
-      return;
-    }
-
-    // Navigate to appropriate activity page
     if (skill === 'Speaking') {
-      navigate(`/speaking-activity?practiceMode=true&sessionId=${session.id}&topic=${encodeURIComponent(topic || 'General conversation')}&level=${level}`);
+      navigate(`/speaking-activity?practiceMode=true&sessionId=${sessionId}&topic=${encodeURIComponent(topic)}&level=${level}`);
     } else {
-      navigate(`/activity?practiceMode=true&sessionId=${session.id}&type=${skill.toLowerCase()}&topic=${encodeURIComponent(topic || skill)}&level=${level}`);
+      navigate(`/activity?practiceMode=true&sessionId=${sessionId}&type=${skill.toLowerCase()}&topic=${encodeURIComponent(topic)}&level=${level}`);
     }
-  };
-
-  const handleSuggestionStart = async (suggestion: DailyPracticeSuggestion) => {
-    // Mark suggestion as completed
-    await completeSuggestion(suggestion.id);
-
-    // Start practice for that suggestion
-    await handleStartPractice(suggestion.skill_type, suggestion.level, suggestion.topic);
   };
 
   const handleExamSimulator = () => {
@@ -130,9 +154,6 @@ export const PracticePage: React.FC = () => {
             Goethe-Zertifikat focused practice with AI-powered feedback
           </p>
         </div>
-
-        {/* Daily Suggestions */}
-        <DailySuggestions onStartPractice={handleSuggestionStart} />
 
         {/* Mock Exam Simulator - Featured */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-lg p-6 mb-6 text-white">
@@ -175,9 +196,6 @@ export const PracticePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Practice Statistics */}
-        <PracticeStatsWidget days={7} />
-
         {/* Skill Selector Modal */}
         {showSkillSelector && selectedSkill && selectedLevel && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -208,21 +226,22 @@ export const PracticePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Topic Input */}
+              {/* Topic Selector */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Topic (optional)
+                  Topic
                 </label>
-                <input
-                  type="text"
-                  value={customTopic}
-                  onChange={(e) => setCustomTopic(e.target.value)}
-                  placeholder={`e.g., "Daily routines", "Travel", "Business German"...`}
+                <select
+                  value={selectedTopic}
+                  onChange={(e) => setSelectedTopic(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Leave blank for AI to choose a topic
-                </p>
+                >
+                  {TOPIC_OPTIONS.map(topic => (
+                    <option key={topic} value={topic}>
+                      {topic}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Action Buttons */}
@@ -231,7 +250,6 @@ export const PracticePage: React.FC = () => {
                   onClick={() => {
                     setShowSkillSelector(false);
                     setSelectedSkill(null);
-                    setCustomTopic('');
                   }}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                 >
@@ -239,9 +257,8 @@ export const PracticePage: React.FC = () => {
                 </button>
                 <button
                   onClick={() => {
-                    handleStartPractice(selectedSkill, selectedLevel, customTopic || undefined);
+                    handleStartPractice(selectedSkill, selectedLevel, selectedTopic);
                     setShowSkillSelector(false);
-                    setCustomTopic('');
                   }}
                   className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
                 >

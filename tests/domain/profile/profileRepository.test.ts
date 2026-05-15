@@ -104,4 +104,24 @@ describe('profileRepository', () => {
       createDefaultLearnerProfile('2026-05-15T12:00:00.000Z')
     );
   });
+
+  it('preserves the last study date used by local streak tracking', async () => {
+    const repository = createStorageProfileRepository({
+      storage: createMemoryStorage(),
+      now: () => '2026-05-15T12:00:00.000Z',
+    });
+
+    await repository.updateProfile(current => ({
+      ...current,
+      studyStreak: 3,
+      totalStudyTimeMinutes: 90,
+      lastStudyDate: '2026-05-15',
+    }));
+
+    await expect(repository.loadProfile()).resolves.toMatchObject({
+      studyStreak: 3,
+      totalStudyTimeMinutes: 90,
+      lastStudyDate: '2026-05-15',
+    });
+  });
 });

@@ -16,7 +16,8 @@ import {
   startBrowserAudioRecording,
   type ActiveAudioRecording,
 } from '../src/infrastructure/browser/audioRecorder';
-import { useAuth } from '../src/contexts/AuthContext';
+import { MOTHER_LANGUAGE_OPTIONS } from '../src/domain/profile/profileRepository';
+import { browserProfileRepository } from '../src/infrastructure/browser/profileStorage';
 import { CEFRLevel, ConversationMode } from '../types';
 
 type ConversationStatus =
@@ -87,7 +88,6 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
   audioRecorder = startBrowserAudioRecording,
 }) => {
   const [searchParams] = useSearchParams();
-  const { user, userData, userProfile } = useAuth();
   const activityTopic = searchParams.get('topic')?.trim() ?? '';
   const activityDescription = searchParams.get('description')?.trim() ?? '';
   const isPlanActivity = activityTopic.length > 0 || activityDescription.length > 0;
@@ -102,14 +102,19 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
   const [message, setMessage] = useState<string | null>(null);
   const [lastAudioUrl, setLastAudioUrl] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<ConversationFeedbackRecord | null>(null);
+  const [profileContext, setProfileContext] = useState({
+    level: CEFRLevel.A2,
+    motherLanguage: 'English',
+    firstName: 'Learner',
+  });
   const activeRecordingRef = useRef<ActiveAudioRecording | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
   const providersReady = Boolean(aiProvider && speechProvider);
-  const learnerId = user?.id ?? LOCAL_LEARNER_ID;
-  const level = routeLevel ?? ((userProfile?.current_level as CEFRLevel | undefined) || CEFRLevel.A2);
-  const motherLanguage = userProfile?.mother_language || 'English';
-  const firstName = userData?.full_name?.split(' ')[0] || 'Learner';
+  const learnerId = LOCAL_LEARNER_ID;
+  const level = routeLevel ?? profileContext.level;
+  const motherLanguage = profileContext.motherLanguage;
+  const firstName = profileContext.firstName;
 
   const selectedModeOption = useMemo(
     () => MODE_OPTIONS.find(option => option.mode === selectedMode) ?? MODE_OPTIONS[0],
@@ -121,6 +126,35 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
       setSelectedMode(ConversationMode.SPEAKING_ACTIVITY);
     }
   }, [isPlanActivity]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLocalProfile() {
+      try {
+        const profile = await browserProfileRepository.loadProfile();
+        const motherLanguageOption = MOTHER_LANGUAGE_OPTIONS.find(
+          option => option.value === profile.motherLanguage
+        );
+
+        if (!cancelled) {
+          setProfileContext({
+            level: profile.currentLevel,
+            motherLanguage: motherLanguageOption?.label ?? 'English',
+            firstName: 'Learner',
+          });
+        }
+      } catch (error) {
+        console.error('Error loading local conversation profile:', error);
+      }
+    }
+
+    loadLocalProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (transcriptRef.current && typeof transcriptRef.current.scrollTo === 'function') {

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { LearningPlan } from '../types';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { useAuth } from '../src/contexts/AuthContext';
+import { browserProfileRepository } from '../src/infrastructure/browser/profileStorage';
 
 interface LearningPlanPageProps {
   learningPlan: LearningPlan | null;
@@ -24,11 +24,9 @@ const getIconForSkill = (skill: string) => {
 
 const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loading }) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([1])); // First week expanded by default
   const [studyStreak, setStudyStreak] = useState<number>(0);
   const [totalStudyTime, setTotalStudyTime] = useState<number>(0);
-  const [profileLoading, setProfileLoading] = useState(true);
 
   const handleStartActivity = (
     skill: string,
@@ -75,37 +73,29 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
     });
   };
 
-  // Load user profile data for study streak and total time
+  // Load local profile data for study streak and total time.
   useEffect(() => {
+    let cancelled = false;
+
     const loadUserProfile = async () => {
-      if (!user) {
-        setProfileLoading(false);
-        return;
-      }
-
       try {
-        const { supabase } = await import('../src/lib/supabase');
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('study_streak, total_study_time')
-          .eq('id', user.id)
-          .single();
+        const profile = await browserProfileRepository.loadProfile();
 
-        if (error) {
-          console.error('Error loading user profile:', error);
-        } else if (data) {
-          setStudyStreak(data.study_streak || 0);
-          setTotalStudyTime(data.total_study_time || 0);
+        if (!cancelled) {
+          setStudyStreak(profile.studyStreak);
+          setTotalStudyTime(profile.totalStudyTimeMinutes);
         }
       } catch (err) {
-        console.error('Error in loadUserProfile:', err);
-      } finally {
-        setProfileLoading(false);
+        console.error('Error loading local profile:', err);
       }
     };
 
     loadUserProfile();
-  }, [user]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (loading) {
     return (

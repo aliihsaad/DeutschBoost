@@ -12,9 +12,11 @@ import { PracticePage } from './pages/PracticePage';
 import { ExamSimulatorPage } from './pages/ExamSimulatorPage';
 import { TestResult, LearningPlan } from './types';
 import { generateLearningPlan } from './services/geminiService';
-import { loadActiveLearningPlan, saveLearningPlan } from './services/learningPlanService';
-import { useAuth } from './src/contexts/AuthContext';
-import { supabase } from './src/lib/supabase';
+import {
+  loadActiveLearningPlan,
+  recordPlacementResult,
+  saveLearningPlan,
+} from './services/learningPlanService';
 import toast from 'react-hot-toast';
 import {
   createDefaultLocalProviderSettings,
@@ -24,13 +26,14 @@ import { createLocalProviderRuntime } from './src/application/providerRuntime';
 import { browserProviderSettingsRepository } from './src/infrastructure/browser/providerSettingsStorage';
 import { browserProfileRepository } from './src/infrastructure/browser/profileStorage';
 
+const LOCAL_LEARNER_ID = 'local-learner';
+
 const MainApp: React.FC = () => {
   const [learningPlan, setLearningPlan] = useState<LearningPlan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [providerSettings, setProviderSettings] = useState<LocalProviderSettings>(
     createDefaultLocalProviderSettings
   );
-  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -55,48 +58,32 @@ const MainApp: React.FC = () => {
     };
   }, []);
 
-  // Load user's level and active learning plan from database
+  // Load the active local learning plan at startup and when plan-facing routes are revisited.
   useEffect(() => {
-    const loadUserData = async () => {
-      if (!user) return;
+    if (!location.pathname.match(/^\/(learning-plan|plan|)?$/)) return;
 
+    let cancelled = false;
+
+    const loadUserData = async () => {
       try {
-        // Load active learning plan using the service
-        const { plan, error } = await loadActiveLearningPlan(user.id);
+        const { plan, error } = await loadActiveLearningPlan(LOCAL_LEARNER_ID);
 
         if (error) {
           console.error('Error loading learning plan:', error);
-        } else if (plan) {
+        } else if (!cancelled) {
           setLearningPlan(plan);
         }
       } catch (error) {
-        console.error('Error loading user data:', error);
+        console.error('Error loading local learning plan:', error);
       }
     };
 
     loadUserData();
-  }, [user]);
 
-  // Reload learning plan when navigating to /learning-plan or / to reflect completed activities
-  useEffect(() => {
-    const reloadPlan = async () => {
-      if (!user || !location.pathname.match(/^\/(learning-plan|)?$/)) return;
-
-      try {
-        const { plan, error } = await loadActiveLearningPlan(user.id);
-
-        if (error) {
-          console.error('Error reloading learning plan:', error);
-        } else if (plan) {
-          setLearningPlan(plan);
-        }
-      } catch (error) {
-        console.error('Error reloading learning plan:', error);
-      }
+    return () => {
+      cancelled = true;
     };
-
-    reloadPlan();
-  }, [location.pathname, user]);
+  }, [location.pathname]);
 
   const providerRuntime = useMemo(() => createLocalProviderRuntime(providerSettings), [providerSettings]);
   const runtimeAiProvider = providerRuntime.aiProvider ?? undefined;
@@ -104,33 +91,22 @@ const MainApp: React.FC = () => {
 
   const handleTestComplete = useCallback(
     async (result: TestResult) => {
-      if (!user) return;
-
       setLoadingPlan(true);
 
       try {
-        // Save test result to database
-        const { data: testResult, error: testError } = await supabase
-          .from('test_results')
-          .insert({
-            user_id: user.id,
-            test_type: 'placement',
-            level: result.level,
-            sections: {},
-            strengths: result.strengths,
-            weaknesses: result.weaknesses,
-            recommendations: result.recommendations,
-          })
-          .select()
-          .single();
+        const { result: savedPlacement, error: placementError } = await recordPlacementResult(
+          LOCAL_LEARNER_ID,
+          result
+        );
 
-        if (testError) throw testError;
+        if (placementError) {
+          throw placementError;
+        }
 
-        // Update user's current level
-        await supabase
-          .from('user_profiles')
-          .update({ current_level: result.level })
-          .eq('id', user.id);
+        await browserProfileRepository.updateProfile(profile => ({
+          ...profile,
+          currentLevel: result.level,
+        }));
 
         // Generate learning plan
         console.log('🤖 Generating learning plan with AI...');
@@ -138,16 +114,19 @@ const MainApp: React.FC = () => {
         console.log('✅ AI generated plan:', plan);
         setLearningPlan(plan);
 
-        // Save learning plan to database using the service
-        console.log('💾 Saving learning plan to database...');
-        const { error: planError, planId } = await saveLearningPlan(user.id, plan, testResult.id);
+        console.log('💾 Saving learning plan locally...');
+        const { error: planError, planId } = await saveLearningPlan(
+          LOCAL_LEARNER_ID,
+          plan,
+          savedPlacement?.id
+        );
 
         if (planError) {
           console.error('❌ Failed to save learning plan:', planError);
           throw new Error(`Failed to save plan: ${planError.message}`);
         }
 
-        console.log('✅ Learning plan saved with ID:', planId);
+        console.log('✅ Local learning plan saved with ID:', planId);
         toast.success('Learning plan created successfully!');
         navigate('/learning-plan');
       } catch (error) {
@@ -158,7 +137,7 @@ const MainApp: React.FC = () => {
         setLoadingPlan(false);
       }
     },
-    [user, navigate, runtimeAiProvider]
+    [navigate, runtimeAiProvider]
   );
 
   // Removed handleTogglePlanItem - activities are now auto-completed when user finishes them

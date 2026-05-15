@@ -1,6 +1,7 @@
-import { render, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CEFRLevel, type LearningPlan, type TestResult } from '../types';
 
 const activityPageProps = vi.hoisted(() => ({
   latest: null as null | { aiProvider?: { id: string } },
@@ -14,8 +15,26 @@ const providerSettingsRepository = vi.hoisted(() => ({
   load: vi.fn(),
 }));
 
+const profileRepository = vi.hoisted(() => ({
+  updateProfile: vi.fn(),
+}));
+
+const learningPlanService = vi.hoisted(() => ({
+  loadActiveLearningPlan: vi.fn(),
+  saveLearningPlan: vi.fn(),
+  recordPlacementResult: vi.fn(),
+}));
+
+const geminiService = vi.hoisted(() => ({
+  generateLearningPlan: vi.fn(),
+}));
+
 vi.mock('../src/infrastructure/browser/providerSettingsStorage', () => ({
   browserProviderSettingsRepository: providerSettingsRepository,
+}));
+
+vi.mock('../src/infrastructure/browser/profileStorage', () => ({
+  browserProfileRepository: profileRepository,
 }));
 
 vi.mock('../src/contexts/AuthContext', () => ({
@@ -30,14 +49,9 @@ vi.mock('../src/lib/supabase', () => ({
   },
 }));
 
-vi.mock('../services/geminiService', () => ({
-  generateLearningPlan: vi.fn(),
-}));
+vi.mock('../services/geminiService', () => geminiService);
 
-vi.mock('../services/learningPlanService', () => ({
-  loadActiveLearningPlan: vi.fn().mockResolvedValue({ plan: null, error: null }),
-  saveLearningPlan: vi.fn(),
-}));
+vi.mock('../services/learningPlanService', () => learningPlanService);
 
 vi.mock('../pages/LocalDashboardPage', () => ({
   default: () => <main>Dashboard</main>,
@@ -47,8 +61,39 @@ vi.mock('../pages/LocalSettingsPage', () => ({
   default: () => <main>Settings</main>,
 }));
 
+const placementResult: TestResult = {
+  level: CEFRLevel.A2,
+  strengths: ['Reading'],
+  weaknesses: ['Dative case'],
+  recommendations: 'Practice daily dialogs.',
+};
+
+const generatedPlan: LearningPlan = {
+  level: CEFRLevel.B1,
+  goals: ['Build a daily grammar habit.'],
+  weeks: [
+    {
+      week: 1,
+      focus: 'Cases',
+      items: [
+        {
+          id: 'item-1',
+          topic: 'Dative articles',
+          skill: 'Grammar',
+          description: 'Practice dative after common verbs.',
+          completed: false,
+        },
+      ],
+    },
+  ],
+};
+
 vi.mock('../pages/EnhancedPlacementTestPage', () => ({
-  default: () => <main>Placement</main>,
+  default: (props: { onTestComplete: (result: TestResult) => void }) => (
+    <main>
+      <button onClick={() => props.onTestComplete(placementResult)}>Finish placement</button>
+    </main>
+  ),
 }));
 
 vi.mock('../pages/LearningPlanPage', () => ({
@@ -82,6 +127,52 @@ vi.mock('../pages/ActivityPage', () => ({
 }));
 
 describe('MainApp provider runtime', () => {
+  beforeEach(() => {
+    activityPageProps.latest = null;
+    speakingPageProps.latest = null;
+    vi.clearAllMocks();
+    providerSettingsRepository.load.mockResolvedValue({
+      ai: {
+        enabled: false,
+        provider: 'openrouter',
+        model: 'openrouter/auto',
+      },
+      speech: {
+        enabled: false,
+        provider: 'deepgram',
+        model: 'nova-3',
+        language: 'de',
+      },
+    });
+    learningPlanService.loadActiveLearningPlan.mockResolvedValue({ plan: null, error: null });
+    learningPlanService.recordPlacementResult.mockResolvedValue({
+      result: { id: 'placement-123' },
+      error: null,
+    });
+    learningPlanService.saveLearningPlan.mockResolvedValue({ planId: 'plan-123', error: null });
+    geminiService.generateLearningPlan.mockResolvedValue(generatedPlan);
+    profileRepository.updateProfile.mockImplementation(async updater =>
+      updater({
+        id: 'local-learner',
+        currentLevel: CEFRLevel.A1,
+      })
+    );
+  });
+
+  it('loads the active local learning plan without auth', async () => {
+    const { default: MainApp } = await import('../MainApp');
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <MainApp />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(learningPlanService.loadActiveLearningPlan).toHaveBeenCalledWith('local-learner');
+    });
+  });
+
   it('passes the saved OpenRouter provider into activity routes', async () => {
     providerSettingsRepository.load.mockResolvedValue({
       ai: {
@@ -140,5 +231,31 @@ describe('MainApp provider runtime', () => {
       expect(speakingPageProps.latest?.aiProvider?.id).toBe('openrouter');
       expect(speakingPageProps.latest?.speechProvider?.id).toBe('deepgram');
     });
+  });
+
+  it('records placement results, updates the local profile, and saves the generated plan locally', async () => {
+    const { default: MainApp } = await import('../MainApp');
+
+    render(
+      <MemoryRouter initialEntries={['/placement-test']}>
+        <MainApp />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finish placement' }));
+
+    await waitFor(() => {
+      expect(learningPlanService.recordPlacementResult).toHaveBeenCalledWith(
+        'local-learner',
+        placementResult
+      );
+    });
+    expect(profileRepository.updateProfile).toHaveBeenCalledWith(expect.any(Function));
+    expect(geminiService.generateLearningPlan).toHaveBeenCalledWith(placementResult, undefined);
+    expect(learningPlanService.saveLearningPlan).toHaveBeenCalledWith(
+      'local-learner',
+      generatedPlan,
+      'placement-123'
+    );
   });
 });

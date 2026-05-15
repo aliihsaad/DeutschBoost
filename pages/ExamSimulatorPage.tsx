@@ -4,15 +4,36 @@
  * This is a placeholder for the full implementation planned in Phase 2
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CEFRLevel } from '../types';
-import { useAuth } from '../src/contexts/AuthContext';
+import { browserProfileRepository } from '../src/infrastructure/browser/profileStorage';
 
 export const ExamSimulatorPage: React.FC = () => {
   const navigate = useNavigate();
-  const { userProfile } = useAuth();
-  const [selectedLevel, setSelectedLevel] = useState<CEFRLevel>(userProfile?.current_level || CEFRLevel.A1);
+  const [selectedLevel, setSelectedLevel] = useState<CEFRLevel>(CEFRLevel.A1);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLocalProfile() {
+      try {
+        const profile = await browserProfileRepository.loadProfile();
+
+        if (!cancelled) {
+          setSelectedLevel(profile.currentLevel);
+        }
+      } catch (error) {
+        console.error('Error loading local exam profile:', error);
+      }
+    }
+
+    loadLocalProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const levels: CEFRLevel[] = [CEFRLevel.A1, CEFRLevel.A2, CEFRLevel.B1, CEFRLevel.B2, CEFRLevel.C1, CEFRLevel.C2];
 

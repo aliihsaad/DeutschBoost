@@ -3,13 +3,11 @@ import { generateReadingQuestion, generateGrammarQuestion, evaluateComprehensive
 import { CEFRLevel, TestResult } from '../types';
 import LoadingSpinner from '../src/components/LoadingSpinner';
 import Card from '../components/Card';
-import { useAuth } from '../src/contexts/AuthContext';
-import { supabase } from '../src/lib/supabase';
 import toast from 'react-hot-toast';
 import type { AiProvider } from '../src/domain/ai/aiProvider';
 
 interface EnhancedPlacementTestPageProps {
-  onTestComplete: (result: TestResult) => void;
+  onTestComplete: (result: TestResult) => void | Promise<void>;
   aiProvider?: AiProvider;
 }
 
@@ -27,7 +25,6 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
   onTestComplete,
   aiProvider,
 }) => {
-  const { user, updateProfile } = useAuth();
   const [section, setSection] = useState<TestSection>('Intro');
   const [loading, setLoading] = useState(false);
 
@@ -183,13 +180,7 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
       );
 
       setEvaluationResult(result);
-
-      // Save to database
-      if (user) {
-        await saveTestResults(result);
-      }
-
-      onTestComplete(result);
+      await onTestComplete(result);
       setSection('Complete');
     } catch (error) {
       console.error("Error evaluating test:", error);
@@ -197,45 +188,6 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
       setSection('Writing');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Save test results to database
-  const saveTestResults = async (result: TestResult) => {
-    if (!user) return;
-
-    try {
-      // Save to test_results table
-      const { error: testError } = await supabase
-        .from('test_results')
-        .insert({
-          user_id: user.id,
-          test_type: 'placement',
-          level: result.level,
-          sections: {
-            reading: readingScore,
-            grammar: grammarScore,
-            writing: 'evaluated'
-          },
-          overall_score: Math.round(((readingScore + grammarScore) / 10) * 100),
-          strengths: result.strengths,
-          weaknesses: result.weaknesses,
-          recommendations: result.recommendations,
-        });
-
-      if (testError) throw testError;
-
-      // Update user profile with current level
-      const { error: profileError } = await updateProfile({
-        current_level: result.level as CEFRLevel,
-      });
-
-      if (profileError) throw profileError;
-
-      toast.success("Test results saved!");
-    } catch (error) {
-      console.error("Error saving test results:", error);
-      toast.error("Could not save results, but you can still continue.");
     }
   };
 

@@ -7,8 +7,11 @@ import { ActivityType, GrammarActivity, VocabularyActivity, ListeningActivity, W
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
-import { useAuth } from '../src/contexts/AuthContext';
 import type { AiProvider } from '../src/domain/ai/aiProvider';
+import {
+  MOTHER_LANGUAGE_OPTIONS,
+} from '../src/domain/profile/profileRepository';
+import { browserProfileRepository } from '../src/infrastructure/browser/profileStorage';
 
 interface ActivityPageProps {
   aiProvider?: AiProvider;
@@ -17,7 +20,7 @@ interface ActivityPageProps {
 const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, userProfile } = useAuth();
+  const learnerId = 'local-learner';
 
   // Get params from URL
   const activityType = searchParams.get('type') as ActivityType;
@@ -35,6 +38,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
   const [evaluation, setEvaluation] = useState<any>(null);
   const [score, setScore] = useState(0);
   const [startTime] = useState(Date.now());
+  const [motherLanguage, setMotherLanguage] = useState('English');
 
   // Vocabulary state
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
@@ -47,6 +51,31 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfileLanguage() {
+      try {
+        const profile = await browserProfileRepository.loadProfile();
+        const option = MOTHER_LANGUAGE_OPTIONS.find(
+          candidate => candidate.value === profile.motherLanguage
+        );
+
+        if (!cancelled) {
+          setMotherLanguage(option?.label ?? 'English');
+        }
+      } catch (error) {
+        console.error('Error loading local profile language:', error);
+      }
+    }
+
+    loadProfileLanguage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!activityType || !topic) {
       toast.error('Invalid activity parameters');
       navigate('/learning-plan');
@@ -54,12 +83,11 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
     }
 
     loadActivity();
-  }, [activityType, topic, description, level, aiProvider]);
+  }, [activityType, topic, description, level, aiProvider, motherLanguage]);
 
   const loadActivity = async () => {
     setLoading(true);
     try {
-      const motherLanguage = userProfile?.mother_language || 'English';
       const generatedActivity = await generateActivity(
         activityType,
         topic,
@@ -130,7 +158,6 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
 
     setLoading(true);
     try {
-      const motherLanguage = userProfile?.mother_language || 'English';
       const result = await evaluateWriting(
         userText,
         activity.prompt,
@@ -156,7 +183,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
   };
 
   const markActivityComplete = async (finalScore: number) => {
-    if (!user || !itemId) return;
+    if (!itemId) return;
 
     const loadingToast = toast.loading('Saving your progress...');
 
@@ -168,7 +195,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
 
       // Mark the learning plan item as complete
       const { error: completionError } = await updatePlanItemCompletion(
-        user.id,
+        learnerId,
         itemId,
         true
       );
@@ -181,7 +208,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
       }
 
       // Update user progress (study time, streak, session tracking)
-      const activityTypeMap: Record<string, 'conversation' | 'grammar' | 'listening' | 'reading' | 'writing'> = {
+      const activityTypeMap: Record<string, 'conversation' | 'flashcards' | 'grammar' | 'listening' | 'reading' | 'writing'> = {
         'grammar': 'grammar',
         'vocabulary': 'flashcards',
         'listening': 'listening',
@@ -191,7 +218,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
 
       const progressActivityType = activityTypeMap[activityType] || 'grammar';
       const { error: progressError, profile } = await updateUserProgress(
-        user.id,
+        learnerId,
         progressActivityType,
         timeSpent,
         1

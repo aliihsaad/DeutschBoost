@@ -1,21 +1,18 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SpeakingActivityPage from '../../pages/SpeakingActivityPage';
 import type { AiProvider } from '../../src/domain/ai/aiProvider';
 import type { ConversationRepository } from '../../src/domain/conversation/conversationRepository';
 import type { SpeechProvider } from '../../src/domain/speech/speechProvider';
 import { ConversationMode } from '../../types';
 
-vi.mock('../../src/contexts/AuthContext', () => ({
-  useAuth: () => ({
-    user: null,
-    userData: { full_name: 'Local Learner' },
-    userProfile: {
-      current_level: 'A2',
-      mother_language: 'English',
-    },
-  }),
+const profileRepository = vi.hoisted(() => ({
+  loadProfile: vi.fn(),
+}));
+
+vi.mock('../../src/infrastructure/browser/profileStorage', () => ({
+  browserProfileRepository: profileRepository,
 }));
 
 function createAiProvider(): AiProvider {
@@ -57,13 +54,24 @@ function createConversationRepository(): ConversationRepository {
 }
 
 describe('SpeakingActivityPage local conversation flow', () => {
-  it('shows a setup state without free-text inputs when providers are missing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    profileRepository.loadProfile.mockResolvedValue({
+      currentLevel: 'A2',
+      motherLanguage: 'english',
+    });
+  });
+
+  it('shows a setup state without free-text inputs when providers are missing', async () => {
     render(
       <MemoryRouter initialEntries={['/conversation']}>
         <SpeakingActivityPage />
       </MemoryRouter>
     );
 
+    await waitFor(() => {
+      expect(profileRepository.loadProfile).toHaveBeenCalled();
+    });
     expect(screen.getByRole('heading', { name: 'Conversation Tutor' })).toBeInTheDocument();
     expect(screen.getByText('Connect OpenRouter and Deepgram')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open settings' })).toHaveAttribute('href', '/settings');
@@ -94,6 +102,10 @@ describe('SpeakingActivityPage local conversation flow', () => {
         />
       </MemoryRouter>
     );
+
+    await waitFor(() => {
+      expect(profileRepository.loadProfile).toHaveBeenCalled();
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Start session' }));
 
