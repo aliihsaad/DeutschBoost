@@ -56,7 +56,7 @@ export function createStorageProviderSettingsRepository(
     async update(
       updater: (settings: LocalProviderSettings) => LocalProviderSettings
     ): Promise<LocalProviderSettings> {
-      const current = await loadFromStorage(options.storage, key);
+      const current = await loadFromStorage(options.storage, key, options.secretStorage);
       return this.save(updater(current));
     },
     async reset(): Promise<LocalProviderSettings> {

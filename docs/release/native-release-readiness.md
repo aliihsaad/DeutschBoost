@@ -1,13 +1,13 @@
 # DeutschBoost Native Release Readiness
 
-This project now has a shared storage boundary, optional native storage adapter shapes, and a working Tauri desktop shell. The next release work is Android packaging plus replacing browser-managed provider secrets with production-grade native secure storage.
+This project now has a shared storage boundary, optional native storage adapter shapes, a working Tauri desktop shell, and Stronghold-backed provider secrets for packaged desktop builds. The next release work is Android packaging plus Android-native secret storage.
 
 ## Current Targets
 
 | Target | Runtime | Storage expectation | Secret expectation |
 | --- | --- | --- | --- |
 | PWA | Browser | Browser-managed storage | Browser-managed fallback only |
-| Desktop | Tauri v2 | Tauri Store or SQL-backed adapter | Tauri Stronghold or OS keychain adapter |
+| Desktop | Tauri v2 | Tauri Store or SQL-backed adapter | Tauri Stronghold-backed provider secret adapter |
 | Android APK | Capacitor | Capacitor Preferences now, SQLite later for larger stores | Android encrypted storage adapter |
 
 ## Check Readiness
@@ -40,6 +40,7 @@ Implemented desktop foundation:
 - `src-tauri/` is initialized for the existing Vite app with `devUrl` `http://localhost:5173` and frontend output `../dist`.
 - Tauri Store and Stronghold permissions are enabled in `src-tauri/capabilities/default.json`.
 - The Rust shell initializes the Store and Stronghold plugins.
+- The TypeScript provider settings wiring prefers a Tauri Stronghold secret adapter in packaged desktop builds, so OpenRouter and Deepgram keys are not stored in ordinary settings JSON.
 - `npm run tauri:build` produced `src-tauri/target/release/bundle/nsis/DeutschBoost_0.1.0_x64-setup.exe`.
 
 Useful commands:
@@ -55,7 +56,7 @@ If a shell was open before Rust was installed, restart it or prepend Cargo manua
 $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
 ```
 
-Desktop follow-up before public release: replace the current provider secret wrapper with a true Stronghold-backed adapter so OpenRouter and Deepgram keys are recoverable for provider calls but not stored in ordinary app JSON.
+Desktop note before public release: the current Stronghold vault password is app-managed for a no-login local app. It protects keys from ordinary JSON/browser storage exposure and keeps them recoverable for provider calls, but it is not the same as a user-entered passphrase or OS keychain account binding.
 
 ## Android APK Path
 

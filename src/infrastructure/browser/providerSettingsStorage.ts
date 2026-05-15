@@ -1,14 +1,18 @@
 import {
+  createKeyValueProviderSecretStorage,
+  type ProviderSecretStorage,
+} from '../../domain/settings/providerSecretStorage';
+import {
   createStorageProviderSettingsRepository,
   type ProviderSettingsStorage,
 } from '../../domain/settings/providerSettingsRepository';
-import { createKeyValueProviderSecretStorage } from '../../domain/settings/providerSecretStorage';
 import {
   createBrowserKeyValueStorage,
   createDefaultPlatformKeyValueStorage,
   type BrowserStorageLike,
 } from '../platform/keyValueStorage';
 import type { KeyValueStorage } from '../../domain/storage/keyValueStorage';
+import { createInstalledNativeProviderSecretStorage } from '../native/providerSecretStorage';
 
 export function createBrowserProviderSettingsStorage(
   storage?: BrowserStorageLike | null
@@ -18,11 +22,21 @@ export function createBrowserProviderSettingsStorage(
 
 export const browserProviderSettingsRepository = createDefaultProviderSettingsRepository();
 
-function createDefaultProviderSettingsRepository() {
-  const storage = createDefaultPlatformKeyValueStorage();
+interface DefaultProviderSettingsRepositoryOptions {
+  storage?: KeyValueStorage;
+  nativeSecretStorageResolver?: () => ProviderSecretStorage | null;
+}
+
+export function createDefaultProviderSettingsRepository(
+  options: DefaultProviderSettingsRepositoryOptions = {}
+) {
+  const storage = options.storage ?? createDefaultPlatformKeyValueStorage();
+  const nativeSecretStorage = (
+    options.nativeSecretStorageResolver ?? createInstalledNativeProviderSecretStorage
+  )();
 
   return createStorageProviderSettingsRepository({
     storage,
-    secretStorage: createKeyValueProviderSecretStorage({ storage }),
+    secretStorage: nativeSecretStorage ?? createKeyValueProviderSecretStorage({ storage }),
   });
 }

@@ -209,3 +209,12 @@ Do not stage the user's existing `package.json` or `package-lock.json` changes.
 - Spec coverage: Covers native storage readiness and provider-key separation without adding unverified native dependencies.
 - Placeholder scan: No TBD placeholders remain.
 - Type consistency: `KeyValueStorage` stays the shared persistence contract; provider secrets use a narrow wrapper instead of changing every repository.
+
+## Follow-up: Tauri Stronghold Desktop Secrets
+
+Commit pending for the follow-up slice after the Tauri shell landed:
+
+- Added `src/infrastructure/native/providerSecretStorage.ts` as a Tauri Stronghold-backed `ProviderSecretStorage`.
+- Default provider settings wiring now prefers the installed Stronghold adapter when running inside Tauri and falls back to key/value secret storage for browser/PWA.
+- Provider settings `update()` now loads through the configured secret storage so non-key updates do not accidentally erase existing provider keys.
+- Tauri capabilities now include `stronghold:allow-remove-store-record` because resetting/removing provider keys uses the Stronghold store removal command.

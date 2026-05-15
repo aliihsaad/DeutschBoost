@@ -212,6 +212,40 @@ describe('providerSettingsRepository', () => {
     });
   });
 
+  it('updates settings without dropping existing provider secrets from secret storage', async () => {
+    const storage = createMemoryStorage();
+    const secretStorage = createSecretStorage();
+    const repository = createStorageProviderSettingsRepository({ storage, secretStorage });
+    await repository.save({
+      ai: {
+        enabled: true,
+        provider: 'openrouter',
+        apiKey: 'openrouter-key',
+        model: 'openrouter/auto',
+      },
+      speech: {
+        enabled: true,
+        provider: 'deepgram',
+        apiKey: 'deepgram-key',
+        model: 'nova-3',
+        language: 'de',
+      },
+    });
+
+    const updated = await repository.update((settings) => ({
+      ...settings,
+      ai: {
+        ...settings.ai,
+        enabled: false,
+      },
+    }));
+
+    expect(updated.ai.apiKey).toBe('openrouter-key');
+    expect(updated.speech.apiKey).toBe('deepgram-key');
+    await expect(secretStorage.getSecret('ai.apiKey')).resolves.toBe('openrouter-key');
+    await expect(secretStorage.getSecret('speech.apiKey')).resolves.toBe('deepgram-key');
+  });
+
   it('supports async storage adapters for native local persistence', async () => {
     const values = new Map<string, string>();
     const storage: ProviderSettingsStorage = {

@@ -53,7 +53,12 @@ describe('Tauri desktop shell configuration', () => {
     );
 
     expect(capability.permissions).toEqual(
-      expect.arrayContaining(['core:default', 'store:default', 'stronghold:default'])
+      expect.arrayContaining([
+        'core:default',
+        'store:default',
+        'stronghold:default',
+        'stronghold:allow-remove-store-record',
+      ])
     );
   });
 

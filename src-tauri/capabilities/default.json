@@ -8,6 +8,7 @@
   "permissions": [
     "core:default",
     "store:default",
-    "stronghold:default"
+    "stronghold:default",
+    "stronghold:allow-remove-store-record"
   ]
 }

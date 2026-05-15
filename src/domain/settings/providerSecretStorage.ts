@@ -5,6 +5,7 @@ export const DEFAULT_PROVIDER_SECRETS_STORAGE_KEY = 'deutschboost.providerSecret
 export type ProviderSecretName = 'ai.apiKey' | 'speech.apiKey';
 export type ProviderSecretStorageProtection =
   | 'system-secret-store'
+  | 'stronghold'
   | 'native-app-storage'
   | 'browser-storage'
   | 'memory';
