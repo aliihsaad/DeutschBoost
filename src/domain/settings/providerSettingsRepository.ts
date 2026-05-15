@@ -1,4 +1,7 @@
 import {
+  DEEPGRAM_LANGUAGE_OPTIONS,
+  DEEPGRAM_MODEL_OPTIONS,
+  OPENROUTER_MODEL_OPTIONS,
   createDefaultLocalProviderSettings,
   type AiProviderSetting,
   type LocalProviderSettings,
@@ -84,19 +87,15 @@ function normalizeProviderSettings(settings: unknown): LocalProviderSettings {
     ai: {
       enabled: normalizeBoolean(ai.enabled, defaults.ai.enabled),
       provider: normalizeAiProvider(ai.provider, defaults.ai.provider),
-      model: normalizeText(ai.model, defaults.ai.model),
+      model: normalizeModelOption(ai.model, OPENROUTER_MODEL_OPTIONS, defaults.ai.model),
       ...optionalText('apiKey', ai.apiKey, defaults.ai.apiKey),
-      ...optionalText('baseUrl', ai.baseUrl, defaults.ai.baseUrl),
-      ...optionalText('appTitle', ai.appTitle, defaults.ai.appTitle),
-      ...optionalText('siteUrl', ai.siteUrl, defaults.ai.siteUrl),
     },
     speech: {
       enabled: normalizeBoolean(speech.enabled, defaults.speech.enabled),
       provider: normalizeSpeechProvider(speech.provider, defaults.speech.provider),
-      model: normalizeText(speech.model, defaults.speech.model),
-      language: normalizeText(speech.language, defaults.speech.language),
+      model: normalizeModelOption(speech.model, DEEPGRAM_MODEL_OPTIONS, defaults.speech.model),
+      language: normalizeModelOption(speech.language, DEEPGRAM_LANGUAGE_OPTIONS, defaults.speech.language),
       ...optionalText('apiKey', speech.apiKey, defaults.speech.apiKey),
-      ...optionalText('baseUrl', speech.baseUrl, defaults.speech.baseUrl),
     },
   };
 }
@@ -115,8 +114,12 @@ function normalizeSpeechProvider(
   return value === 'deepgram' ? value : fallback;
 }
 
-function normalizeText(value: unknown, fallback: string): string {
-  return typeof value === 'string' && value.trim().length > 0 ? value : fallback;
+function normalizeModelOption(
+  value: unknown,
+  options: Array<{ value: string }>,
+  fallback: string
+): string {
+  return typeof value === 'string' && options.some(option => option.value === value) ? value : fallback;
 }
 
 function normalizeBoolean(value: unknown, fallback: boolean): boolean {

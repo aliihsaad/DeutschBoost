@@ -41,7 +41,6 @@ describe('providerSettingsRepository', () => {
         provider: 'openrouter',
         apiKey: 'openrouter-key',
         model: 'openai/gpt-4o-mini',
-        appTitle: 'DeutschBoost',
       },
       speech: {
         enabled: true,
@@ -70,6 +69,11 @@ describe('providerSettingsRepository', () => {
           enabled: true,
           provider: 'openrouter',
           apiKey: 'openrouter-key',
+          baseUrl: 'https://user-openrouter.example',
+          siteUrl: 'https://user-site.example',
+        },
+        speech: {
+          baseUrl: 'https://user-deepgram.example',
         },
       }),
     });

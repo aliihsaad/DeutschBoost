@@ -742,7 +742,8 @@ textarea {
   min-width: 0;
 }
 
-.db-field span {
+.db-field span,
+.db-field > label {
   color: #2b2f33;
   font-size: 11px;
   font-weight: 800;
@@ -762,10 +763,37 @@ textarea {
   font-weight: 650;
 }
 
+.db-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  box-sizing: border-box;
+  border: 1px solid #cfd5dd;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #18181b;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .db-field input:focus {
   outline: 2px solid #f2b705;
   outline-offset: 1px;
   border-color: #b77900;
+}
+
+.db-field select:focus {
+  outline: 2px solid #f2b705;
+  outline-offset: 1px;
+  border-color: #b77900;
+}
+
+.db-field em {
+  color: #16833a;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 750;
 }
 
 .db-settings-save-panel {

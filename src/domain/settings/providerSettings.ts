@@ -15,9 +15,6 @@ export interface LocalAiProviderSettings {
   provider: AiProviderSetting;
   apiKey?: string;
   model: string;
-  baseUrl?: string;
-  appTitle?: string;
-  siteUrl?: string;
 }
 
 export interface LocalSpeechProviderSettings {
@@ -26,7 +23,6 @@ export interface LocalSpeechProviderSettings {
   apiKey?: string;
   model: string;
   language: string;
-  baseUrl?: string;
 }
 
 export interface LocalProviderSettings {
@@ -45,9 +41,31 @@ export interface ProviderSettingsSnapshots {
   speech: ProviderSettingsSnapshot;
 }
 
+export interface ProviderModelOption {
+  value: string;
+  label: string;
+}
+
 const DEFAULT_OPENROUTER_MODEL = 'openrouter/auto';
 const DEFAULT_DEEPGRAM_MODEL = 'nova-3';
 const DEFAULT_DEEPGRAM_LANGUAGE = 'de';
+const FIXED_OPENROUTER_APP_TITLE = 'DeutschBoost';
+const FIXED_OPENROUTER_SITE_URL = 'app://deutschboost';
+
+export const OPENROUTER_MODEL_OPTIONS: ProviderModelOption[] = [
+  { value: 'openrouter/auto', label: 'Auto router' },
+  { value: 'openai/gpt-4o-mini', label: 'OpenAI GPT-4o mini' },
+  { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
+];
+
+export const DEEPGRAM_MODEL_OPTIONS: ProviderModelOption[] = [
+  { value: 'nova-3', label: 'Nova-3' },
+  { value: 'nova-2', label: 'Nova-2' },
+];
+
+export const DEEPGRAM_LANGUAGE_OPTIONS: ProviderModelOption[] = [
+  { value: 'de', label: 'German (de)' },
+];
 
 export function createDefaultLocalProviderSettings(): LocalProviderSettings {
   return {
@@ -122,9 +140,8 @@ export function createAiProviderFromSettings(
   return createOpenRouterProvider({
     apiKey: settings.apiKey,
     model: settings.model,
-    baseUrl: settings.baseUrl,
-    appTitle: settings.appTitle,
-    siteUrl: settings.siteUrl,
+    appTitle: FIXED_OPENROUTER_APP_TITLE,
+    siteUrl: FIXED_OPENROUTER_SITE_URL,
     fetchFn: dependencies.fetchFn,
   });
 }
@@ -141,7 +158,6 @@ export function createSpeechProviderFromSettings(
     apiKey: settings.apiKey,
     model: settings.model,
     language: settings.language,
-    baseUrl: settings.baseUrl,
     fetchFn: dependencies.fetchFn,
     now: dependencies.now,
   });

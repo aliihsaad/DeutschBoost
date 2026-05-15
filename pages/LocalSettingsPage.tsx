@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  DEEPGRAM_LANGUAGE_OPTIONS,
+  DEEPGRAM_MODEL_OPTIONS,
+  OPENROUTER_MODEL_OPTIONS,
   buildProviderSettingsSnapshots,
   createDefaultLocalProviderSettings,
+  type ProviderModelOption,
   type LocalProviderSettings,
 } from '../src/domain/settings/providerSettings';
 import type { ProviderSettingsRepository } from '../src/domain/settings/providerSettingsRepository';
@@ -20,6 +24,7 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
   onSettingsChange,
 }) => {
   const [settings, setSettings] = useState<LocalProviderSettings>(createDefaultLocalProviderSettings);
+  const [apiKeyDrafts, setApiKeyDrafts] = useState({ ai: '', speech: '' });
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -32,6 +37,7 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
         const loaded = await repository.load();
         if (!cancelled) {
           setSettings(loaded);
+          setApiKeyDrafts({ ai: '', speech: '' });
           onSettingsChange?.(loaded);
         }
       } catch (error) {
@@ -63,8 +69,10 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
     setErrorMessage(null);
 
     try {
-      const saved = await repository.save(settings);
+      const settingsToSave = mergeApiKeyDrafts(settings, apiKeyDrafts);
+      const saved = await repository.save(settingsToSave);
       setSettings(saved);
+      setApiKeyDrafts({ ai: '', speech: '' });
       onSettingsChange?.(saved);
       setSaveState('saved');
     } catch (error) {
@@ -80,6 +88,7 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
     try {
       const resetSettings = await repository.reset();
       setSettings(resetSettings);
+      setApiKeyDrafts({ ai: '', speech: '' });
       onSettingsChange?.(resetSettings);
       setSaveState('reset');
     } catch (error) {
@@ -120,44 +129,25 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
           </label>
 
           <div className="db-field-grid">
-            <TextField
+            <SecretField
               label="OpenRouter API key"
-              type="password"
-              value={settings.ai.apiKey ?? ''}
+              value={apiKeyDrafts.ai}
+              saved={hasSecret(settings.ai.apiKey)}
               onChange={value =>
-                setSettings(current => ({
+                setApiKeyDrafts(current => ({
                   ...current,
-                  ai: { ...current.ai, apiKey: value },
+                  ai: value,
                 }))
               }
             />
-            <TextField
+            <SelectField
               label="OpenRouter model"
               value={settings.ai.model}
+              options={OPENROUTER_MODEL_OPTIONS}
               onChange={value =>
                 setSettings(current => ({
                   ...current,
                   ai: { ...current.ai, model: value },
-                }))
-              }
-            />
-            <TextField
-              label="OpenRouter app title"
-              value={settings.ai.appTitle ?? ''}
-              onChange={value =>
-                setSettings(current => ({
-                  ...current,
-                  ai: { ...current.ai, appTitle: value },
-                }))
-              }
-            />
-            <TextField
-              label="OpenRouter site URL"
-              value={settings.ai.siteUrl ?? ''}
-              onChange={value =>
-                setSettings(current => ({
-                  ...current,
-                  ai: { ...current.ai, siteUrl: value },
                 }))
               }
             />
@@ -186,20 +176,21 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
           </label>
 
           <div className="db-field-grid">
-            <TextField
+            <SecretField
               label="Deepgram API key"
-              type="password"
-              value={settings.speech.apiKey ?? ''}
+              value={apiKeyDrafts.speech}
+              saved={hasSecret(settings.speech.apiKey)}
               onChange={value =>
-                setSettings(current => ({
+                setApiKeyDrafts(current => ({
                   ...current,
-                  speech: { ...current.speech, apiKey: value },
+                  speech: value,
                 }))
               }
             />
-            <TextField
+            <SelectField
               label="Deepgram model"
               value={settings.speech.model}
+              options={DEEPGRAM_MODEL_OPTIONS}
               onChange={value =>
                 setSettings(current => ({
                   ...current,
@@ -207,23 +198,14 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
                 }))
               }
             />
-            <TextField
+            <SelectField
               label="Deepgram language"
               value={settings.speech.language}
+              options={DEEPGRAM_LANGUAGE_OPTIONS}
               onChange={value =>
                 setSettings(current => ({
                   ...current,
                   speech: { ...current.speech, language: value },
-                }))
-              }
-            />
-            <TextField
-              label="Deepgram base URL"
-              value={settings.speech.baseUrl ?? ''}
-              onChange={value =>
-                setSettings(current => ({
-                  ...current,
-                  speech: { ...current.speech, baseUrl: value },
                 }))
               }
             />
@@ -258,15 +240,53 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
 
 interface TextFieldProps {
   label: string;
-  type?: 'text' | 'password';
   value: string;
   onChange: (value: string) => void;
 }
 
-const TextField: React.FC<TextFieldProps> = ({ label, type = 'text', value, onChange }) => (
+interface SecretFieldProps extends TextFieldProps {
+  saved: boolean;
+}
+
+const SecretField: React.FC<SecretFieldProps> = ({ label, value, saved, onChange }) => (
+  <SecretFieldBody label={label} value={value} saved={saved} onChange={onChange} />
+);
+
+const SecretFieldBody: React.FC<SecretFieldProps> = ({ label, value, saved, onChange }) => {
+  const inputId = React.useId();
+  const hintId = React.useId();
+
+  return (
+    <div className="db-field">
+      <label htmlFor={inputId}>{label}</label>
+      <input
+        id={inputId}
+        type="password"
+        value={value}
+        autoComplete="off"
+        aria-describedby={saved && value.length === 0 ? hintId : undefined}
+        placeholder={saved ? 'Paste a new key to replace saved key' : 'Paste API key'}
+        onChange={event => onChange(event.target.value)}
+      />
+      {saved && value.length === 0 ? <em id={hintId}>Saved key hidden</em> : null}
+    </div>
+  );
+};
+
+interface SelectFieldProps extends TextFieldProps {
+  options: ProviderModelOption[];
+}
+
+const SelectField: React.FC<SelectFieldProps> = ({ label, value, options, onChange }) => (
   <label className="db-field">
     <span>{label}</span>
-    <input type={type} value={value} onChange={event => onChange(event.target.value)} />
+    <select value={value} onChange={event => onChange(event.target.value)}>
+      {options.map(option => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   </label>
 );
 
@@ -317,6 +337,35 @@ function formatProviderHeadline(snapshot: ProviderSettingsSnapshot): string {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Settings could not be saved';
+}
+
+function mergeApiKeyDrafts(
+  settings: LocalProviderSettings,
+  apiKeyDrafts: { ai: string; speech: string }
+): LocalProviderSettings {
+  return {
+    ai: {
+      ...settings.ai,
+      ...optionalSecret('apiKey', apiKeyDrafts.ai, settings.ai.apiKey),
+    },
+    speech: {
+      ...settings.speech,
+      ...optionalSecret('apiKey', apiKeyDrafts.speech, settings.speech.apiKey),
+    },
+  };
+}
+
+function optionalSecret<Key extends string>(
+  key: Key,
+  draft: string,
+  existing?: string
+): Partial<Record<Key, string>> {
+  const nextValue = draft.trim() || existing?.trim();
+  return nextValue ? ({ [key]: nextValue } as Partial<Record<Key, string>>) : {};
+}
+
+function hasSecret(value: string | undefined): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
 export default LocalSettingsPage;

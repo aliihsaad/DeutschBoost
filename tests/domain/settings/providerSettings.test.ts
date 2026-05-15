@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  DEEPGRAM_LANGUAGE_OPTIONS,
+  DEEPGRAM_MODEL_OPTIONS,
+  OPENROUTER_MODEL_OPTIONS,
   buildProviderSettingsSnapshots,
   createAiProviderFromSettings,
   createDefaultLocalProviderSettings,
@@ -39,6 +42,13 @@ describe('providerSettings', () => {
     });
   });
 
+  it('exposes fixed model choices for the settings UI', () => {
+    expect(OPENROUTER_MODEL_OPTIONS.map(option => option.value)).toContain('openrouter/auto');
+    expect(OPENROUTER_MODEL_OPTIONS.map(option => option.value)).toContain('openai/gpt-4o-mini');
+    expect(DEEPGRAM_MODEL_OPTIONS.map(option => option.value)).toEqual(['nova-3', 'nova-2']);
+    expect(DEEPGRAM_LANGUAGE_OPTIONS.map(option => option.value)).toContain('de');
+  });
+
   it('does not create cloud providers when settings are disabled or missing keys', () => {
     const settings = createDefaultLocalProviderSettings();
 
@@ -76,9 +86,6 @@ describe('providerSettings', () => {
         provider: 'openrouter',
         apiKey: 'openrouter-key',
         model: 'anthropic/claude-3.5-sonnet',
-        baseUrl: 'https://openrouter.test/api/v1',
-        appTitle: 'DeutschBoost Local',
-        siteUrl: 'app://deutschboost',
       },
       { fetchFn }
     );
@@ -92,12 +99,12 @@ describe('providerSettings', () => {
 
     expect(text).toBe('Hallo!');
     expect(fetchFn).toHaveBeenCalledWith(
-      'https://openrouter.test/api/v1/chat/completions',
+      'https://openrouter.ai/api/v1/chat/completions',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
           Authorization: 'Bearer openrouter-key',
-          'X-Title': 'DeutschBoost Local',
+          'X-Title': 'DeutschBoost',
           'HTTP-Referer': 'app://deutschboost',
         }),
         body: expect.stringContaining('anthropic/claude-3.5-sonnet'),
@@ -127,7 +134,6 @@ describe('providerSettings', () => {
         apiKey: 'deepgram-key',
         model: 'nova-3',
         language: 'de',
-        baseUrl: 'https://deepgram.test/v1/listen',
       },
       {
         fetchFn,
@@ -150,7 +156,7 @@ describe('providerSettings', () => {
       confidence: 0.92,
     });
     expect(fetchFn).toHaveBeenCalledWith(
-      'https://deepgram.test/v1/listen?model=nova-3&language=de',
+      'https://api.deepgram.com/v1/listen?model=nova-3&language=de',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
