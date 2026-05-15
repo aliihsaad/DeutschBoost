@@ -4,6 +4,7 @@ import {
 } from '../../domain/profile/profileRepository';
 import {
   createBrowserKeyValueStorage,
+  createDefaultPlatformKeyValueStorage,
   type BrowserStorageLike,
 } from '../platform/keyValueStorage';
 import type { KeyValueStorage } from '../../domain/storage/keyValueStorage';
@@ -15,5 +16,5 @@ export function createBrowserProfileStorage(
 }
 
 export const browserProfileRepository = createStorageProfileRepository({
-  storage: createBrowserProfileStorage(),
+  storage: createDefaultPlatformKeyValueStorage(),
 });

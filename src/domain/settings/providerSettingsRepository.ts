@@ -7,6 +7,7 @@ import {
   type LocalProviderSettings,
   type SpeechProviderSetting,
 } from './providerSettings';
+import type { ProviderSecretStorage } from './providerSecretStorage';
 
 export const DEFAULT_PROVIDER_SETTINGS_STORAGE_KEY = 'deutschboost.providerSettings.v1';
 
@@ -29,6 +30,7 @@ export interface ProviderSettingsRepository {
 
 interface StorageProviderSettingsRepositoryOptions {
   storage: ProviderSettingsStorage;
+  secretStorage?: ProviderSecretStorage;
   key?: string;
 }
 
@@ -39,11 +41,16 @@ export function createStorageProviderSettingsRepository(
 
   return {
     async load(): Promise<LocalProviderSettings> {
-      return loadFromStorage(options.storage, key);
+      return loadFromStorage(options.storage, key, options.secretStorage);
     },
     async save(settings: LocalProviderSettings): Promise<LocalProviderSettings> {
       const normalized = normalizeProviderSettings(settings);
-      await options.storage.setItem(key, JSON.stringify(normalized));
+      if (options.secretStorage) {
+        await saveProviderSecrets(options.secretStorage, normalized);
+        await options.storage.setItem(key, JSON.stringify(removeProviderSecrets(normalized)));
+      } else {
+        await options.storage.setItem(key, JSON.stringify(normalized));
+      }
       return normalized;
     },
     async update(
@@ -54,6 +61,8 @@ export function createStorageProviderSettingsRepository(
     },
     async reset(): Promise<LocalProviderSettings> {
       await options.storage.removeItem(key);
+      await options.secretStorage?.removeSecret('ai.apiKey');
+      await options.secretStorage?.removeSecret('speech.apiKey');
       return createDefaultLocalProviderSettings();
     },
   };
@@ -61,7 +70,8 @@ export function createStorageProviderSettingsRepository(
 
 async function loadFromStorage(
   storage: ProviderSettingsStorage,
-  key: string
+  key: string,
+  secretStorage?: ProviderSecretStorage
 ): Promise<LocalProviderSettings> {
   const stored = await storage.getItem(key);
 
@@ -70,11 +80,80 @@ async function loadFromStorage(
   }
 
   try {
-    return normalizeProviderSettings(JSON.parse(stored));
+    const normalized = normalizeProviderSettings(JSON.parse(stored));
+
+    if (!secretStorage) {
+      return normalized;
+    }
+
+    const merged = await mergeStoredProviderSecrets(secretStorage, normalized);
+    await migrateInlineProviderSecrets(storage, key, secretStorage, normalized, merged);
+    return merged;
   } catch {
     await storage.removeItem(key);
+    await secretStorage?.removeSecret('ai.apiKey');
+    await secretStorage?.removeSecret('speech.apiKey');
     return createDefaultLocalProviderSettings();
   }
+}
+
+async function mergeStoredProviderSecrets(
+  secretStorage: ProviderSecretStorage,
+  settings: LocalProviderSettings
+): Promise<LocalProviderSettings> {
+  const aiApiKey = await secretStorage.getSecret('ai.apiKey') ?? settings.ai.apiKey;
+  const speechApiKey = await secretStorage.getSecret('speech.apiKey') ?? settings.speech.apiKey;
+
+  return {
+    ai: {
+      ...settings.ai,
+      ...optionalText('apiKey', aiApiKey),
+    },
+    speech: {
+      ...settings.speech,
+      ...optionalText('apiKey', speechApiKey),
+    },
+  };
+}
+
+async function migrateInlineProviderSecrets(
+  storage: ProviderSettingsStorage,
+  key: string,
+  secretStorage: ProviderSecretStorage,
+  normalized: LocalProviderSettings,
+  merged: LocalProviderSettings
+): Promise<void> {
+  if (!normalized.ai.apiKey && !normalized.speech.apiKey) {
+    return;
+  }
+
+  await saveProviderSecrets(secretStorage, merged);
+  await storage.setItem(key, JSON.stringify(removeProviderSecrets(normalized)));
+}
+
+async function saveProviderSecrets(
+  secretStorage: ProviderSecretStorage,
+  settings: LocalProviderSettings
+): Promise<void> {
+  if (settings.ai.apiKey) {
+    await secretStorage.setSecret('ai.apiKey', settings.ai.apiKey);
+  } else {
+    await secretStorage.removeSecret('ai.apiKey');
+  }
+
+  if (settings.speech.apiKey) {
+    await secretStorage.setSecret('speech.apiKey', settings.speech.apiKey);
+  } else {
+    await secretStorage.removeSecret('speech.apiKey');
+  }
+}
+
+function removeProviderSecrets(settings: LocalProviderSettings): LocalProviderSettings {
+  const ai = { ...settings.ai };
+  const speech = { ...settings.speech };
+  delete ai.apiKey;
+  delete speech.apiKey;
+  return { ai, speech };
 }
 
 function normalizeProviderSettings(settings: unknown): LocalProviderSettings {

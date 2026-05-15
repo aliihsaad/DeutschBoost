@@ -8,8 +8,15 @@ import {
   createStorageProviderSettingsRepository,
   type ProviderSettingsStorage,
 } from '../../../src/domain/settings/providerSettingsRepository';
+import {
+  createKeyValueProviderSecretStorage,
+  type ProviderSecretStorage,
+} from '../../../src/domain/settings/providerSecretStorage';
+import { createMemoryKeyValueStorage } from '../../../src/domain/storage/keyValueStorage';
 
-function createMemoryStorage(initial: Record<string, string> = {}): ProviderSettingsStorage {
+function createMemoryStorage(
+  initial: Record<string, string> = {}
+): ProviderSettingsStorage & { read(key: string): string | null } {
   const values = new Map(Object.entries(initial));
 
   return {
@@ -20,7 +27,16 @@ function createMemoryStorage(initial: Record<string, string> = {}): ProviderSett
     removeItem: vi.fn((key: string) => {
       values.delete(key);
     }),
+    read(key: string): string | null {
+      return values.get(key) ?? null;
+    },
   };
+}
+
+function createSecretStorage(): ProviderSecretStorage {
+  return createKeyValueProviderSecretStorage({
+    storage: createMemoryKeyValueStorage(),
+  });
 }
 
 describe('providerSettingsRepository', () => {
@@ -60,6 +76,69 @@ describe('providerSettingsRepository', () => {
     );
     const [, savedSettings] = vi.mocked(storage.setItem).mock.calls[0]!;
     expect(JSON.parse(savedSettings)).toEqual(settings);
+  });
+
+  it('stores provider API keys outside public settings JSON when secret storage is supplied', async () => {
+    const storage = createMemoryStorage();
+    const secretStorage = createSecretStorage();
+    const repository = createStorageProviderSettingsRepository({ storage, secretStorage });
+    const settings: LocalProviderSettings = {
+      ai: {
+        enabled: true,
+        provider: 'openrouter',
+        apiKey: 'openrouter-key',
+        model: 'openai/gpt-4o-mini',
+      },
+      speech: {
+        enabled: true,
+        provider: 'deepgram',
+        apiKey: 'deepgram-key',
+        model: 'nova-3',
+        language: 'de',
+      },
+    };
+
+    await repository.save(settings);
+
+    const storedPublicSettings = JSON.parse(storage.read(DEFAULT_PROVIDER_SETTINGS_STORAGE_KEY)!);
+    expect(storedPublicSettings.ai.apiKey).toBeUndefined();
+    expect(storedPublicSettings.speech.apiKey).toBeUndefined();
+    await expect(secretStorage.getSecret('ai.apiKey')).resolves.toBe('openrouter-key');
+    await expect(secretStorage.getSecret('speech.apiKey')).resolves.toBe('deepgram-key');
+    await expect(repository.load()).resolves.toEqual(settings);
+  });
+
+  it('migrates legacy inline API keys into secret storage', async () => {
+    const storage = createMemoryStorage({
+      [DEFAULT_PROVIDER_SETTINGS_STORAGE_KEY]: JSON.stringify({
+        ai: {
+          enabled: true,
+          provider: 'openrouter',
+          apiKey: 'legacy-openrouter-key',
+          model: 'openrouter/auto',
+        },
+        speech: {
+          enabled: true,
+          provider: 'deepgram',
+          apiKey: 'legacy-deepgram-key',
+          model: 'nova-3',
+          language: 'de',
+        },
+      }),
+    });
+    const secretStorage = createSecretStorage();
+    const repository = createStorageProviderSettingsRepository({ storage, secretStorage });
+
+    await expect(repository.load()).resolves.toMatchObject({
+      ai: { apiKey: 'legacy-openrouter-key' },
+      speech: { apiKey: 'legacy-deepgram-key' },
+    });
+
+    const storedPublicSettings = JSON.parse(storage.read(DEFAULT_PROVIDER_SETTINGS_STORAGE_KEY)!);
+    expect(storedPublicSettings.ai.apiKey).toBeUndefined();
+    expect(storedPublicSettings.speech.apiKey).toBeUndefined();
+    await expect(secretStorage.getSecret('ai.apiKey')).resolves.toBe('legacy-openrouter-key');
+    await expect(secretStorage.getSecret('speech.apiKey')).resolves.toBe('legacy-deepgram-key');
   });
 
   it('merges older partial settings with current defaults', async () => {
@@ -186,6 +265,32 @@ describe('providerSettingsRepository', () => {
     await expect(repository.reset()).resolves.toEqual(createDefaultLocalProviderSettings());
     await expect(repository.load()).resolves.toEqual(createDefaultLocalProviderSettings());
     expect(storage.removeItem).toHaveBeenCalledWith(DEFAULT_PROVIDER_SETTINGS_STORAGE_KEY);
+  });
+
+  it('resets stored provider secrets when secret storage is supplied', async () => {
+    const storage = createMemoryStorage();
+    const secretStorage = createSecretStorage();
+    const repository = createStorageProviderSettingsRepository({ storage, secretStorage });
+    await repository.save({
+      ai: {
+        enabled: true,
+        provider: 'openrouter',
+        apiKey: 'openrouter-key',
+        model: 'openrouter/auto',
+      },
+      speech: {
+        enabled: true,
+        provider: 'deepgram',
+        apiKey: 'deepgram-key',
+        model: 'nova-3',
+        language: 'de',
+      },
+    });
+
+    await repository.reset();
+
+    await expect(secretStorage.getSecret('ai.apiKey')).resolves.toBeNull();
+    await expect(secretStorage.getSecret('speech.apiKey')).resolves.toBeNull();
   });
 
   it('recovers defaults and clears storage when saved JSON is corrupt', async () => {

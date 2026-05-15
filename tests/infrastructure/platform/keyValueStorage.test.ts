@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createBrowserKeyValueStorage,
+  createDefaultPlatformKeyValueStorage,
   createPlatformKeyValueStorage,
 } from '../../../src/infrastructure/platform/keyValueStorage';
 import type { KeyValueStorage } from '../../../src/domain/storage/keyValueStorage';
@@ -56,5 +57,29 @@ describe('platform key-value storage', () => {
     await expect(storage.getItem('settings')).resolves.toBe('memory-value');
     expect(storage.runtime).toBe('memory');
     expect(storage.durability).toBe('ephemeral');
+  });
+
+  it('creates default platform storage from detected native storage before browser storage', async () => {
+    const nativeStorage: KeyValueStorage = {
+      runtime: 'native',
+      durability: 'device',
+      getItem: vi.fn().mockResolvedValue('native-value'),
+      setItem: vi.fn().mockResolvedValue(undefined),
+      removeItem: vi.fn().mockResolvedValue(undefined),
+    };
+    const browserStorage = {
+      getItem: vi.fn().mockReturnValue('browser-value'),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    };
+
+    const storage = createDefaultPlatformKeyValueStorage({
+      browserStorage,
+      nativeStorageResolver: () => nativeStorage,
+    });
+
+    await expect(storage.getItem('settings')).resolves.toBe('native-value');
+    expect(storage.runtime).toBe('native');
+    expect(browserStorage.getItem).not.toHaveBeenCalled();
   });
 });

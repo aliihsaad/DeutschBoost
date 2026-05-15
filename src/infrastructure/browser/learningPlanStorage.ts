@@ -4,6 +4,7 @@ import {
 } from '../../domain/learning/learningPlanRepository';
 import {
   createBrowserKeyValueStorage,
+  createDefaultPlatformKeyValueStorage,
   type BrowserStorageLike,
 } from '../platform/keyValueStorage';
 import type { KeyValueStorage } from '../../domain/storage/keyValueStorage';
@@ -15,5 +16,5 @@ export function createBrowserLearningPlanStorage(
 }
 
 export const browserLearningPlanRepository = createStorageLearningPlanRepository({
-  storage: createBrowserLearningPlanStorage(),
+  storage: createDefaultPlatformKeyValueStorage(),
 });

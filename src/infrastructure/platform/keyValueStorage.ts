@@ -2,6 +2,7 @@ import {
   createMemoryKeyValueStorage,
   type KeyValueStorage,
 } from '../../domain/storage/keyValueStorage';
+import { createInstalledNativeKeyValueStorage } from '../native/keyValueStorage';
 
 export interface BrowserStorageLike {
   getItem(key: string): string | null;
@@ -14,6 +15,11 @@ interface PlatformKeyValueStorageOptions {
   browserStorage?: BrowserStorageLike | null;
 }
 
+interface DefaultPlatformKeyValueStorageOptions {
+  nativeStorageResolver?: () => KeyValueStorage | null;
+  browserStorage?: BrowserStorageLike | null;
+}
+
 export function createPlatformKeyValueStorage(
   options: PlatformKeyValueStorageOptions = {}
 ): KeyValueStorage {
@@ -22,6 +28,17 @@ export function createPlatformKeyValueStorage(
   }
 
   return createBrowserKeyValueStorage(options.browserStorage);
+}
+
+export function createDefaultPlatformKeyValueStorage(
+  options: DefaultPlatformKeyValueStorageOptions = {}
+): KeyValueStorage {
+  const resolveNativeStorage = options.nativeStorageResolver ?? createInstalledNativeKeyValueStorage;
+
+  return createPlatformKeyValueStorage({
+    nativeStorage: resolveNativeStorage(),
+    browserStorage: options.browserStorage,
+  });
 }
 
 export function createBrowserKeyValueStorage(

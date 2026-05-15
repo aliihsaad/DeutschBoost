@@ -8,6 +8,7 @@ import type { LearnerId } from '../../domain/learning/types';
 import type { KeyValueStorage } from '../../domain/storage/keyValueStorage';
 import {
   createBrowserKeyValueStorage,
+  createDefaultPlatformKeyValueStorage,
   type BrowserStorageLike,
 } from '../platform/keyValueStorage';
 
@@ -134,5 +135,5 @@ function createConversationSessionId(): string {
 }
 
 function getDefaultStorage(): ConversationStorage {
-  return createBrowserConversationStorage();
+  return createDefaultPlatformKeyValueStorage();
 }
