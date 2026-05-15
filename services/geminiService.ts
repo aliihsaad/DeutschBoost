@@ -1,14 +1,41 @@
 
 import { GoogleGenAI, LiveConnectSession, LiveServerMessage, Modality, Type, GenerateContentResponse, Blob } from "@google/genai";
 import { CEFRLevel, LearningPlan, TestResult, ConversationMode } from '../types';
-import { ConversationFeedback } from './conversationService';
-import { parseAiJsonResponse } from '../utils/safeJsonParse';
+import type { ConversationFeedback } from './conversationService';
+import type { AiProvider } from '../src/domain/ai/aiProvider';
+import { createGeminiAiProvider, type GeminiClientLike } from '../src/domain/ai/geminiProvider';
+import { generateJsonWithProvider } from '../src/domain/ai/jsonGeneration';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable is not set");
 }
 
 export const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+const defaultGeminiServiceAiProvider = createGeminiAiProvider({
+    client: ai as unknown as GeminiClientLike,
+});
+
+const generateGeminiServiceJson = <T>(
+    aiProvider: AiProvider,
+    feature: string,
+    schemaName: string,
+    prompt: string
+): Promise<T> => {
+    return generateJsonWithProvider<T>(aiProvider, {
+        feature,
+        schemaName,
+        messages: [
+            {
+                role: 'user',
+                content: prompt,
+            },
+        ],
+        options: {
+            model: 'gemini-2.5-pro',
+        },
+    });
+};
 
 // Generate reading comprehension question
 export const generateReadingQuestion = async (level: CEFRLevel): Promise<GenerateContentResponse> => {
@@ -109,11 +136,14 @@ export const evaluateComprehensivePlacementTest = async (
     readingScore: number,
     grammarScore: number,
     writingText: string,
-    writingPrompt: string
+    writingPrompt: string,
+    aiProvider: AiProvider = defaultGeminiServiceAiProvider
 ): Promise<TestResult> => {
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-pro',
-        contents: `As a certified German language examiner following CEFR guidelines, evaluate this student's comprehensive placement test.
+    return generateGeminiServiceJson<TestResult>(
+        aiProvider,
+        'placement test evaluation',
+        'TestResult',
+        `As a certified German language examiner following CEFR guidelines, evaluate this student's comprehensive placement test.
 
 READING COMPREHENSION: ${readingScore}/5 questions correct
 GRAMMAR: ${grammarScore}/5 questions correct
@@ -130,115 +160,46 @@ Consider:
 - Be accurate and realistic - don't over-inflate the level
 
 Provide detailed feedback on strengths, weaknesses, and specific recommendations for improvement.`,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    level: { type: Type.STRING, description: "The assessed CEFR level (A1, A2, B1, B2, C1, or C2)" },
-                    strengths: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING },
-                        description: "3-5 specific strengths across all test sections"
-                    },
-                    weaknesses: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING },
-                        description: "3-5 specific areas needing improvement"
-                    },
-                    recommendations: {
-                        type: Type.STRING,
-                        description: "Detailed recommendations for reaching the next level"
-                    }
-                },
-                required: ['level', 'strengths', 'weaknesses', 'recommendations']
-            },
-            thinkingConfig: { thinkingBudget: 32768 }
-        }
-    });
-    const resultJson = parseAiJsonResponse<TestResult>(response.text, 'placement test evaluation');
-    return resultJson;
+    );
 };
 
 // Legacy function for simple writing evaluation
-export const evaluateWriting = async (prompt: string, userText: string): Promise<TestResult> => {
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-pro',
-        contents: `As a certified German language examiner, please evaluate the following text written by a student.
+export const evaluateWriting = async (
+    prompt: string,
+    userText: string,
+    aiProvider: AiProvider = defaultGeminiServiceAiProvider
+): Promise<TestResult> => {
+    return generateGeminiServiceJson<TestResult>(
+        aiProvider,
+        'writing evaluation',
+        'TestResult',
+        `As a certified German language examiner, please evaluate the following text written by a student.
         Writing Prompt: "${prompt}"
         Student's text: "${userText}"
 
         Analyze the text based on CEFR criteria (grammar, vocabulary, coherence, task achievement).
         Provide a detailed evaluation and assign a CEFR level.
-        `,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    level: { type: Type.STRING, description: "The assessed CEFR level (e.g., A1, A2, B1)." },
-                    strengths: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of strengths in the user's writing." },
-                    weaknesses: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of areas for improvement." },
-                    recommendations: { type: Type.STRING, description: "A summary of recommendations for the user." }
-                },
-                required: ['level', 'strengths', 'weaknesses', 'recommendations']
-            },
-            thinkingConfig: { thinkingBudget: 32768 }
-        }
-    });
-    const resultJson = parseAiJsonResponse<TestResult>(response.text, 'writing evaluation');
-    return resultJson;
+        `
+    );
 };
 
 
-export const generateLearningPlan = async (evaluation: TestResult): Promise<LearningPlan> => {
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-pro',
-        contents: `Based on this student's German language evaluation, create a personalized 4-week learning plan to help them reach the next CEFR level.
+export const generateLearningPlan = async (
+    evaluation: TestResult,
+    aiProvider: AiProvider = defaultGeminiServiceAiProvider
+): Promise<LearningPlan> => {
+    const parsedJson = await generateGeminiServiceJson<LearningPlan>(
+        aiProvider,
+        'learning plan',
+        'LearningPlan',
+        `Based on this student's German language evaluation, create a personalized 4-week learning plan to help them reach the next CEFR level.
         Current Level: ${evaluation.level}
         Strengths: ${evaluation.strengths.join(', ')}
         Weaknesses: ${evaluation.weaknesses.join(', ')}
         
         The plan should be structured, focusing on improving their weak areas. Include specific grammar topics, vocabulary themes, and practice types for each week.
-        `,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    level: { type: Type.STRING, description: "The target CEFR level for this plan." },
-                    goals: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Top-level goals for the user." },
-                    weeks: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                week: { type: Type.INTEGER },
-                                focus: { type: Type.STRING },
-                                items: {
-                                    type: Type.ARRAY,
-                                    items: {
-                                        type: Type.OBJECT,
-                                        properties: {
-                                            topic: { type: Type.STRING },
-                                            skill: { type: Type.STRING, description: "Must be one of: Grammar, Vocabulary, Listening, Reading, Writing, Speaking" },
-                                            description: { type: Type.STRING },
-                                        },
-                                        required: ['topic', 'skill', 'description']
-                                    }
-                                }
-                            },
-                            required: ['week', 'focus', 'items']
-                        }
-                    }
-                },
-                required: ['level', 'goals', 'weeks']
-            },
-            thinkingConfig: { thinkingBudget: 32768 }
-        }
-    });
-
-    const parsedJson = parseAiJsonResponse<LearningPlan>(response.text, 'learning plan');
+        `
+    );
     // Add 'completed' field to each item
     if (parsedJson.weeks) {
         parsedJson.weeks.forEach((week: any) => {
