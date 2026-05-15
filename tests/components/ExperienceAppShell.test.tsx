@@ -19,6 +19,7 @@ describe('ExperienceAppShell', () => {
     expect(within(navigation).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/');
     expect(within(navigation).getByRole('link', { name: /Plan/i })).toHaveAttribute('href', '/plan');
     expect(within(navigation).getByRole('link', { name: /Mistakes/i })).toHaveAttribute('href', '/mistakes');
+    expect(within(navigation).getByRole('link', { name: /Profile/i })).toHaveAttribute('href', '/profile');
     expect(within(navigation).getByRole('link', { name: /Settings/i })).toHaveAttribute('href', '/settings');
   });
 

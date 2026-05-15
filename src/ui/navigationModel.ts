@@ -8,6 +8,7 @@ export type AppDestinationId =
   | 'mistakes'
   | 'exam'
   | 'library'
+  | 'profile'
   | 'settings';
 
 export type AppDestinationGroup = 'learn' | 'practice' | 'memory' | 'system';
@@ -115,14 +116,24 @@ export const appDestinations: AppDestination[] = [
     legacyRoutes: [],
   },
   {
+    id: 'profile',
+    label: 'Profile',
+    shortLabel: 'Profile',
+    route: '/profile',
+    icon: 'user',
+    group: 'system',
+    description: 'Local learner level, goals, study rhythm, and personalization.',
+    legacyRoutes: [],
+  },
+  {
     id: 'settings',
     label: 'Settings',
     shortLabel: 'Settings',
     route: '/settings',
     icon: 'settings',
     group: 'system',
-    description: 'Local profile, files, backups, AI provider, speech provider, and privacy.',
-    legacyRoutes: ['/profile'],
+    description: 'Files, backups, AI provider, speech provider, and privacy.',
+    legacyRoutes: [],
   },
 ];
 

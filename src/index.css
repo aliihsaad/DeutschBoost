@@ -659,8 +659,81 @@ textarea {
   gap: 14px;
 }
 
+.db-profile-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.72fr) minmax(360px, 1fr) minmax(360px, 1fr);
+  gap: 14px;
+}
+
 .db-settings-panel {
   padding: 16px;
+}
+
+.db-profile-panel,
+.db-profile-summary-panel {
+  padding: 16px;
+}
+
+.db-profile-summary-panel {
+  display: grid;
+  gap: 16px;
+  border-left: 3px solid #f2b705;
+}
+
+.db-profile-summary-panel > strong {
+  color: #18181b;
+  font-size: 30px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.db-profile-summary-panel dl {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+}
+
+.db-profile-summary-panel dl div {
+  display: grid;
+  gap: 3px;
+  padding-top: 9px;
+  border-top: 1px solid #edf0f2;
+}
+
+.db-profile-summary-panel dt {
+  color: #666f7b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.db-profile-summary-panel dd {
+  margin: 0;
+  color: #18181b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.db-profile-facts {
+  min-height: 94px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid #edf0f2;
+  border-radius: 6px;
+  background: #f6f7f8;
+}
+
+.db-profile-facts span {
+  color: #666f7b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.db-profile-facts strong {
+  color: #18181b;
+  font-size: 14px;
+  font-weight: 850;
 }
 
 .db-provider-card-heading {
@@ -919,6 +992,10 @@ textarea {
   }
 
   .db-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .db-profile-grid {
     grid-template-columns: 1fr;
   }
 

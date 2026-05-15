@@ -18,6 +18,7 @@ describe('navigationModel', () => {
       'mistakes',
       'exam',
       'library',
+      'profile',
       'settings',
     ]);
   });
@@ -27,6 +28,7 @@ describe('navigationModel', () => {
     expect(getDestinationByRoute('/plan').id).toBe('plan');
     expect(getDestinationByRoute('/review').id).toBe('review');
     expect(getDestinationByRoute('/conversation').id).toBe('conversation');
+    expect(getDestinationByRoute('/profile').id).toBe('profile');
     expect(getDestinationByRoute('/settings').id).toBe('settings');
   });
 
@@ -35,7 +37,6 @@ describe('navigationModel', () => {
     expect(getDestinationByRoute('/activity?type=grammar').id).toBe('practice');
     expect(getDestinationByRoute('/speaking-activity').id).toBe('conversation');
     expect(getDestinationByRoute('/exam-simulator').id).toBe('exam');
-    expect(getDestinationByRoute('/profile').id).toBe('settings');
   });
 
   it('falls back to dashboard for unknown routes', () => {

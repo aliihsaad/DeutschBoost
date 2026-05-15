@@ -11,9 +11,9 @@ import ProfilePage from './pages/ProfilePage';
 import ActivityPage from './pages/ActivityPage';
 import { PracticePage } from './pages/PracticePage';
 import { ExamSimulatorPage } from './pages/ExamSimulatorPage';
-import { CEFRLevel, TestResult, LearningPlan } from './types';
+import { TestResult, LearningPlan } from './types';
 import { generateLearningPlan } from './services/geminiService';
-import { loadActiveLearningPlan, saveLearningPlan, updatePlanItemCompletion } from './services/learningPlanService';
+import { loadActiveLearningPlan, saveLearningPlan } from './services/learningPlanService';
 import { useAuth } from './src/contexts/AuthContext';
 import { supabase } from './src/lib/supabase';
 import toast from 'react-hot-toast';
@@ -23,15 +23,15 @@ import {
   type LocalProviderSettings,
 } from './src/domain/settings/providerSettings';
 import { browserProviderSettingsRepository } from './src/infrastructure/browser/providerSettingsStorage';
+import { browserProfileRepository } from './src/infrastructure/browser/profileStorage';
 
 const MainApp: React.FC = () => {
-  const [userLevel, setUserLevel] = useState<CEFRLevel>(CEFRLevel.A1);
   const [learningPlan, setLearningPlan] = useState<LearningPlan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [providerSettings, setProviderSettings] = useState<LocalProviderSettings>(
     createDefaultLocalProviderSettings
   );
-  const { user, userProfile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -62,11 +62,6 @@ const MainApp: React.FC = () => {
       if (!user) return;
 
       try {
-        // Load user's current level
-        if (userProfile?.current_level) {
-          setUserLevel(userProfile.current_level as CEFRLevel);
-        }
-
         // Load active learning plan using the service
         const { plan, error } = await loadActiveLearningPlan(user.id);
 
@@ -81,7 +76,7 @@ const MainApp: React.FC = () => {
     };
 
     loadUserData();
-  }, [user, userProfile]);
+  }, [user]);
 
   // Reload learning plan when navigating to /learning-plan or / to reflect completed activities
   useEffect(() => {
@@ -108,7 +103,6 @@ const MainApp: React.FC = () => {
     async (result: TestResult) => {
       if (!user) return;
 
-      setUserLevel(result.level);
       setLoadingPlan(true);
 
       try {
@@ -190,7 +184,7 @@ const MainApp: React.FC = () => {
               />
             }
           />
-          <Route path="/profile" element={<ProfilePage userLevel={userLevel} />} />
+          <Route path="/profile" element={<ProfilePage repository={browserProfileRepository} />} />
           <Route path="/review" element={<LocalWorkspacePlaceholderPage title="Review" description="Due vocabulary, phrases, grammar mistakes, and saved corrections will live here." />} />
           <Route path="/writing" element={<LocalWorkspacePlaceholderPage title="Writing" description="Prompts, drafts, AI feedback, and revision history will live here." />} />
           <Route path="/mistakes" element={<LocalWorkspacePlaceholderPage title="Mistakes" description="The searchable mistake notebook and review card workflow will live here." />} />

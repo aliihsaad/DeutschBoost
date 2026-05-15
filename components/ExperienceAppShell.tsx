@@ -18,6 +18,7 @@ const iconClassByName: Record<string, string> = {
   'notebook-tabs': 'fa-circle-exclamation',
   timer: 'fa-stopwatch',
   library: 'fa-book-open',
+  user: 'fa-user',
   settings: 'fa-gear',
 };
 
