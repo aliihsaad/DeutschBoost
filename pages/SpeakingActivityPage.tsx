@@ -120,13 +120,7 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
   const [message, setMessage] = useState<string | null>(null);
   const [lastAudioUrl, setLastAudioUrl] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<ConversationFeedbackRecord | null>(null);
-  const [liveState, setLiveState] = useState<HandsFreeConversationState>({
-    status: 'idle',
-    turns: [],
-    interimTranscript: '',
-    currentTutorText: '',
-    errorMessage: null,
-  });
+  const [liveState, setLiveState] = useState<HandsFreeConversationState>(() => createIdleLiveState());
   const [profileContext, setProfileContext] = useState({
     level: CEFRLevel.A2,
     motherLanguage: 'English',
@@ -257,6 +251,8 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
     }
 
     setStatus('starting');
+    setLiveState(createIdleLiveState());
+    liveControllerRef.current = null;
     setMessage(null);
     setTurns([]);
     setFeedback(null);
@@ -651,6 +647,16 @@ function formatStatus(status: ConversationStatus): string {
   };
 
   return labels[status];
+}
+
+function createIdleLiveState(): HandsFreeConversationState {
+  return {
+    status: 'idle',
+    turns: [],
+    interimTranscript: '',
+    currentTutorText: '',
+    errorMessage: null,
+  };
 }
 
 function formatLiveStatus(status: HandsFreeConversationState['status']): string {

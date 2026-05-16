@@ -5,6 +5,8 @@ import type { StreamingSpeechProvider } from '../domain/speech/streamingSpeechPr
 import { createTranscriptTurn, type TranscriptTurn } from '../domain/speech/transcriptTypes';
 import type { CEFRLevel, ConversationMode } from '../../types';
 
+const STREAMING_TTS_SAMPLE_RATE = 24000;
+
 export type HandsFreeConversationStatus =
   | 'idle'
   | 'connecting'
@@ -183,17 +185,15 @@ export function createHandsFreeConversationController(
   const speakTutorTurn = async (text: string) => {
     ttsSession = await input.speechProvider.startSynthesis({
       ttsModel: 'aura-2-viktoria-de',
-      encoding: 'mp3',
-      speed: 1,
+      encoding: 'linear16',
+      sampleRate: STREAMING_TTS_SAMPLE_RATE,
     });
 
     const chunks: ArrayBuffer[] = [];
-    let mimeType = 'audio/mpeg';
     const flushed = new Promise<void>((resolve, reject) => {
       const unsubscribe = ttsSession?.onEvent(event => {
         if (event.type === 'audio' && event.audio) {
           chunks.push(event.audio);
-          mimeType = event.mimeType ?? mimeType;
         }
 
         if (event.type === 'flushed' || event.type === 'closed') {
@@ -213,7 +213,7 @@ export function createHandsFreeConversationController(
     await flushed;
 
     if (chunks.length > 0) {
-      await input.playTutorAudio(new Blob(chunks, { type: mimeType }), mimeType);
+      await input.playTutorAudio(createWavBlobFromLinear16(chunks, STREAMING_TTS_SAMPLE_RATE), 'audio/wav');
     }
   };
 
@@ -321,6 +321,50 @@ export function createHandsFreeConversationController(
       });
     },
   };
+}
+
+function createWavBlobFromLinear16(chunks: ArrayBuffer[], sampleRate: number): Blob {
+  const pcm = concatenateAudioChunks(chunks);
+  const header = new ArrayBuffer(44);
+  const view = new DataView(header);
+  const bytesPerSample = 2;
+  const channelCount = 1;
+  const byteRate = sampleRate * channelCount * bytesPerSample;
+
+  writeAscii(view, 0, 'RIFF');
+  view.setUint32(4, 36 + pcm.byteLength, true);
+  writeAscii(view, 8, 'WAVE');
+  writeAscii(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channelCount, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, channelCount * bytesPerSample, true);
+  view.setUint16(34, bytesPerSample * 8, true);
+  writeAscii(view, 36, 'data');
+  view.setUint32(40, pcm.byteLength, true);
+
+  return new Blob([header, pcm], { type: 'audio/wav' });
+}
+
+function concatenateAudioChunks(chunks: ArrayBuffer[]): Uint8Array {
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+  const output = new Uint8Array(totalLength);
+  let offset = 0;
+
+  chunks.forEach(chunk => {
+    output.set(new Uint8Array(chunk), offset);
+    offset += chunk.byteLength;
+  });
+
+  return output;
+}
+
+function writeAscii(view: DataView, offset: number, value: string): void {
+  for (let index = 0; index < value.length; index += 1) {
+    view.setUint8(offset + index, value.charCodeAt(index));
+  }
 }
 
 function buildTutorMessages(input: {

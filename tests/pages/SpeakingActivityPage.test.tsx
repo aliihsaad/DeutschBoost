@@ -95,7 +95,7 @@ function createStreamingSpeechProvider() {
       sendText: vi.fn(),
       flush: vi.fn(() => {
         ttsListeners.forEach(listener =>
-          listener({ type: 'audio', audio: new Uint8Array([1, 2, 3]).buffer, mimeType: 'audio/mpeg' })
+          listener({ type: 'audio', audio: new Uint8Array([1, 2, 3, 4]).buffer, mimeType: 'audio/l16' })
         );
         ttsListeners.forEach(listener => listener({ type: 'flushed' }));
       }),
@@ -342,7 +342,19 @@ describe('SpeakingActivityPage local conversation flow', () => {
     expect(await screen.findByText('Ich gehe morgen ins Kino.')).toBeInTheDocument();
     expect(await screen.findByText('Sehr gut. Was machst du morgen?')).toBeInTheDocument();
     expect(conversationRepository.appendTranscript).toHaveBeenCalledTimes(2);
-    expect(streamingSpeech.provider.startSynthesis).toHaveBeenCalled();
-    expect(playLiveTutorAudio).toHaveBeenCalledWith(expect.any(Blob), 'audio/mpeg');
+    expect(streamingSpeech.provider.startSynthesis).toHaveBeenCalledWith({
+      ttsModel: 'aura-2-viktoria-de',
+      encoding: 'linear16',
+      sampleRate: 24000,
+    });
+    expect(playLiveTutorAudio).toHaveBeenCalledWith(expect.any(Blob), 'audio/wav');
+
+    fireEvent.click(screen.getByRole('button', { name: 'End session' }));
+    expect(await screen.findByRole('button', { name: 'Start live practice' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }));
+
+    expect(await screen.findByRole('button', { name: 'Record answer' })).toBeInTheDocument();
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument();
   });
 });

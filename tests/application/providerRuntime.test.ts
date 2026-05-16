@@ -1,11 +1,28 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createDefaultLocalProviderSettings,
   type LocalProviderSettings,
 } from '../../src/domain/settings/providerSettings';
 import { createLocalProviderRuntime } from '../../src/application/providerRuntime';
 
+class MockWebSocket {
+  static instances: MockWebSocket[] = [];
+  onopen: (() => void) | null = null;
+
+  constructor(readonly url: string, readonly protocols?: string | string[]) {
+    MockWebSocket.instances.push(this);
+  }
+
+  send() {}
+
+  close() {}
+}
+
 describe('providerRuntime', () => {
+  beforeEach(() => {
+    MockWebSocket.instances = [];
+  });
+
   it('does not create runtime providers from disabled local settings', () => {
     const runtime = createLocalProviderRuntime(createDefaultLocalProviderSettings());
 
@@ -44,5 +61,44 @@ describe('providerRuntime', () => {
     expect(runtime.streamingSpeechProvider?.id).toBe('deepgram');
     expect(runtime.snapshots.ai.configured).toBe(true);
     expect(runtime.snapshots.speech.configured).toBe(true);
+  });
+
+  it('lets Deepgram streaming fall back to the saved key when auth grant is forbidden', async () => {
+    const settings: LocalProviderSettings = {
+      ai: {
+        enabled: true,
+        provider: 'openrouter',
+        apiKey: 'openrouter-key',
+        model: 'openrouter/auto',
+      },
+      speech: {
+        enabled: true,
+        provider: 'deepgram',
+        apiKey: 'deepgram-key',
+        model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
+        language: 'de',
+      },
+    };
+    const runtime = createLocalProviderRuntime(settings, {
+      fetchFn: vi.fn().mockResolvedValue(new Response('{}', { status: 403 })),
+      WebSocketCtor: MockWebSocket,
+    });
+
+    const sessionPromise = runtime.streamingSpeechProvider?.startTranscription({
+      language: 'de',
+      model: 'nova-3',
+      endpointingMs: 450,
+      interimResults: true,
+      punctuate: true,
+      smartFormat: true,
+    });
+
+    for (let attempt = 0; attempt < 5 && !MockWebSocket.instances[0]; attempt += 1) {
+      await Promise.resolve();
+    }
+    expect(MockWebSocket.instances[0]?.protocols).toEqual(['token', 'deepgram-key']);
+    MockWebSocket.instances[0]?.onopen?.();
+    await expect(sessionPromise).resolves.toEqual(expect.objectContaining({ id: expect.any(String) }));
   });
 });

@@ -7,6 +7,7 @@ class MockWebSocket {
   onmessage: ((event: { data: string | ArrayBuffer }) => void) | null = null;
   onerror: ((event: unknown) => void) | null = null;
   onclose: (() => void) | null = null;
+  readyState = 1;
   sent: unknown[] = [];
 
   constructor(readonly url: string, readonly protocols?: string | string[]) {
@@ -18,12 +19,15 @@ class MockWebSocket {
   }
 
   close() {
+    this.readyState = 3;
     this.onclose?.();
   }
 }
 
 async function openCreatedSocket<T>(sessionPromise: Promise<T>): Promise<{ session: T; socket: MockWebSocket }> {
-  await Promise.resolve();
+  for (let attempt = 0; attempt < 5 && !MockWebSocket.instances[0]; attempt += 1) {
+    await Promise.resolve();
+  }
   const socket = MockWebSocket.instances[0];
   expect(socket).toBeDefined();
   socket.onopen?.();
@@ -64,6 +68,32 @@ describe('createDeepgramStreamingSpeechProvider', () => {
     expect(socket.url).toContain('punctuate=true');
     expect(socket.url).toContain('smart_format=true');
     expect(socket.protocols).toEqual(['token', 'temporary-token']);
+  });
+
+  it('falls back to the saved local API key when Deepgram auth grant is forbidden', async () => {
+    const forbidden = Object.assign(new Error('Deepgram temporary token request failed: HTTP 403'), {
+      status: 403,
+    });
+    const provider = createDeepgramStreamingSpeechProvider({
+      tokenProvider: vi.fn().mockRejectedValue(forbidden),
+      apiKey: 'deepgram-local-key',
+      shouldFallbackToApiKey: error => (error as { status?: number }).status === 403,
+      WebSocketCtor: MockWebSocket,
+      now: () => '2026-05-16T12:00:00.000Z',
+    });
+
+    const { socket } = await openCreatedSocket(
+      provider.startTranscription({
+        language: 'de',
+        model: 'nova-3',
+        endpointingMs: 450,
+        interimResults: true,
+        punctuate: true,
+        smartFormat: true,
+      })
+    );
+
+    expect(socket.protocols).toEqual(['token', 'deepgram-local-key']);
   });
 
   it('buffers finalized pieces until speech_final creates one learner turn', async () => {
@@ -154,6 +184,29 @@ describe('createDeepgramStreamingSpeechProvider', () => {
     ]);
   });
 
+  it('does not send audio chunks after a transcription socket has closed', async () => {
+    const provider = createDeepgramStreamingSpeechProvider({
+      tokenProvider: vi.fn().mockResolvedValue('temporary-token'),
+      WebSocketCtor: MockWebSocket,
+      now: () => '2026-05-16T12:00:00.000Z',
+    });
+    const { session, socket } = await openCreatedSocket(
+      provider.startTranscription({
+        language: 'de',
+        model: 'nova-3',
+        endpointingMs: 450,
+        interimResults: true,
+        punctuate: true,
+        smartFormat: true,
+      })
+    );
+
+    socket.close();
+    session.sendAudio(new Uint8Array([1, 2, 3]));
+
+    expect(socket.sent).toEqual([]);
+  });
+
   it('sends TTS text and flush commands over Deepgram speak WebSocket', async () => {
     const provider = createDeepgramStreamingSpeechProvider({
       tokenProvider: vi.fn().mockResolvedValue('temporary-token'),
@@ -164,7 +217,8 @@ describe('createDeepgramStreamingSpeechProvider', () => {
     const { session, socket } = await openCreatedSocket(
       provider.startSynthesis({
         ttsModel: 'aura-2-viktoria-de',
-        encoding: 'mp3',
+        encoding: 'linear16',
+        sampleRate: 24000,
         speed: 1,
       })
     );
@@ -174,7 +228,8 @@ describe('createDeepgramStreamingSpeechProvider', () => {
 
     expect(socket.url).toContain('wss://api.deepgram.com/v1/speak?');
     expect(socket.url).toContain('model=aura-2-viktoria-de');
-    expect(socket.url).toContain('encoding=mp3');
+    expect(socket.url).toContain('encoding=linear16');
+    expect(socket.url).toContain('sample_rate=24000');
     expect(socket.sent).toEqual([
       JSON.stringify({ type: 'Speak', text: 'Hallo, wie geht es dir?' }),
       JSON.stringify({ type: 'Flush' }),
@@ -191,7 +246,8 @@ describe('createDeepgramStreamingSpeechProvider', () => {
     const { session, socket } = await openCreatedSocket(
       provider.startSynthesis({
         ttsModel: 'aura-2-viktoria-de',
-        encoding: 'mp3',
+        encoding: 'linear16',
+        sampleRate: 24000,
       })
     );
     const events: unknown[] = [];
@@ -204,7 +260,7 @@ describe('createDeepgramStreamingSpeechProvider', () => {
       expect.objectContaining({
         type: 'audio',
         audio,
-        mimeType: 'audio/mpeg',
+        mimeType: 'audio/l16;rate=24000',
       }),
     ]);
   });

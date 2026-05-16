@@ -71,6 +71,23 @@ git push origin v0.0.3
 Known release note: `v0.0.1` was the first desktop pre-release and exposed a blank-window startup bug caused by eager Gemini API key initialization. Use `v0.0.2` or newer for desktop testing.
 Known release note: `v0.0.2` fixed startup and Deepgram desktop bridge issues, but placement question generation still used a legacy Gemini-only path. Use `v0.0.3` or newer for placement-test desktop testing.
 Known release note: `v0.0.3` routes placement question generation through the configured AI provider and routes Settings, listening, vocabulary, and tutor reply playback through Deepgram TTS when Deepgram is enabled. Browser/system TTS remains only a no-provider fallback.
+Known release note: the next desktop release after `v0.0.3` must smoke-test Conversation v2 hands-free mode in the packaged Tauri app. Required checks: saved providers load, Start live practice reaches Listening, a German learner turn becomes a final transcript, OpenRouter tutor text streams, Deepgram TTS plays the reply, Interrupt returns to Listening, End session saves locally, and fallback manual turn mode still works.
+
+## Conversation V2 Release Gate
+
+Do not push or tag the next desktop release until the packaged Tauri app passes this checklist on the target machine:
+
+- App launch is not blank.
+- Settings shows saved OpenRouter and Deepgram provider configuration from native storage/Stronghold.
+- Settings Deepgram key test and speak test pass.
+- Conversation shows `Start live practice` when both streaming providers are configured.
+- `Start live practice` reaches `Listening` without a manual record/send step.
+- A short German learner utterance creates a final learner transcript.
+- OpenRouter tutor text streams into the transcript.
+- Deepgram TTS plays the tutor reply.
+- `Interrupt` returns the live session to `Listening`.
+- `End session` saves the local conversation session.
+- Fallback manual `Start session` -> `Record answer` -> `Stop and send` still works.
 
 If a shell was open before Rust was installed, restart it or prepend Cargo manually for the current session:
 

@@ -133,4 +133,22 @@ describe('Tauri desktop shell configuration', () => {
 
     expect(connectSrc).toContain('http://ipc.localhost');
   });
+
+  it('allows packaged desktop Deepgram streaming WebSocket connections', () => {
+    const config = readJson<{
+      app?: {
+        security?: {
+          csp?: string;
+        };
+      };
+    }>('src-tauri/tauri.conf.json');
+    const csp = config.app?.security?.csp ?? '';
+    const connectSrc = csp
+      .split(';')
+      .map(directive => directive.trim())
+      .find(directive => directive.startsWith('connect-src'));
+
+    expect(connectSrc).toContain('https://api.deepgram.com');
+    expect(connectSrc).toContain('wss://api.deepgram.com');
+  });
 });

@@ -40,7 +40,7 @@ function createStreamingSpeechProvider() {
     sendText: vi.fn(),
     flush: vi.fn(() => {
       ttsListeners.forEach(listener =>
-        listener({ type: 'audio', audio: new Uint8Array([1, 2, 3]).buffer, mimeType: 'audio/mpeg' })
+        listener({ type: 'audio', audio: new Uint8Array([1, 2, 3, 4]).buffer, mimeType: 'audio/l16' })
       );
       ttsListeners.forEach(listener => listener({ type: 'flushed' }));
     }),
@@ -139,9 +139,17 @@ describe('createHandsFreeConversationController', () => {
     expect(conversationRepository.appendTranscript).toHaveBeenCalledTimes(2);
     expect(audioStream.stop).toHaveBeenCalled();
     expect(startAudioStream).toHaveBeenCalledTimes(2);
+    expect(speech.provider.startSynthesis).toHaveBeenCalledWith({
+      ttsModel: 'aura-2-viktoria-de',
+      encoding: 'linear16',
+      sampleRate: 24000,
+    });
     expect(speech.ttsSession.sendText).toHaveBeenCalledWith('Fast richtig. Was trinkst du gern?');
     expect(speech.ttsSession.flush).toHaveBeenCalled();
-    expect(playTutorAudio).toHaveBeenCalledWith(expect.any(Blob), 'audio/mpeg');
+    expect(playTutorAudio).toHaveBeenCalledWith(expect.any(Blob), 'audio/wav');
+    const playedAudio = vi.mocked(playTutorAudio).mock.calls[0][0];
+    expect(playedAudio.type).toBe('audio/wav');
+    expect(playedAudio.size).toBeGreaterThan(4);
   });
 
   it('preserves the learner turn when the tutor stream fails', async () => {

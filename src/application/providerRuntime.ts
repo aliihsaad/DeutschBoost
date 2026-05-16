@@ -3,7 +3,10 @@ import type { StreamingAiProvider } from '../domain/ai/streamingAiProvider';
 import { createOpenRouterStreamingProvider } from '../domain/ai/openRouterStreamingProvider';
 import type { SpeechProvider } from '../domain/speech/speechProvider';
 import type { StreamingSpeechProvider } from '../domain/speech/streamingSpeechProvider';
-import { createDeepgramStreamingSpeechProvider } from '../domain/speech/deepgramStreamingProvider';
+import {
+  createDeepgramStreamingSpeechProvider,
+  type DeepgramStreamingWebSocketCtor,
+} from '../domain/speech/deepgramStreamingProvider';
 import {
   buildProviderSettingsSnapshots,
   createAiProviderFromSettings,
@@ -24,9 +27,20 @@ export interface LocalProviderRuntime {
   streamingSpeechProvider: StreamingSpeechProvider | null;
 }
 
+export interface LocalProviderRuntimeDependencies extends ProviderFactoryDependencies {
+  WebSocketCtor?: DeepgramStreamingWebSocketCtor;
+}
+
+class DeepgramTemporaryTokenError extends Error {
+  constructor(readonly status: number) {
+    super(`Deepgram temporary token request failed: HTTP ${status}`);
+    this.name = 'DeepgramTemporaryTokenError';
+  }
+}
+
 export function createLocalProviderRuntime(
   settings: LocalProviderSettings,
-  dependencies: ProviderFactoryDependencies = {}
+  dependencies: LocalProviderRuntimeDependencies = {}
 ): LocalProviderRuntime {
   return {
     settings,
@@ -40,7 +54,7 @@ export function createLocalProviderRuntime(
 
 function createStreamingAiProvider(
   settings: LocalProviderSettings,
-  dependencies: ProviderFactoryDependencies
+  dependencies: LocalProviderRuntimeDependencies
 ): StreamingAiProvider | null {
   if (
     settings.ai.provider !== 'openrouter' ||
@@ -61,13 +75,17 @@ function createStreamingAiProvider(
 
 function createStreamingSpeechProvider(
   settings: LocalProviderSettings,
-  dependencies: ProviderFactoryDependencies
+  dependencies: LocalProviderRuntimeDependencies
 ): StreamingSpeechProvider | null {
   if (!settings.speech.enabled || !isSpeechProviderConfigured(settings.speech)) {
     return null;
   }
 
   return createDeepgramStreamingSpeechProvider({
+    apiKey: settings.speech.apiKey,
+    WebSocketCtor: dependencies.WebSocketCtor,
+    shouldFallbackToApiKey: error =>
+      error instanceof DeepgramTemporaryTokenError && error.status === 403,
     tokenProvider: async () => {
       const fetchFn = dependencies.fetchFn ?? fetch;
       const response = await fetchFn('/api/deepgram/v1/auth/grant', {
@@ -80,7 +98,7 @@ function createStreamingSpeechProvider(
       });
 
       if (!response.ok) {
-        throw new Error(`Deepgram temporary token request failed: HTTP ${response.status}`);
+        throw new DeepgramTemporaryTokenError(response.status);
       }
 
       const body = (await response.json()) as { access_token?: string };

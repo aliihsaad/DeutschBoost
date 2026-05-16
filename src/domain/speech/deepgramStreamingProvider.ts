@@ -14,15 +14,21 @@ type WebSocketLike = {
   onmessage: ((event: { data: string | ArrayBuffer | Blob }) => void) | null;
   onerror: ((event: unknown) => void) | null;
   onclose: (() => void) | null;
+  readonly readyState?: number;
   send(data: unknown): void;
   close(): void;
 };
 
-type WebSocketCtor = new (url: string, protocols?: string | string[]) => WebSocketLike;
+export type DeepgramStreamingWebSocketCtor = new (
+  url: string,
+  protocols?: string | string[]
+) => WebSocketLike;
 
 interface DeepgramStreamingProviderOptions {
   tokenProvider: () => Promise<string>;
-  WebSocketCtor?: WebSocketCtor;
+  apiKey?: string;
+  shouldFallbackToApiKey?: (error: unknown) => boolean;
+  WebSocketCtor?: DeepgramStreamingWebSocketCtor;
   listenUrl?: string;
   speakUrl?: string;
   now?: () => string;
@@ -49,6 +55,7 @@ interface DeepgramSpeakMessage {
 
 const DEFAULT_LISTEN_URL = 'wss://api.deepgram.com/v1/listen';
 const DEFAULT_SPEAK_URL = 'wss://api.deepgram.com/v1/speak';
+const OPEN_WEBSOCKET_STATE = 1;
 
 export function createDeepgramStreamingSpeechProvider(
   options: DeepgramStreamingProviderOptions
@@ -57,7 +64,7 @@ export function createDeepgramStreamingSpeechProvider(
     id: 'deepgram',
     displayName: 'Deepgram',
     async startTranscription(sttOptions) {
-      const token = await options.tokenProvider();
+      const token = await resolveSocketToken(options);
       const socket = createSocket(
         options.WebSocketCtor,
         buildListenUrl(options.listenUrl ?? DEFAULT_LISTEN_URL, sttOptions),
@@ -66,18 +73,36 @@ export function createDeepgramStreamingSpeechProvider(
       return openTranscriptionSession(socket, options.now ?? (() => new Date().toISOString()));
     },
     async startSynthesis(ttsOptions) {
-      const token = await options.tokenProvider();
+      const token = await resolveSocketToken(options);
       const socket = createSocket(
         options.WebSocketCtor,
         buildSpeakUrl(options.speakUrl ?? DEFAULT_SPEAK_URL, ttsOptions),
         token
       );
-      return openSynthesisSession(socket);
+      return openSynthesisSession(socket, ttsOptions);
     },
   };
 }
 
-function createSocket(WebSocketClass: WebSocketCtor | undefined, url: string, token: string): WebSocketLike {
+async function resolveSocketToken(options: DeepgramStreamingProviderOptions): Promise<string> {
+  try {
+    return await options.tokenProvider();
+  } catch (error) {
+    const fallbackKey = options.apiKey?.trim();
+
+    if (fallbackKey && options.shouldFallbackToApiKey?.(error)) {
+      return fallbackKey;
+    }
+
+    throw error;
+  }
+}
+
+function createSocket(
+  WebSocketClass: DeepgramStreamingWebSocketCtor | undefined,
+  url: string,
+  token: string
+): WebSocketLike {
   const SocketCtor = WebSocketClass ?? globalThis.WebSocket;
 
   if (!SocketCtor) {
@@ -204,8 +229,8 @@ function openTranscriptionSession(
     socket.onopen = () => {
       resolve({
         id,
-        sendAudio: chunk => socket.send(chunk),
-        finalize: () => socket.send(JSON.stringify({ type: 'Finalize' })),
+        sendAudio: chunk => sendIfOpen(socket, chunk),
+        finalize: () => sendIfOpen(socket, JSON.stringify({ type: 'Finalize' })),
         close: () => socket.close(),
         onEvent(listener) {
           listeners.add(listener);
@@ -218,9 +243,13 @@ function openTranscriptionSession(
   });
 }
 
-function openSynthesisSession(socket: WebSocketLike): Promise<StreamingTextToSpeechSession> {
+function openSynthesisSession(
+  socket: WebSocketLike,
+  options: StreamingTextToSpeechOptions
+): Promise<StreamingTextToSpeechSession> {
   const listeners = new Set<(event: StreamingSpeechAudioEvent) => void>();
   const id = `deepgram-tts-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`;
+  const mimeType = getStreamingAudioMimeType(options);
 
   const emit = (event: StreamingSpeechAudioEvent) => {
     listeners.forEach(listener => listener(event));
@@ -243,12 +272,12 @@ function openSynthesisSession(socket: WebSocketLike): Promise<StreamingTextToSpe
 
     if (event.data instanceof Blob) {
       void event.data.arrayBuffer().then(audio => {
-        emit({ type: 'audio', audio, mimeType: event.data instanceof Blob ? event.data.type : 'audio/mpeg' });
+        emit({ type: 'audio', audio, mimeType: event.data instanceof Blob ? event.data.type || mimeType : mimeType });
       });
       return;
     }
 
-    emit({ type: 'audio', audio: event.data, mimeType: 'audio/mpeg' });
+    emit({ type: 'audio', audio: event.data, mimeType });
   };
 
   socket.onerror = () => {
@@ -262,9 +291,9 @@ function openSynthesisSession(socket: WebSocketLike): Promise<StreamingTextToSpe
     socket.onopen = () => {
       resolve({
         id,
-        sendText: text => socket.send(JSON.stringify({ type: 'Speak', text })),
-        flush: () => socket.send(JSON.stringify({ type: 'Flush' })),
-        clear: () => socket.send(JSON.stringify({ type: 'Clear' })),
+        sendText: text => sendIfOpen(socket, JSON.stringify({ type: 'Speak', text })),
+        flush: () => sendIfOpen(socket, JSON.stringify({ type: 'Flush' })),
+        clear: () => sendIfOpen(socket, JSON.stringify({ type: 'Clear' })),
         close: () => socket.close(),
         onEvent(listener) {
           listeners.add(listener);
@@ -275,4 +304,20 @@ function openSynthesisSession(socket: WebSocketLike): Promise<StreamingTextToSpe
       });
     };
   });
+}
+
+function sendIfOpen(socket: WebSocketLike, data: unknown): void {
+  if (typeof socket.readyState === 'number' && socket.readyState !== OPEN_WEBSOCKET_STATE) {
+    return;
+  }
+
+  socket.send(data);
+}
+
+function getStreamingAudioMimeType(options: StreamingTextToSpeechOptions): string {
+  if (options.encoding === 'linear16') {
+    return `audio/l16;rate=${options.sampleRate ?? 24000}`;
+  }
+
+  return 'audio/mpeg';
 }
