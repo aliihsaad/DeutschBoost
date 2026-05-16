@@ -40,6 +40,8 @@ describe('providerRuntime', () => {
 
     expect(runtime.aiProvider?.id).toBe('openrouter');
     expect(runtime.speechProvider?.id).toBe('deepgram');
+    expect(runtime.streamingAiProvider?.id).toBe('openrouter');
+    expect(runtime.streamingSpeechProvider?.id).toBe('deepgram');
     expect(runtime.snapshots.ai.configured).toBe(true);
     expect(runtime.snapshots.speech.configured).toBe(true);
   });

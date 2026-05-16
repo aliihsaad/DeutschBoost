@@ -12,7 +12,12 @@ const activityPageProps = vi.hoisted(() => ({
 }));
 
 const speakingPageProps = vi.hoisted(() => ({
-  latest: null as null | { aiProvider?: { id: string }; speechProvider?: { id: string } },
+  latest: null as null | {
+    aiProvider?: { id: string };
+    speechProvider?: { id: string };
+    streamingAiProvider?: { id: string };
+    streamingSpeechProvider?: { id: string };
+  },
 }));
 
 const providerSettingsRepository = vi.hoisted(() => ({
@@ -115,6 +120,8 @@ vi.mock('../pages/SpeakingActivityPage', () => ({
   default: (props: {
     aiProvider?: { id: string };
     speechProvider?: { id: string };
+    streamingAiProvider?: { id: string };
+    streamingSpeechProvider?: { id: string };
     providerRuntimeReady?: boolean;
   }) => {
     speakingPageProps.latest = props;
@@ -279,6 +286,38 @@ describe('MainApp provider runtime', () => {
     await waitFor(() => {
       expect(speakingPageProps.latest?.aiProvider?.id).toBe('openrouter');
       expect(speakingPageProps.latest?.speechProvider?.id).toBe('deepgram');
+    });
+  });
+
+  it('passes streaming providers into the conversation route when providers are configured', async () => {
+    providerSettingsRepository.load.mockResolvedValue({
+      ai: {
+        enabled: true,
+        provider: 'openrouter',
+        apiKey: 'openrouter-key',
+        model: 'openrouter/auto',
+      },
+      speech: {
+        enabled: true,
+        provider: 'deepgram',
+        apiKey: 'deepgram-key',
+        model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
+        language: 'de',
+      },
+    });
+
+    const { default: MainApp } = await import('../MainApp');
+
+    render(
+      <MemoryRouter initialEntries={['/conversation']}>
+        <MainApp />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(speakingPageProps.latest?.streamingAiProvider?.id).toBe('openrouter');
+      expect(speakingPageProps.latest?.streamingSpeechProvider?.id).toBe('deepgram');
     });
   });
 
