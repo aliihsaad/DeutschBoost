@@ -36,5 +36,9 @@ describe('GitHub desktop release workflow', () => {
     expect(workflow).toContain('tauri-apps/tauri-action@v0');
     expect(workflow).toContain('releaseDraft: false');
     expect(workflow).toContain('prerelease: true');
+    expect(workflow).toContain('includeUpdaterJson: false');
+    expect(workflow).toContain('assetNamePattern: DeutschBoost_[version]_[platform]_[arch][setup][ext]');
+    expect(workflow).not.toContain('uploadUpdaterJson:');
+    expect(workflow).not.toContain('releaseAssetNamePattern:');
   });
 });
