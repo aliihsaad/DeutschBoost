@@ -9,11 +9,24 @@ export interface ActiveAudioRecording {
   cancel(): void;
 }
 
+export interface ActiveStreamingAudioCapture {
+  stop(): void;
+}
+
 interface BrowserAudioRecordingOptions {
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   createRecorder?: (stream: MediaStream, options?: MediaRecorderOptions) => MediaRecorder;
   selectMimeType?: () => string | undefined;
   createPlaybackUrl?: (audio: Blob) => string | undefined;
+}
+
+interface BrowserStreamingAudioCaptureOptions {
+  getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+  createRecorder?: (stream: MediaStream, options?: MediaRecorderOptions) => MediaRecorder;
+  selectMimeType?: () => string | undefined;
+  chunkIntervalMs?: number;
+  onAudioChunk: (chunk: Blob) => void;
+  onError?: (error: Error) => void;
 }
 
 interface RecordAudioSampleOptions {
@@ -108,6 +121,58 @@ export async function startBrowserAudioRecording(
           recorder.stop();
         }
         stopTracks(stream);
+      },
+    };
+  } catch (error) {
+    stopTracks(stream);
+    throw error;
+  }
+}
+
+export async function startBrowserStreamingAudioCapture(
+  options: BrowserStreamingAudioCaptureOptions
+): Promise<ActiveStreamingAudioCapture> {
+  const getUserMedia = options.getUserMedia ?? navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices);
+
+  if (!getUserMedia) {
+    throw new Error('Microphone recording is not available in this browser');
+  }
+
+  if (typeof MediaRecorder === 'undefined' && !options.createRecorder) {
+    throw new Error('Audio recording is not available in this browser');
+  }
+
+  const stream = await getUserMedia({ audio: true });
+
+  try {
+    const mimeType = options.selectMimeType?.() ?? selectRecordingMimeType();
+    const recorder =
+      options.createRecorder?.(stream, mimeType ? { mimeType } : undefined) ??
+      new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+
+    recorder.ondataavailable = event => {
+      if (event.data.size > 0) {
+        options.onAudioChunk(event.data);
+      }
+    };
+    recorder.onerror = () => {
+      stopTracks(stream);
+      options.onError?.(new Error('Microphone streaming failed'));
+    };
+    recorder.onstop = () => {
+      stopTracks(stream);
+    };
+    recorder.start(options.chunkIntervalMs ?? 250);
+
+    return {
+      stop: () => {
+        recorder.ondataavailable = null;
+        recorder.onerror = null;
+        if (recorder.state !== 'inactive') {
+          recorder.stop();
+        } else {
+          stopTracks(stream);
+        }
       },
     };
   } catch (error) {

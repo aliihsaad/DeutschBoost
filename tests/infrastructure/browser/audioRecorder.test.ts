@@ -3,6 +3,7 @@ import {
   recordAudioSample,
   selectRecordingMimeType,
   startBrowserAudioRecording,
+  startBrowserStreamingAudioCapture,
 } from '../../../src/infrastructure/browser/audioRecorder';
 
 describe('selectRecordingMimeType', () => {
@@ -48,6 +49,40 @@ describe('startBrowserAudioRecording', () => {
   });
 });
 
+describe('startBrowserStreamingAudioCapture', () => {
+  it('streams audio chunks and stops microphone tracks', async () => {
+    const track = { stop: vi.fn() };
+    const stream = { getTracks: () => [track] } as unknown as MediaStream;
+    const getUserMedia = vi.fn().mockResolvedValue(stream);
+    let recorder: FakeMediaRecorder | null = null;
+    const chunks: Blob[] = [];
+
+    const activeCapture = await startBrowserStreamingAudioCapture({
+      getUserMedia,
+      createRecorder: (mediaStream, options) => {
+        recorder = new FakeMediaRecorder(mediaStream, options?.mimeType);
+        return recorder as unknown as MediaRecorder;
+      },
+      selectMimeType: () => 'audio/webm',
+      chunkIntervalMs: 300,
+      onAudioChunk: chunk => chunks.push(chunk),
+    });
+
+    expect(getUserMedia).toHaveBeenCalledWith({ audio: true });
+    expect(recorder?.start).toHaveBeenCalledWith(300);
+
+    recorder?.emitData('live voice');
+
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].type).toBe('audio/webm');
+
+    activeCapture.stop();
+
+    expect(recorder?.stop).toHaveBeenCalled();
+    expect(track.stop).toHaveBeenCalled();
+  });
+});
+
 describe('recordAudioSample', () => {
   it('stops an active recording after the requested duration', async () => {
     vi.useFakeTimers();
@@ -78,7 +113,7 @@ class FakeMediaRecorder {
   ondataavailable: ((event: BlobEvent) => void) | null = null;
   onstop: ((event: Event) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
-  start = vi.fn(() => {
+  start = vi.fn((_timeslice?: number) => {
     this.state = 'recording';
   });
 
@@ -96,4 +131,10 @@ class FakeMediaRecorder {
     } as BlobEvent);
     this.onstop?.(new Event('stop'));
   });
+
+  emitData(value: string) {
+    this.ondataavailable?.({
+      data: new Blob([value], { type: this.mimeType }),
+    } as BlobEvent);
+  }
 }

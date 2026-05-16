@@ -1,19 +1,29 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { generateLocalConversationFeedback } from '../src/application/conversationFeedback';
+import {
+  createHandsFreeConversationController,
+  type HandsFreeConversationController,
+  type HandsFreeConversationState,
+  type PlayTutorAudio,
+  type StartConversationAudioStream,
+} from '../src/application/handsFreeConversation';
 import { runTurnBasedConversationTurn } from '../src/application/turnBasedConversation';
 import type { AiProvider } from '../src/domain/ai/aiProvider';
+import type { StreamingAiProvider } from '../src/domain/ai/streamingAiProvider';
 import type {
   ConversationFeedbackRecord,
   ConversationRepository,
 } from '../src/domain/conversation/conversationRepository';
 import type { SpeechProvider } from '../src/domain/speech/speechProvider';
+import type { StreamingSpeechProvider } from '../src/domain/speech/streamingSpeechProvider';
 import type { TranscriptTurn } from '../src/domain/speech/transcriptTypes';
 import {
   browserConversationRepository,
 } from '../src/infrastructure/browser/conversationStorage';
 import {
   startBrowserAudioRecording,
+  startBrowserStreamingAudioCapture,
   type ActiveAudioRecording,
 } from '../src/infrastructure/browser/audioRecorder';
 import { MOTHER_LANGUAGE_OPTIONS } from '../src/domain/profile/profileRepository';
@@ -35,8 +45,12 @@ type ConversationAudioRecorder = () => Promise<ActiveAudioRecording>;
 interface SpeakingActivityPageProps {
   aiProvider?: AiProvider;
   speechProvider?: SpeechProvider;
+  streamingAiProvider?: StreamingAiProvider;
+  streamingSpeechProvider?: StreamingSpeechProvider;
   conversationRepository?: ConversationRepository;
   audioRecorder?: ConversationAudioRecorder;
+  startLiveAudioStream?: StartConversationAudioStream;
+  playLiveTutorAudio?: PlayTutorAudio;
 }
 
 interface ConversationModeOption {
@@ -84,8 +98,12 @@ const MODE_OPTIONS: ConversationModeOption[] = [
 const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
   aiProvider,
   speechProvider,
+  streamingAiProvider,
+  streamingSpeechProvider,
   conversationRepository = browserConversationRepository,
   audioRecorder = startBrowserAudioRecording,
+  startLiveAudioStream = startBrowserStreamingAudioCapture,
+  playLiveTutorAudio = playAudioBlob,
 }) => {
   const [searchParams] = useSearchParams();
   const activityTopic = searchParams.get('topic')?.trim() ?? '';
@@ -102,15 +120,26 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
   const [message, setMessage] = useState<string | null>(null);
   const [lastAudioUrl, setLastAudioUrl] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<ConversationFeedbackRecord | null>(null);
+  const [liveState, setLiveState] = useState<HandsFreeConversationState>({
+    status: 'idle',
+    turns: [],
+    interimTranscript: '',
+    currentTutorText: '',
+    errorMessage: null,
+  });
   const [profileContext, setProfileContext] = useState({
     level: CEFRLevel.A2,
     motherLanguage: 'English',
     firstName: 'Learner',
   });
   const activeRecordingRef = useRef<ActiveAudioRecording | null>(null);
+  const liveControllerRef = useRef<HandsFreeConversationController | null>(null);
+  const liveUnsubscribeRef = useRef<(() => void) | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
   const providersReady = Boolean(aiProvider && speechProvider);
+  const streamingReady = Boolean(streamingAiProvider && streamingSpeechProvider);
+  const liveSessionActive = !['idle', 'ended', 'error'].includes(liveState.status);
   const learnerId = LOCAL_LEARNER_ID;
   const level = routeLevel ?? profileContext.level;
   const motherLanguage = profileContext.motherLanguage;
@@ -169,6 +198,58 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
     };
   }, [lastAudioUrl]);
 
+  useEffect(() => {
+    return () => {
+      liveUnsubscribeRef.current?.();
+      void liveControllerRef.current?.end();
+    };
+  }, []);
+
+  async function handleStartLivePractice() {
+    if (!providersReady || !streamingAiProvider || !streamingSpeechProvider) {
+      setMessage('Connect OpenRouter and Deepgram before starting live practice.');
+      return;
+    }
+
+    setMessage(null);
+    setTurns([]);
+    setFeedback(null);
+    setLastAudioUrl(current => {
+      releasePlaybackUrl(current);
+      return null;
+    });
+
+    liveUnsubscribeRef.current?.();
+    const controller = createHandsFreeConversationController({
+      speechProvider: streamingSpeechProvider,
+      aiProvider: streamingAiProvider,
+      conversationRepository,
+      learnerId,
+      level,
+      motherLanguage,
+      mode: selectedMode,
+      topic: activityTopic || selectedModeOption.label,
+      description: activityDescription || selectedModeOption.detail,
+      startAudioStream: startLiveAudioStream,
+      playTutorAudio: playLiveTutorAudio,
+    });
+    liveControllerRef.current = controller;
+    liveUnsubscribeRef.current = controller.onStateChange(nextState => {
+      setLiveState(nextState);
+      setTurns(nextState.turns);
+      if (nextState.errorMessage) {
+        setMessage(nextState.errorMessage);
+      }
+    });
+
+    await controller.start();
+  }
+
+  async function handleEndLivePractice() {
+    await liveControllerRef.current?.end();
+    setMessage('Session saved locally.');
+  }
+
   async function handleStartSession() {
     if (!providersReady) {
       setMessage('Connect OpenRouter and Deepgram before starting a voice session.');
@@ -201,7 +282,7 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
   }
 
   async function handleStartRecording() {
-    if (!providersReady || status !== 'ready') {
+    if (!providersReady || status !== 'ready' || liveSessionActive) {
       return;
     }
 
@@ -345,7 +426,7 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
         <section className="db-panel db-conversation-session-panel" aria-labelledby="conversation-session-heading">
           <div className="db-panel-heading">
             <h2 id="conversation-session-heading">Voice Session</h2>
-            <span>{formatStatus(status)}</span>
+            <span>{liveState.status !== 'idle' ? formatLiveStatus(liveState.status) : formatStatus(status)}</span>
           </div>
 
           {!providersReady ? <ProviderSetupState /> : null}
@@ -371,13 +452,69 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
             ))}
           </div>
 
+          <div className="db-conversation-live-controls" aria-label="Live practice controls">
+            {liveState.status === 'idle' || liveState.status === 'ended' || liveState.status === 'error' ? (
+              <button
+                type="button"
+                className="db-primary-button"
+                onClick={() => void handleStartLivePractice()}
+                disabled={!providersReady || !streamingReady}
+              >
+                Start live practice
+              </button>
+            ) : null}
+            {liveSessionActive ? (
+              <>
+                {liveState.status === 'paused' ? (
+                  <button
+                    type="button"
+                    className="db-secondary-button"
+                    onClick={() => void liveControllerRef.current?.resume()}
+                  >
+                    Resume
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="db-secondary-button"
+                    onClick={() => void liveControllerRef.current?.pause()}
+                  >
+                    Pause
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="db-secondary-button"
+                  onClick={() => liveControllerRef.current?.interrupt()}
+                >
+                  Interrupt
+                </button>
+                <button
+                  type="button"
+                  className="db-secondary-button"
+                  onClick={() => void handleEndLivePractice()}
+                >
+                  End session
+                </button>
+              </>
+            ) : null}
+            <span className="db-live-status">{formatLiveStatus(liveState.status)}</span>
+          </div>
+
+          {liveState.interimTranscript ? (
+            <p className="db-interim-transcript">{liveState.interimTranscript}</p>
+          ) : null}
+          {liveState.currentTutorText && liveState.status !== 'listening' ? (
+            <p className="db-streaming-tutor-text">{liveState.currentTutorText}</p>
+          ) : null}
+
           <div className="db-conversation-actions">
             {status === 'idle' || status === 'ended' || status === 'error' ? (
               <button
                 type="button"
                 className="db-primary-button"
                 onClick={handleStartSession}
-                disabled={!providersReady || status === 'starting'}
+                disabled={!providersReady || status === 'starting' || liveSessionActive}
               >
                 Start session
               </button>
@@ -419,7 +556,7 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
             {turns.length === 0 ? (
               <div className="db-transcript-empty">
                 <i className="fa-solid fa-microphone-lines" aria-hidden="true" />
-                <strong>Start, record one German answer, then send it.</strong>
+                <strong>{streamingReady ? 'Start live practice and speak German.' : 'Start, record one German answer, then send it.'}</strong>
                 <span>The tutor will correct one useful point and ask the next question.</span>
               </div>
             ) : (
@@ -516,6 +653,22 @@ function formatStatus(status: ConversationStatus): string {
   return labels[status];
 }
 
+function formatLiveStatus(status: HandsFreeConversationState['status']): string {
+  const labels: Record<HandsFreeConversationState['status'], string> = {
+    idle: 'Ready',
+    connecting: 'Connecting',
+    listening: 'Listening',
+    thinking: 'Thinking',
+    speaking: 'Speaking',
+    paused: 'Paused',
+    ending: 'Saving',
+    ended: 'Saved',
+    error: 'Needs attention',
+  };
+
+  return labels[status];
+}
+
 function releasePlaybackUrl(url: string | null | undefined): void {
   if (url && typeof URL.revokeObjectURL === 'function') {
     URL.revokeObjectURL(url);
@@ -534,6 +687,16 @@ function playAudioUrl(url: string): Promise<void> {
       playback.catch(reject);
     }
   });
+}
+
+async function playAudioBlob(audio: Blob, mimeType: string): Promise<void> {
+  const playbackUrl = URL.createObjectURL(audio.type ? audio : new Blob([audio], { type: mimeType }));
+
+  try {
+    await playAudioUrl(playbackUrl);
+  } finally {
+    releaseObjectUrl(playbackUrl);
+  }
 }
 
 function releaseObjectUrl(url: string): void {

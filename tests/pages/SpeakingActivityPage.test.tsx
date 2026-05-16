@@ -1,10 +1,16 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SpeakingActivityPage from '../../pages/SpeakingActivityPage';
 import type { AiProvider } from '../../src/domain/ai/aiProvider';
+import type { StreamingAiProvider } from '../../src/domain/ai/streamingAiProvider';
 import type { ConversationRepository } from '../../src/domain/conversation/conversationRepository';
 import type { SpeechProvider } from '../../src/domain/speech/speechProvider';
+import type {
+  StreamingSpeechAudioEvent,
+  StreamingSpeechProvider,
+  StreamingTranscriptEvent,
+} from '../../src/domain/speech/streamingSpeechProvider';
 import { ConversationMode } from '../../types';
 
 const profileRepository = vi.hoisted(() => ({
@@ -54,6 +60,57 @@ function createConversationRepository(): ConversationRepository {
     endSession: vi.fn().mockResolvedValue(undefined),
     loadRecentSessions: vi.fn().mockResolvedValue([]),
     loadLastFeedback: vi.fn().mockResolvedValue(null),
+  };
+}
+
+function createStreamingAiProvider(): StreamingAiProvider {
+  return {
+    id: 'openrouter',
+    displayName: 'OpenRouter',
+    async *streamText() {
+      yield { text: 'Sehr gut. ' };
+      yield { text: 'Was machst du morgen?' };
+    },
+  };
+}
+
+function createStreamingSpeechProvider() {
+  const sttListeners = new Set<(event: StreamingTranscriptEvent) => void>();
+  const ttsListeners = new Set<(event: StreamingSpeechAudioEvent) => void>();
+  const provider: StreamingSpeechProvider = {
+    id: 'deepgram',
+    displayName: 'Deepgram',
+    startTranscription: vi.fn().mockResolvedValue({
+      id: 'stt-1',
+      sendAudio: vi.fn(),
+      finalize: vi.fn(),
+      close: vi.fn(),
+      onEvent: (listener: (event: StreamingTranscriptEvent) => void) => {
+        sttListeners.add(listener);
+        return () => sttListeners.delete(listener);
+      },
+    }),
+    startSynthesis: vi.fn().mockResolvedValue({
+      id: 'tts-1',
+      sendText: vi.fn(),
+      flush: vi.fn(() => {
+        ttsListeners.forEach(listener =>
+          listener({ type: 'audio', audio: new Uint8Array([1, 2, 3]).buffer, mimeType: 'audio/mpeg' })
+        );
+        ttsListeners.forEach(listener => listener({ type: 'flushed' }));
+      }),
+      clear: vi.fn(),
+      close: vi.fn(),
+      onEvent: (listener: (event: StreamingSpeechAudioEvent) => void) => {
+        ttsListeners.add(listener);
+        return () => ttsListeners.delete(listener);
+      },
+    }),
+  };
+
+  return {
+    provider,
+    emitTranscript: (event: StreamingTranscriptEvent) => sttListeners.forEach(listener => listener(event)),
   };
 }
 
@@ -231,5 +288,61 @@ describe('SpeakingActivityPage local conversation flow', () => {
         options: { language: 'de' },
       });
     });
+  });
+
+  it('runs a hands-free live practice turn when streaming providers are available', async () => {
+    const aiProvider = createAiProvider();
+    const speechProvider = createSpeechProvider();
+    const streamingAiProvider = createStreamingAiProvider();
+    const streamingSpeech = createStreamingSpeechProvider();
+    const conversationRepository = createConversationRepository();
+    const startLiveAudioStream = vi.fn(async ({ onAudioChunk }) => {
+      onAudioChunk(new Uint8Array([4, 5, 6]));
+      return { stop: vi.fn() };
+    });
+    const playLiveTutorAudio = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter initialEntries={['/conversation']}>
+        <SpeakingActivityPage
+          aiProvider={aiProvider}
+          speechProvider={speechProvider}
+          streamingAiProvider={streamingAiProvider}
+          streamingSpeechProvider={streamingSpeech.provider}
+          conversationRepository={conversationRepository}
+          startLiveAudioStream={startLiveAudioStream}
+          playLiveTutorAudio={playLiveTutorAudio}
+        />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(profileRepository.loadProfile).toHaveBeenCalled();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start live practice' }));
+
+    expect(
+      await within(screen.getByLabelText('Live practice controls')).findByText('Listening')
+    ).toBeInTheDocument();
+    expect(startLiveAudioStream).toHaveBeenCalled();
+
+    await act(async () => {
+      streamingSpeech.emitTranscript({
+        type: 'final',
+        turn: {
+          speaker: 'learner',
+          text: 'Ich gehe morgen ins Kino.',
+          occurredAt: '2026-05-16T12:00:00.000Z',
+          provider: 'deepgram',
+        },
+      });
+    });
+
+    expect(await screen.findByText('Ich gehe morgen ins Kino.')).toBeInTheDocument();
+    expect(await screen.findByText('Sehr gut. Was machst du morgen?')).toBeInTheDocument();
+    expect(conversationRepository.appendTranscript).toHaveBeenCalledTimes(2);
+    expect(streamingSpeech.provider.startSynthesis).toHaveBeenCalled();
+    expect(playLiveTutorAudio).toHaveBeenCalledWith(expect.any(Blob), 'audio/mpeg');
   });
 });
