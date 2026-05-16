@@ -11,9 +11,11 @@ struct DeepgramProxyResponse {
 #[tauri::command]
 async fn deepgram_auth_token(api_key: String) -> Result<DeepgramProxyResponse, String> {
     let response = reqwest::Client::new()
-        .get("https://api.deepgram.com/v1/auth/token")
+        .post("https://api.deepgram.com/v1/auth/grant")
         .header("Accept", "application/json")
         .header("Authorization", format!("Token {}", api_key.trim()))
+        .header("Content-Type", "application/json")
+        .body("{}")
         .send()
         .await
         .map_err(|error| format!("Deepgram auth request failed: {error}"))?;

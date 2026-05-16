@@ -23,6 +23,29 @@ describe('createTauriDeepgramFetch', () => {
     });
   });
 
+  it('routes Deepgram auth grant requests through the native bridge', async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      status: 200,
+      body: JSON.stringify({ access_token: 'temporary-token', expires_in: 30 }),
+      content_type: 'application/json',
+    });
+    const fetchFn = createTauriDeepgramFetch(invoke);
+
+    const response = await fetchFn('/api/deepgram/v1/auth/grant', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Token deepgram-key',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    expect(invoke).toHaveBeenCalledWith('deepgram_auth_token', { apiKey: 'deepgram-key' });
+    await expect(response.json()).resolves.toEqual({
+      access_token: 'temporary-token',
+      expires_in: 30,
+    });
+  });
+
   it('routes Deepgram transcription audio through the Tauri command bridge', async () => {
     const invoke = vi.fn().mockResolvedValue({
       status: 200,

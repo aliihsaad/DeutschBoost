@@ -49,7 +49,7 @@ export function createTauriDeepgramFetch(invoke: InvokeLike): FetchLike {
       });
     }
 
-    if (request.path === '/v1/auth/token') {
+    if (request.path === '/v1/auth/grant' || request.path === '/v1/auth/token') {
       return proxyResponseToFetchResponse(
         await invoke<DeepgramProxyResponse>('deepgram_auth_token', { apiKey })
       );
