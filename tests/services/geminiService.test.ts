@@ -103,6 +103,29 @@ describe('geminiService provider boundaries', () => {
     expect(geminiMock.generateContent).not.toHaveBeenCalled();
   });
 
+  it('normalizes incomplete placement evaluation JSON from an injected AI provider', async () => {
+    const provider = createProvider({
+      level: CEFRLevel.B1,
+      recommendations: 'Practice writing complete paragraphs.',
+    });
+    const { evaluateComprehensivePlacementTest } = await import('../../services/geminiService');
+
+    const result = await evaluateComprehensivePlacementTest(
+      4,
+      3,
+      'Ich habe letzte Woche Deutsch gelernt und moechte naechste Woche mehr sprechen.',
+      'Beschreibe deine Woche.',
+      provider
+    );
+
+    expect(result).toEqual({
+      level: CEFRLevel.B1,
+      strengths: ['Completed the reading, grammar, and writing placement sections.'],
+      weaknesses: ['The AI examiner did not return specific improvement areas. Review the generated learning plan for targeted practice.'],
+      recommendations: 'Practice writing complete paragraphs.',
+    });
+  });
+
   it('can generate placement reading questions through an injected AI provider', async () => {
     const readingQuestion = {
       text: 'Anna kauft Brot.',
@@ -220,6 +243,41 @@ describe('geminiService provider boundaries', () => {
     );
     expect(vi.mocked(provider.generateJson).mock.calls[0][0].options?.model).toBeUndefined();
     expect(geminiMock.generateContent).not.toHaveBeenCalled();
+  });
+
+  it('normalizes incomplete learning plan JSON from an injected AI provider', async () => {
+    const provider = createProvider({
+      level: CEFRLevel.A2,
+      goals: 'Improve grammar accuracy',
+      weeks: [
+        {
+          week: 1,
+          focus: 'Cases',
+        },
+      ],
+    });
+    const { generateLearningPlan } = await import('../../services/geminiService');
+
+    const result = await generateLearningPlan(testResult, provider);
+
+    expect(result).toEqual({
+      level: CEFRLevel.A2,
+      goals: ['Improve grammar accuracy'],
+      weeks: [
+        {
+          week: 1,
+          focus: 'Cases',
+          items: [
+            {
+              topic: 'Cases',
+              skill: 'Grammar',
+              description: 'Practice Cases with short daily exercises.',
+              completed: false,
+            },
+          ],
+        },
+      ],
+    });
   });
 
   it('keeps Gemini as the default learning-plan provider', async () => {

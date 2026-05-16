@@ -5,6 +5,7 @@ import LoadingSpinner from '../src/components/LoadingSpinner';
 import Card from '../components/Card';
 import toast from 'react-hot-toast';
 import type { AiProvider } from '../src/domain/ai/aiProvider';
+import { normalizeTestResult } from '../src/domain/learning/aiResultNormalization';
 
 interface EnhancedPlacementTestPageProps {
   onTestComplete: (result: TestResult) => void | Promise<void>;
@@ -178,9 +179,10 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
         writingPrompt,
         aiProvider
       );
+      const safeResult = normalizeTestResult(result);
 
-      setEvaluationResult(result);
-      await onTestComplete(result);
+      setEvaluationResult(safeResult);
+      await onTestComplete(safeResult);
       setSection('Complete');
     } catch (error) {
       console.error("Error evaluating test:", error);

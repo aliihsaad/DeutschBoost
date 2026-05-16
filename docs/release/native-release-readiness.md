@@ -41,8 +41,8 @@ Implemented desktop foundation:
 - Tauri Store and Stronghold permissions are enabled in `src-tauri/capabilities/default.json`.
 - The Rust shell initializes the Store and Stronghold plugins.
 - The TypeScript provider settings wiring prefers a Tauri Stronghold secret adapter in packaged desktop builds, so OpenRouter and Deepgram keys are not stored in ordinary settings JSON.
-- `npm run tauri:build` produced `src-tauri/target/release/bundle/nsis/DeutschBoost_0.0.3_x64-setup.exe`.
-- Packaged desktop smoke passed for v0.0.3 on this machine: app launch was not blank, saved OpenRouter/Deepgram settings loaded from native storage, Settings Deepgram TTS test produced audio, placement reached Reading question 1, and a listening activity played Deepgram-generated audio.
+- `npm run tauri:build` produced `src-tauri/target/release/bundle/nsis/DeutschBoost_0.0.4_x64-setup.exe`.
+- Packaged desktop smoke passed for v0.0.4 on this machine: app launch was not blank, saved OpenRouter/Deepgram settings loaded, placement completed through evaluation with intentionally incomplete OpenRouter JSON, the ErrorBoundary did not appear, and a normalized learning plan was generated. Synthetic smoke data was removed afterward.
 
 Useful commands:
 
@@ -56,22 +56,22 @@ npm run tauri:build
 The Windows desktop installer is built by `.github/workflows/desktop-release.yml`.
 
 - Keep the versions aligned in `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`.
-- Push a semantic version tag such as `v0.0.3` to run the release workflow.
+- Push a semantic version tag such as `v0.0.4` to run the release workflow.
 - The workflow runs the Vitest suite, builds the Tauri NSIS installer on `windows-latest`, and publishes a GitHub prerelease with the setup executable attached.
 - The current installer is unsigned, so Windows may show an unknown publisher warning until code signing is configured.
 
 Release commands:
 
 ```bash
-git tag -a v0.0.3 -m "DeutschBoost v0.0.3 desktop pre-release"
+git tag -a v0.0.4 -m "DeutschBoost v0.0.4 desktop pre-release"
 git push origin master
-git push origin v0.0.3
+git push origin v0.0.4
 ```
 
 Known release note: `v0.0.1` was the first desktop pre-release and exposed a blank-window startup bug caused by eager Gemini API key initialization. Use `v0.0.2` or newer for desktop testing.
 Known release note: `v0.0.2` fixed startup and Deepgram desktop bridge issues, but placement question generation still used a legacy Gemini-only path. Use `v0.0.3` or newer for placement-test desktop testing.
 Known release note: `v0.0.3` routes placement question generation through the configured AI provider and routes Settings, listening, vocabulary, and tutor reply playback through Deepgram TTS when Deepgram is enabled. Browser/system TTS remains only a no-provider fallback.
-Known release note: the next desktop release after `v0.0.3` must smoke-test Conversation v2 hands-free mode in the packaged Tauri app. Required checks: saved providers load, Start live practice reaches Listening, a German learner turn becomes a final transcript, OpenRouter tutor text streams, Deepgram TTS plays the reply, Interrupt returns to Listening, End session saves locally, and fallback manual turn mode still works.
+Known release note: `v0.0.4` fixes the placement evaluation crash caused by AI JSON missing `strengths` or `weaknesses`, normalizes learning-plan JSON before rendering/saving, and keeps the desktop app from showing the ErrorBoundary after placement submission.
 
 ## Conversation V2 Release Gate
 

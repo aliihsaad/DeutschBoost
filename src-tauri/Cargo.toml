@@ -1,6 +1,6 @@
 [package]
 name = "deutschboost"
-version = "0.0.3"
+version = "0.0.4"
 description = "DeutschBoost local-first German learning desktop app"
 authors = ["DeutschBoost"]
 license = ""

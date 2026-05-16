@@ -4,6 +4,10 @@ import { CEFRLevel, LearningPlan, TestResult } from '../types';
 import type { AiProvider } from '../src/domain/ai/aiProvider';
 import { createGeminiAiProvider, type GeminiClientLike } from '../src/domain/ai/geminiProvider';
 import { generateJsonWithProvider } from '../src/domain/ai/jsonGeneration';
+import {
+    normalizeLearningPlanResult,
+    normalizeTestResult,
+} from '../src/domain/learning/aiResultNormalization';
 
 let geminiClient: GoogleGenAI | null = null;
 const DEFAULT_GEMINI_SERVICE_JSON_MODEL = 'gemini-2.5-pro';
@@ -208,7 +212,7 @@ export const evaluateComprehensivePlacementTest = async (
     writingPrompt: string,
     aiProvider?: AiProvider
 ): Promise<TestResult> => {
-    return generateGeminiServiceJson<TestResult>(
+    const parsedResult = await generateGeminiServiceJson<TestResult>(
         aiProvider ?? createDefaultGeminiServiceAiProvider(),
         'placement test evaluation',
         'TestResult',
@@ -228,8 +232,22 @@ Consider:
 - Final level should reflect consistent performance across all areas
 - Be accurate and realistic - don't over-inflate the level
 
-Provide detailed feedback on strengths, weaknesses, and specific recommendations for improvement.`,
+Provide detailed feedback on strengths, weaknesses, and specific recommendations for improvement.
+Return only valid JSON with this exact shape:
+{
+  "level": "A1",
+  "strengths": ["specific strength"],
+  "weaknesses": ["specific improvement area"],
+  "recommendations": "specific next-step guidance"
+}`,
     );
+
+    return normalizeTestResult(parsedResult, {
+        fallbackStrengths: ['Completed the reading, grammar, and writing placement sections.'],
+        fallbackWeaknesses: [
+            'The AI examiner did not return specific improvement areas. Review the generated learning plan for targeted practice.',
+        ],
+    });
 };
 
 // Legacy function for simple writing evaluation
@@ -238,7 +256,7 @@ export const evaluateWriting = async (
     userText: string,
     aiProvider?: AiProvider
 ): Promise<TestResult> => {
-    return generateGeminiServiceJson<TestResult>(
+    const parsedResult = await generateGeminiServiceJson<TestResult>(
         aiProvider ?? createDefaultGeminiServiceAiProvider(),
         'writing evaluation',
         'TestResult',
@@ -248,8 +266,17 @@ export const evaluateWriting = async (
 
         Analyze the text based on CEFR criteria (grammar, vocabulary, coherence, task achievement).
         Provide a detailed evaluation and assign a CEFR level.
+        Return only valid JSON with this exact shape:
+        {
+          "level": "A1",
+          "strengths": ["specific strength"],
+          "weaknesses": ["specific improvement area"],
+          "recommendations": "specific next-step guidance"
+        }
         `
     );
+
+    return normalizeTestResult(parsedResult);
 };
 
 
@@ -257,30 +284,40 @@ export const generateLearningPlan = async (
     evaluation: TestResult,
     aiProvider?: AiProvider
 ): Promise<LearningPlan> => {
+    const normalizedEvaluation = normalizeTestResult(evaluation);
     const parsedJson = await generateGeminiServiceJson<LearningPlan>(
         aiProvider ?? createDefaultGeminiServiceAiProvider(),
         'learning plan',
         'LearningPlan',
         `Based on this student's German language evaluation, create a personalized 4-week learning plan to help them reach the next CEFR level.
-        Current Level: ${evaluation.level}
-        Strengths: ${evaluation.strengths.join(', ')}
-        Weaknesses: ${evaluation.weaknesses.join(', ')}
+        Current Level: ${normalizedEvaluation.level}
+        Strengths: ${normalizedEvaluation.strengths.join(', ')}
+        Weaknesses: ${normalizedEvaluation.weaknesses.join(', ')}
         
         The plan should be structured, focusing on improving their weak areas. Include specific grammar topics, vocabulary themes, and practice types for each week.
+        Return only valid JSON with this exact shape:
+        {
+          "level": "A1",
+          "goals": ["specific goal"],
+          "weeks": [
+            {
+              "week": 1,
+              "focus": "weekly focus",
+              "items": [
+                {
+                  "topic": "practice topic",
+                  "skill": "Grammar",
+                  "description": "specific practice task",
+                  "completed": false
+                }
+              ]
+            }
+          ]
+        }
         `
     );
-    // Add 'completed' field to each item
-    if (parsedJson.weeks) {
-        parsedJson.weeks.forEach((week: any) => {
-            if (week.items) {
-                week.items.forEach((item: any) => {
-                    item.completed = false;
-                });
-            }
-        });
-    }
 
-    return parsedJson;
+    return normalizeLearningPlanResult(parsedJson, normalizedEvaluation.level);
 };
 
 
