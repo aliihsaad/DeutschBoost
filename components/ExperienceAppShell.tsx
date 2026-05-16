@@ -5,7 +5,7 @@ import {
   createDefaultLocalProviderSettings,
   type ProviderSettingsSnapshots,
 } from '../src/domain/settings/providerSettings';
-import { appDestinations, isDestinationActive, type AppDestination } from '../src/ui/navigationModel';
+import { primaryAppDestinations, isDestinationActive, type AppDestination } from '../src/ui/navigationModel';
 import { describeProviderStatus, type ProviderSettingsSnapshot } from '../src/ui/providerStatusModel';
 
 const iconClassByName: Record<string, string> = {
@@ -49,7 +49,7 @@ const ExperienceAppShell: React.FC<ExperienceAppShellProps> = ({
         </Link>
 
         <nav className="db-nav" aria-label="Primary">
-          {appDestinations.map(destination => (
+          {primaryAppDestinations.map(destination => (
             <ShellLink
               key={destination.id}
               destination={destination}

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "DeutschBoost",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "identifier": "com.deutschboost.app",
   "build": {
     "frontendDist": "../dist",
@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' asset: http://asset.localhost; connect-src 'self' http://localhost:5173 ws://localhost:5173 https://openrouter.ai https://api.deepgram.com; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+      "csp": "default-src 'self' asset: http://asset.localhost; connect-src 'self' http://localhost:5173 ws://localhost:5173 http://ipc.localhost https://openrouter.ai https://api.deepgram.com; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com"
     }
   },
   "bundle": {

@@ -135,6 +135,54 @@ describe('createDeepgramSpeechProvider', () => {
     );
   });
 
+  it('does not accept an app HTML fallback as a successful Deepgram key test', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response('<!DOCTYPE html><html><body>DeutschBoost</body></html>', {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html',
+        },
+      })
+    );
+
+    await expect(testDeepgramApiKey({ apiKey: 'deepgram-key', fetchFn })).resolves.toEqual({
+      ok: false,
+      message:
+        'Deepgram key test failed: Deepgram endpoint returned the app HTML instead of JSON. Check the desktop provider bridge.',
+      retryable: false,
+      status: 200,
+    });
+  });
+
+  it('reports a provider error when Deepgram transcription returns app HTML', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response('<!DOCTYPE html><html><body>DeutschBoost</body></html>', {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html',
+        },
+      })
+    );
+    const provider = createDeepgramSpeechProvider({
+      apiKey: 'deepgram-key',
+      fetchFn,
+    });
+
+    await expect(
+      provider.transcribe({
+        feature: 'settings-deepgram-test',
+        audio: new Uint8Array([1]),
+        mimeType: 'audio/webm',
+      })
+    ).rejects.toMatchObject({
+      message:
+        'Deepgram endpoint returned the app HTML instead of JSON. Check the desktop provider bridge.',
+      provider: 'deepgram',
+      feature: 'settings-deepgram-test',
+      retryable: false,
+    });
+  });
+
   it('returns a readable result when a Deepgram API key test fails', async () => {
     const fetchFn = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ err_msg: 'invalid credentials' }), { status: 401 })

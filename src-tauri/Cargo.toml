@@ -1,6 +1,6 @@
 [package]
 name = "deutschboost"
-version = "0.0.1"
+version = "0.0.2"
 description = "DeutschBoost local-first German learning desktop app"
 authors = ["DeutschBoost"]
 license = ""
@@ -21,6 +21,7 @@ tauri-build = { version = "2.6.1", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 tauri = { version = "2.11.1", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-store = "2"

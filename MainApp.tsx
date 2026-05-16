@@ -25,6 +25,7 @@ import {
 import { createLocalProviderRuntime } from './src/application/providerRuntime';
 import { browserProviderSettingsRepository } from './src/infrastructure/browser/providerSettingsStorage';
 import { browserProfileRepository } from './src/infrastructure/browser/profileStorage';
+import { createInstalledNativeDeepgramFetch } from './src/infrastructure/native/deepgramFetch';
 
 const LOCAL_LEARNER_ID = 'local-learner';
 
@@ -85,7 +86,13 @@ const MainApp: React.FC = () => {
     };
   }, [location.pathname]);
 
-  const providerRuntime = useMemo(() => createLocalProviderRuntime(providerSettings), [providerSettings]);
+  const providerRuntimeDependencies = useMemo(() => ({
+    fetchFn: createInstalledNativeDeepgramFetch() ?? undefined,
+  }), []);
+  const providerRuntime = useMemo(
+    () => createLocalProviderRuntime(providerSettings, providerRuntimeDependencies),
+    [providerRuntimeDependencies, providerSettings]
+  );
   const runtimeAiProvider = providerRuntime.aiProvider ?? undefined;
   const runtimeSpeechProvider = providerRuntime.speechProvider ?? undefined;
 

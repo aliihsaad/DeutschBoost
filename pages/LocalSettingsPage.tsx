@@ -17,6 +17,7 @@ import {
 import type { SpeechTranscriptionResult } from '../src/domain/speech/speechProvider';
 import { recordAudioSample, type RecordedAudioSample } from '../src/infrastructure/browser/audioRecorder';
 import { browserProviderSettingsRepository } from '../src/infrastructure/browser/providerSettingsStorage';
+import { createInstalledNativeDeepgramFetch } from '../src/infrastructure/native/deepgramFetch';
 import { describeProviderStatus, type ProviderSettingsSnapshot } from '../src/ui/providerStatusModel';
 
 type DeepgramApiKeyTester = (apiKey: string) => Promise<DeepgramApiKeyTestResult>;
@@ -43,7 +44,10 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'reset' | 'error';
 type ConnectionTestState = 'idle' | 'testing' | 'success' | 'error';
 
 const defaultDeepgramApiKeyTester: DeepgramApiKeyTester = apiKey =>
-  testDeepgramApiKey({ apiKey });
+  testDeepgramApiKey({
+    apiKey,
+    fetchFn: createInstalledNativeDeepgramFetch() ?? undefined,
+  });
 
 const defaultDeepgramAudioRecorder: DeepgramAudioRecorder = () => recordAudioSample();
 
@@ -52,6 +56,7 @@ const defaultDeepgramAudioTester: DeepgramAudioTester = request =>
     apiKey: request.apiKey,
     model: request.model,
     language: request.language,
+    fetchFn: createInstalledNativeDeepgramFetch() ?? undefined,
   }).transcribe({
     feature: 'settings-deepgram-test',
     audio: request.audio,

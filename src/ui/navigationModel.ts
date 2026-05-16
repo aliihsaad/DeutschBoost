@@ -22,6 +22,7 @@ export interface AppDestination {
   group: AppDestinationGroup;
   description: string;
   legacyRoutes: string[];
+  availability: 'ready' | 'planned';
 }
 
 export const appDestinations: AppDestination[] = [
@@ -34,6 +35,7 @@ export const appDestinations: AppDestination[] = [
     group: 'learn',
     description: 'Daily queue, next action, weak areas, and current learning status.',
     legacyRoutes: ['/home', '/placement-test'],
+    availability: 'ready',
   },
   {
     id: 'plan',
@@ -44,6 +46,7 @@ export const appDestinations: AppDestination[] = [
     group: 'learn',
     description: 'Weekly path, upcoming lessons, completed items, and level goals.',
     legacyRoutes: ['/learning-plan'],
+    availability: 'ready',
   },
   {
     id: 'review',
@@ -54,6 +57,7 @@ export const appDestinations: AppDestination[] = [
     group: 'memory',
     description: 'Due vocabulary, phrases, grammar mistakes, and saved corrections.',
     legacyRoutes: [],
+    availability: 'planned',
   },
   {
     id: 'practice',
@@ -64,6 +68,7 @@ export const appDestinations: AppDestination[] = [
     group: 'practice',
     description: 'Free practice by skill, level, topic, and exam target.',
     legacyRoutes: ['/activity'],
+    availability: 'ready',
   },
   {
     id: 'conversation',
@@ -74,6 +79,7 @@ export const appDestinations: AppDestination[] = [
     group: 'practice',
     description: 'Text and push-to-talk tutor sessions with local transcript history.',
     legacyRoutes: ['/speaking-activity'],
+    availability: 'ready',
   },
   {
     id: 'writing',
@@ -84,6 +90,7 @@ export const appDestinations: AppDestination[] = [
     group: 'practice',
     description: 'Prompts, drafts, feedback, revisions, and saved corrections.',
     legacyRoutes: [],
+    availability: 'planned',
   },
   {
     id: 'mistakes',
@@ -94,6 +101,7 @@ export const appDestinations: AppDestination[] = [
     group: 'memory',
     description: 'Searchable notebook of grammar, vocabulary, pronunciation, and writing issues.',
     legacyRoutes: [],
+    availability: 'planned',
   },
   {
     id: 'exam',
@@ -104,6 +112,7 @@ export const appDestinations: AppDestination[] = [
     group: 'practice',
     description: 'Goethe-style timed practice and local reports.',
     legacyRoutes: ['/exam-simulator'],
+    availability: 'planned',
   },
   {
     id: 'library',
@@ -114,6 +123,7 @@ export const appDestinations: AppDestination[] = [
     group: 'learn',
     description: 'Saved readings, listening items, grammar notes, and local content packs.',
     legacyRoutes: [],
+    availability: 'planned',
   },
   {
     id: 'profile',
@@ -124,6 +134,7 @@ export const appDestinations: AppDestination[] = [
     group: 'system',
     description: 'Local learner level, goals, study rhythm, and personalization.',
     legacyRoutes: [],
+    availability: 'ready',
   },
   {
     id: 'settings',
@@ -134,8 +145,13 @@ export const appDestinations: AppDestination[] = [
     group: 'system',
     description: 'Files, backups, AI provider, speech provider, and privacy.',
     legacyRoutes: [],
+    availability: 'ready',
   },
 ];
+
+export const primaryAppDestinations = appDestinations.filter(
+  destination => destination.availability === 'ready'
+);
 
 const destinationById = new Map<AppDestinationId, AppDestination>(
   appDestinations.map(destination => [destination.id, destination])

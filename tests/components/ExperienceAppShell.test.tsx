@@ -5,7 +5,7 @@ import ExperienceAppShell from '../../components/ExperienceAppShell';
 import { buildProviderSettingsSnapshots } from '../../src/domain/settings/providerSettings';
 
 describe('ExperienceAppShell', () => {
-  it('renders the approved desktop navigation in the left rail', () => {
+  it('renders only ready desktop destinations in the primary left rail', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <ExperienceAppShell>
@@ -18,9 +18,15 @@ describe('ExperienceAppShell', () => {
 
     expect(within(navigation).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/');
     expect(within(navigation).getByRole('link', { name: /Plan/i })).toHaveAttribute('href', '/plan');
-    expect(within(navigation).getByRole('link', { name: /Mistakes/i })).toHaveAttribute('href', '/mistakes');
+    expect(within(navigation).getByRole('link', { name: /Practice/i })).toHaveAttribute('href', '/practice');
+    expect(within(navigation).getByRole('link', { name: /Conversation/i })).toHaveAttribute('href', '/conversation');
     expect(within(navigation).getByRole('link', { name: /Profile/i })).toHaveAttribute('href', '/profile');
     expect(within(navigation).getByRole('link', { name: /Settings/i })).toHaveAttribute('href', '/settings');
+    expect(within(navigation).queryByRole('link', { name: /Review/i })).not.toBeInTheDocument();
+    expect(within(navigation).queryByRole('link', { name: /Writing/i })).not.toBeInTheDocument();
+    expect(within(navigation).queryByRole('link', { name: /Mistakes/i })).not.toBeInTheDocument();
+    expect(within(navigation).queryByRole('link', { name: /Exam/i })).not.toBeInTheDocument();
+    expect(within(navigation).queryByRole('link', { name: /Library/i })).not.toBeInTheDocument();
   });
 
   it('marks the active destination using canonical and legacy routes', () => {

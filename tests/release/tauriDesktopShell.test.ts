@@ -75,6 +75,8 @@ describe('Tauri desktop shell configuration', () => {
     const lib = readText('src-tauri/src/lib.rs');
     expect(lib).toContain('tauri_plugin_store::Builder');
     expect(lib).toContain('tauri_plugin_stronghold::Builder::with_argon2');
+    expect(lib).toContain('deepgram_auth_token');
+    expect(lib).toContain('deepgram_transcribe');
   });
 
   it('keeps the Vite dev server stable for the Tauri shell', () => {
@@ -84,5 +86,51 @@ describe('Tauri desktop shell configuration', () => {
     expect(viteConfig).toContain('strictPort: true');
     expect(viteConfig).toContain('TAURI_DEV_HOST');
     expect(viteConfig).toContain("'**/src-tauri/**'");
+  });
+
+  it('does not keep the PWA service worker active inside Tauri desktop builds', () => {
+    const viteConfig = readText('vite.config.ts');
+    const indexHtml = readText('index.html');
+    const cleanupScript = readText('public/desktop-sw-cleanup.js');
+
+    expect(viteConfig).toContain('isTauriBuild ? tauriDesktopServiceWorkerCleanupPlugin() : VitePWA');
+    expect(viteConfig).toContain("fileName: 'sw.js'");
+    expect(indexHtml).toContain('/desktop-sw-cleanup.js');
+    expect(cleanupScript).toContain("location.hostname === 'tauri.localhost'");
+    expect(cleanupScript).toContain('getRegistrations()');
+  });
+
+  it('allows packaged desktop font styles without opening script execution', () => {
+    const config = readJson<{
+      app?: {
+        security?: {
+          csp?: string;
+        };
+      };
+    }>('src-tauri/tauri.conf.json');
+    const csp = config.app?.security?.csp ?? '';
+
+    expect(csp).toContain('https://fonts.googleapis.com');
+    expect(csp).toContain('https://fonts.gstatic.com');
+    expect(csp).toContain('https://cdnjs.cloudflare.com');
+    expect(csp).toContain("script-src 'self'");
+    expect(csp).not.toContain("script-src 'self' 'unsafe-inline'");
+  });
+
+  it('allows packaged desktop IPC used by Tauri plugin storage commands', () => {
+    const config = readJson<{
+      app?: {
+        security?: {
+          csp?: string;
+        };
+      };
+    }>('src-tauri/tauri.conf.json');
+    const csp = config.app?.security?.csp ?? '';
+    const connectSrc = csp
+      .split(';')
+      .map(directive => directive.trim())
+      .find(directive => directive.startsWith('connect-src'));
+
+    expect(connectSrc).toContain('http://ipc.localhost');
   });
 });

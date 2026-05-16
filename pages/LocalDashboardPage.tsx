@@ -1,85 +1,143 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CEFRLevel, type SkillType } from '../types';
+import { CEFRLevel, type LearningPlan, type LearningPlanItem } from '../types';
+import { loadActiveLearningPlan } from '../services/learningPlanService';
+import {
+  createDefaultLearnerProfile,
+  type LearnerProfile,
+  type ProfileRepository,
+} from '../src/domain/profile/profileRepository';
+import type {
+  ConversationRepository,
+  ConversationSessionRecord,
+} from '../src/domain/conversation/conversationRepository';
+import { browserProfileRepository } from '../src/infrastructure/browser/profileStorage';
+import { browserConversationRepository } from '../src/infrastructure/browser/conversationStorage';
 import { buildDailyLearningQueue, type DailyLearningQueueItem } from '../src/ui/learningWorkflowModel';
 
-const queue = buildDailyLearningQueue({
-  level: CEFRLevel.A2,
-  targetLevel: CEFRLevel.B1,
-  dailyTargetMinutes: 35,
-  dueReviews: [
-    {
-      id: 'review-akkusativ',
-      title: 'Akkusativ articles',
-      skill: 'Grammar',
-      level: CEFRLevel.A2,
-      dueAt: '2026-05-15T08:00:00.000Z',
-      priority: 1,
-    },
-  ],
-  activePlanItems: [
-    {
-      id: 'plan-perfect-tense',
-      topic: 'Past tenses',
-      skill: 'Grammar',
-      description: 'Perfekt vs. Praeteritum in short answers.',
-      completed: false,
-    },
-  ],
-  weakAreas: [
-    {
-      id: 'weak-speaking-alitag',
-      skill: 'Speaking',
-      topic: 'Alltag',
-      level: CEFRLevel.A2,
-      score: 54,
-      reason: 'Recent speaking sessions show missing verb-second word order.',
-    },
-  ],
-  preferences: {
-    includeConversation: true,
-    includeWriting: true,
-    examGoal: 'Goethe A2',
-  },
-});
+const LOCAL_LEARNER_ID = 'local-learner';
 
-const weakAreas: Array<{ label: string; skill: SkillType; tone: 'high' | 'mid' }> = [
-  { label: 'Word order', skill: 'Writing', tone: 'high' },
-  { label: 'der/die/das', skill: 'Grammar', tone: 'high' },
-  { label: 'Praepositionen', skill: 'Grammar', tone: 'mid' },
-];
+type LearningPlanLoader = typeof loadActiveLearningPlan;
 
-const weeklyStats = [
-  { label: 'Minuten gelernt', value: '312 / 420', percent: 74 },
-  { label: 'Aufgaben erledigt', value: '38 / 55', percent: 69 },
-  { label: 'Richtige Antworten', value: '78%', percent: 78 },
-];
+interface LocalDashboardPageProps {
+  learnerId?: string;
+  profileRepository?: ProfileRepository;
+  learningPlanLoader?: LearningPlanLoader;
+  conversationRepository?: Pick<ConversationRepository, 'loadRecentSessions'>;
+}
 
-const LocalDashboardPage: React.FC = () => {
-  const primaryAction = queue[0];
+interface PrimaryAction {
+  title: string;
+  route: string;
+  estimatedMinutes: number;
+  reason: string;
+}
+
+const LocalDashboardPage: React.FC<LocalDashboardPageProps> = ({
+  learnerId = LOCAL_LEARNER_ID,
+  profileRepository = browserProfileRepository,
+  learningPlanLoader = loadActiveLearningPlan,
+  conversationRepository = browserConversationRepository,
+}) => {
+  const [profile, setProfile] = useState<LearnerProfile>(createDefaultLearnerProfile);
+  const [learningPlan, setLearningPlan] = useState<LearningPlan | null>(null);
+  const [recentSessions, setRecentSessions] = useState<ConversationSessionRecord[]>([]);
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDashboardState() {
+      setLoadState('loading');
+      setErrorMessage(null);
+
+      try {
+        const [loadedProfile, planResult, sessions] = await Promise.all([
+          profileRepository.loadProfile(),
+          learningPlanLoader(learnerId),
+          conversationRepository.loadRecentSessions(learnerId, 1),
+        ]);
+
+        if (cancelled) return;
+
+        if (planResult.error) {
+          setErrorMessage(planResult.error.message);
+          setLoadState('error');
+        } else {
+          setProfile(loadedProfile);
+          setLearningPlan(planResult.plan);
+          setRecentSessions(sessions);
+          setLoadState('ready');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : 'Dashboard could not load');
+          setLoadState('error');
+        }
+      }
+    }
+
+    loadDashboardState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationRepository, learnerId, learningPlanLoader, profileRepository]);
+
+  const activePlanItems = useMemo(() => getActivePlanItems(learningPlan), [learningPlan]);
+  const queue = useMemo(
+    () =>
+      buildDailyLearningQueue({
+        level: profile.currentLevel,
+        targetLevel: profile.targetLevel,
+        dailyTargetMinutes: profile.dailyGoalMinutes,
+        dueReviews: [],
+        activePlanItems,
+        weakAreas: [],
+        preferences: {
+          includeConversation: true,
+          includeWriting: false,
+        },
+      }),
+    [activePlanItems, profile.currentLevel, profile.dailyGoalMinutes, profile.targetLevel]
+  );
+  const planProgress = calculatePlanProgress(activePlanItems);
+  const primaryAction = getPrimaryAction({ learningPlan, queue });
+  const lastSession = recentSessions[0] ?? null;
 
   return (
     <main className="db-dashboard" aria-label="DeutschBoost dashboard">
       <header className="db-dashboard-header">
         <div>
           <h1>Guten Morgen!</h1>
-          <p>Hier ist dein Lerncockpit fuer heute.</p>
+          <p>Hier ist dein lokales Lerncockpit fuer heute.</p>
         </div>
         <div className="db-level-meter" aria-label="Current learning target">
           <div>
-            <strong>A2 -&gt; B1</strong>
+            <strong>{profile.currentLevel} -&gt; {profile.targetLevel}</strong>
             <span>Dein aktuelles Ziel</span>
           </div>
-          <div className="db-ring" aria-label="34 percent complete">34%</div>
+          <div className="db-ring" aria-label={`${planProgress.percent} percent complete`}>
+            {planProgress.percent}%
+          </div>
         </div>
       </header>
+
+      {loadState === 'error' ? (
+        <section className="db-panel db-empty-workspace" role="alert">
+          <span className="db-section-label">Local dashboard</span>
+          <h2>Dashboard could not load</h2>
+          <p>{errorMessage ?? 'Local dashboard data could not be read.'}</p>
+        </section>
+      ) : null}
 
       <section className="db-dashboard-grid">
         <section className="db-panel db-next-action" aria-labelledby="next-action-heading">
           <span className="db-section-label">Naechste Aktion</span>
           <div className="db-next-action-row">
             <div>
-              <h2 id="next-action-heading">{formatPrimaryTitle(primaryAction)}</h2>
+              <h2 id="next-action-heading">{primaryAction.title}</h2>
               <div className="db-meta-row">
                 <span>
                   <i className="fa-regular fa-clock" aria-hidden="true" /> {primaryAction.estimatedMinutes} min
@@ -98,70 +156,94 @@ const LocalDashboardPage: React.FC = () => {
             <h2 id="queue-heading">Heutige Queue</h2>
             <span>{queue.length} Aufgaben</span>
           </div>
-          <ul className="db-queue-list" aria-label="Today queue">
-            {queue.map(item => (
-              <QueueRow key={item.id} item={item} />
-            ))}
-          </ul>
+          {queue.length > 0 ? (
+            <ul className="db-queue-list" aria-label="Today queue">
+              {queue.map(item => (
+                <QueueRow key={item.id} item={item} />
+              ))}
+            </ul>
+          ) : (
+            <p>No local queue yet. Create a plan to generate the first study path.</p>
+          )}
         </section>
 
         <aside className="db-panel db-review-panel" aria-labelledby="reviews-heading">
           <h2 id="reviews-heading">Faellige Reviews</h2>
-          <strong>18</strong>
-          <span>Karten faellig</span>
-          <p>Naechste in 13 min</p>
+          <strong>0</strong>
+          <span>No review cards yet</span>
+          <p>Review cards will appear after corrections are saved locally.</p>
         </aside>
 
-        <aside className="db-panel db-weak-panel" aria-labelledby="weak-heading">
-          <h2 id="weak-heading">Schwache Bereiche</h2>
+        <aside className="db-panel db-weak-panel" aria-labelledby="focus-heading">
+          <h2 id="focus-heading">Aktueller Fokus</h2>
           <div className="db-weak-list">
-            {weakAreas.map(area => (
-              <div className="db-weak-row" key={area.label}>
-                <span>{area.label}</span>
-                <span>{area.skill}</span>
-                <b className={`db-tone-${area.tone}`}>{area.tone === 'high' ? 'Hoch' : 'Mittel'}</b>
+            {activePlanItems.slice(0, 3).map(item => (
+              <div className="db-weak-row" key={item.id ?? item.topic}>
+                <span>{item.topic}</span>
+                <span>{item.skill}</span>
+                <b className={item.completed ? 'db-tone-mid' : 'db-tone-high'}>
+                  {item.completed ? 'Done' : 'Next'}
+                </b>
               </div>
             ))}
+            {activePlanItems.length === 0 ? (
+              <div className="db-weak-row">
+                <span>No plan focus yet</span>
+                <span>{profile.currentLevel}</span>
+                <b className="db-tone-mid">Local</b>
+              </div>
+            ) : null}
           </div>
         </aside>
 
-        <section className="db-panel db-weekly-panel" aria-labelledby="weekly-heading">
+        <section className="db-panel db-weekly-panel" aria-labelledby="progress-heading">
           <div className="db-panel-heading">
-            <h2 id="weekly-heading">Woechentlicher Fortschritt</h2>
-            <span>12.-18. Mai</span>
+            <h2 id="progress-heading">Lokaler Fortschritt</h2>
+            <span>{loadState === 'loading' ? 'Loading' : 'Device only'}</span>
           </div>
           <div className="db-stat-grid">
-            {weeklyStats.map(stat => (
-              <div className="db-stat" key={stat.label}>
-                <span>{stat.label}</span>
-                <strong>{stat.value}</strong>
-                <div className="db-progress-track" aria-hidden="true">
-                  <div style={{ width: `${stat.percent}%` }} />
-                </div>
-              </div>
-            ))}
+            <ProgressStat label="Study streak" value={`${profile.studyStreak} days`} percent={profile.studyStreak > 0 ? 100 : 0} />
+            <ProgressStat
+              label="Total study time"
+              value={formatStudyTime(profile.totalStudyTimeMinutes)}
+              percent={Math.min(100, Math.round((profile.totalStudyTimeMinutes / Math.max(profile.dailyGoalMinutes, 1)) * 100))}
+            />
+            <ProgressStat
+              label="Plan progress"
+              value={`${planProgress.completed} / ${planProgress.total}`}
+              percent={planProgress.percent}
+            />
           </div>
         </section>
 
         <aside className="db-panel db-session-panel" aria-labelledby="session-heading">
           <h2 id="session-heading">Letzte Session</h2>
-          <span>Gestern - 48 min</span>
-          <dl>
-            <div>
-              <dt>Aufgaben erledigt</dt>
-              <dd>14</dd>
-            </div>
-            <div>
-              <dt>Richtige Antworten</dt>
-              <dd>11 (79%)</dd>
-            </div>
-            <div>
-              <dt>Korrekturen gespeichert</dt>
-              <dd>5</dd>
-            </div>
-          </dl>
+          {lastSession ? (
+            <>
+              <span>{formatSessionDuration(lastSession)}</span>
+              <dl>
+                <div>
+                  <dt>Transcript</dt>
+                  <dd>{lastSession.transcript.length} transcript turns</dd>
+                </div>
+                <div>
+                  <dt>Mode</dt>
+                  <dd>{formatMode(lastSession.mode)}</dd>
+                </div>
+                <div>
+                  <dt>Saved</dt>
+                  <dd>{formatDate(lastSession.endedAt ?? lastSession.startedAt)}</dd>
+                </div>
+              </dl>
+            </>
+          ) : (
+            <>
+              <span>No saved local sessions yet</span>
+              <p>Conversation history will appear here after your first local speaking session.</p>
+            </>
+          )}
           <p className="db-local-save">
-            <i className="fa-solid fa-check" aria-hidden="true" /> Alles lokal gespeichert
+            <i className="fa-solid fa-check" aria-hidden="true" /> Device-only storage active
           </p>
         </aside>
       </section>
@@ -187,8 +269,69 @@ const QueueRow: React.FC<QueueRowProps> = ({ item }) => (
   </li>
 );
 
-function formatPrimaryTitle(item: DailyLearningQueueItem): string {
-  return item.title.replace(/^Review: /, 'Review ');
+const ProgressStat: React.FC<{ label: string; value: string; percent: number }> = ({
+  label,
+  value,
+  percent,
+}) => (
+  <div className="db-stat">
+    <span>{label}</span>
+    <strong>{value}</strong>
+    <div className="db-progress-track" aria-hidden="true">
+      <div style={{ width: `${percent}%` }} />
+    </div>
+  </div>
+);
+
+function getActivePlanItems(plan: LearningPlan | null): LearningPlanItem[] {
+  return plan?.weeks.flatMap(week => week.items) ?? [];
+}
+
+function getPrimaryAction(input: {
+  learningPlan: LearningPlan | null;
+  queue: DailyLearningQueueItem[];
+}): PrimaryAction {
+  if (!input.learningPlan) {
+    return {
+      title: 'Create a local learning plan',
+      route: '/placement-test',
+      estimatedMinutes: 15,
+      reason: 'Take the placement test once so the app can build your first local path.',
+    };
+  }
+
+  const queueItem = input.queue[0];
+
+  if (!queueItem) {
+    return {
+      title: 'Open your learning plan',
+      route: '/plan',
+      estimatedMinutes: 5,
+      reason: 'All current plan items are complete.',
+    };
+  }
+
+  return {
+    title: queueItem.title,
+    route: queueItem.route,
+    estimatedMinutes: queueItem.estimatedMinutes,
+    reason: queueItem.reason,
+  };
+}
+
+function calculatePlanProgress(items: LearningPlanItem[]): {
+  completed: number;
+  total: number;
+  percent: number;
+} {
+  const total = items.length;
+  const completed = items.filter(item => item.completed).length;
+
+  return {
+    completed,
+    total,
+    percent: total > 0 ? Math.round((completed / total) * 100) : 0,
+  };
 }
 
 function formatQueueSource(item: DailyLearningQueueItem): string {
@@ -201,9 +344,6 @@ function formatQueueSource(item: DailyLearningQueueItem): string {
 }
 
 function formatQueueTitle(item: DailyLearningQueueItem): string {
-  if (item.source === 'conversation') return 'Essen gehen';
-  if (item.source === 'writing') return 'Beschreibe deinen letzten Urlaub';
-  if (item.source === 'exam') return 'Lesen Teil 2 (A2)';
   return item.title.replace(/^Review: /, '');
 }
 
@@ -222,6 +362,44 @@ function getSourceInitial(item: DailyLearningQueueItem): string {
   if (item.source === 'plan') return 'P';
   if (item.source === 'weak-area') return '!';
   return 'R';
+}
+
+function formatStudyTime(minutes: number): string {
+  if (minutes < 60) {
+    return `${minutes} min`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes > 0 ? `${hours} h ${remainingMinutes} min` : `${hours} h`;
+}
+
+function formatSessionDuration(session: ConversationSessionRecord): string {
+  if (typeof session.durationSeconds === 'number') {
+    return `${Math.max(1, Math.round(session.durationSeconds / 60))} min`;
+  }
+
+  return 'Session saved locally';
+}
+
+function formatMode(mode: ConversationSessionRecord['mode']): string {
+  return mode
+    .split('-')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Local';
+  }
+
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 export default LocalDashboardPage;

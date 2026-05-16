@@ -139,10 +139,6 @@ export const PracticePage: React.FC = () => {
     }
   };
 
-  const handleExamSimulator = () => {
-    navigate('/exam-simulator');
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
@@ -153,24 +149,6 @@ export const PracticePage: React.FC = () => {
           <p className="text-lg text-gray-600">
             Goethe-Zertifikat focused practice with AI-powered feedback
           </p>
-        </div>
-
-        {/* Mock Exam Simulator - Featured */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-lg p-6 mb-6 text-white">
-          <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="mb-4 md:mb-0">
-              <h2 className="text-2xl font-bold mb-2">📋 Goethe Mock Exam Simulator</h2>
-              <p className="text-indigo-100">
-                Take full-length practice exams with timer, all sections, and detailed scoring
-              </p>
-            </div>
-            <button
-              onClick={handleExamSimulator}
-              className="px-6 py-3 bg-white text-indigo-600 rounded-lg font-bold hover:bg-indigo-50 transition transform hover:scale-105"
-            >
-              Start Mock Exam →
-            </button>
-          </div>
         </div>
 
         {/* Quick Practice Skills */}

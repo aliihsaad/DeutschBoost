@@ -58,7 +58,20 @@ describe('geminiService provider boundaries', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.stubEnv('API_KEY', 'test-key');
+    vi.stubEnv('GEMINI_API_KEY', 'test-key');
     geminiMock.generateContent.mockReset();
+  });
+
+  it('does not require a Gemini API key at import time', async () => {
+    vi.stubGlobal('process', { env: {} });
+    vi.resetModules();
+
+    const service = await import('../../services/geminiService');
+
+    expect(service.generateLearningPlan).toEqual(expect.any(Function));
+    await expect(service.generateLearningPlan(testResult)).rejects.toThrow(
+      'No AI provider is configured'
+    );
   });
 
   it('can evaluate comprehensive placement tests through an injected AI provider', async () => {

@@ -76,6 +76,21 @@ const readErrorMessage = async (response: Response): Promise<string> => {
   }
 };
 
+const parseJsonResponse = async <T>(response: Response): Promise<T> => {
+  const rawBody = await response.text();
+
+  try {
+    return JSON.parse(rawBody) as T;
+  } catch {
+    const preview = rawBody.trim().slice(0, 80);
+    throw new Error(
+      preview.startsWith('<!DOCTYPE') || preview.startsWith('<html')
+        ? 'Deepgram endpoint returned the app HTML instead of JSON. Check the desktop provider bridge.'
+        : `Deepgram returned invalid JSON: ${preview || 'empty response'}`
+    );
+  }
+};
+
 const isRetryableStatus = (status: number): boolean => status === 429 || status >= 500;
 
 const appendOptionalBoolean = (params: URLSearchParams, key: string, value?: boolean): void => {
@@ -133,6 +148,17 @@ export async function testDeepgramApiKey(
     };
   }
 
+  try {
+    await parseJsonResponse<Record<string, unknown>>(response);
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Deepgram key test failed: ${error instanceof Error ? error.message : String(error)}`,
+      retryable: false,
+      status: response.status,
+    };
+  }
+
   return {
     ok: true,
     message: 'Deepgram API key is valid',
@@ -177,7 +203,20 @@ export const createDeepgramSpeechProvider = (
         });
       }
 
-      const responseBody = (await response.json()) as DeepgramResponse;
+      let responseBody: DeepgramResponse;
+      try {
+        responseBody = await parseJsonResponse<DeepgramResponse>(response);
+      } catch (error) {
+        throw new SpeechProviderError(
+          error instanceof Error ? error.message : String(error),
+          {
+            provider: providerId,
+            feature: request.feature,
+            retryable: false,
+          }
+        );
+      }
+
       const alternative = firstAlternative(responseBody);
 
       if (!alternative || typeof alternative.transcript !== 'string') {

@@ -5,14 +5,34 @@ import type { AiProvider } from '../src/domain/ai/aiProvider';
 import { createGeminiAiProvider, type GeminiClientLike } from '../src/domain/ai/geminiProvider';
 import { generateJsonWithProvider } from '../src/domain/ai/jsonGeneration';
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable is not set");
+let geminiClient: GoogleGenAI | null = null;
+
+function getGeminiApiKey(): string | undefined {
+    return process.env.API_KEY || process.env.GEMINI_API_KEY;
 }
 
-export const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+export function getGeminiAiClient(): GoogleGenAI {
+    const apiKey = getGeminiApiKey();
 
-const defaultGeminiServiceAiProvider = createGeminiAiProvider({
-    client: ai as unknown as GeminiClientLike,
+    if (!apiKey) {
+        throw new Error('No AI provider is configured. Add an OpenRouter API key in Settings before using AI generation.');
+    }
+
+    if (!geminiClient) {
+        geminiClient = new GoogleGenAI({ apiKey });
+    }
+
+    return geminiClient;
+}
+
+export const ai = {
+    get models() {
+        return getGeminiAiClient().models;
+    },
+} as GoogleGenAI;
+
+const createDefaultGeminiServiceAiProvider = () => createGeminiAiProvider({
+    client: getGeminiAiClient() as unknown as GeminiClientLike,
 });
 
 const generateGeminiServiceJson = <T>(
@@ -136,10 +156,10 @@ export const evaluateComprehensivePlacementTest = async (
     grammarScore: number,
     writingText: string,
     writingPrompt: string,
-    aiProvider: AiProvider = defaultGeminiServiceAiProvider
+    aiProvider?: AiProvider
 ): Promise<TestResult> => {
     return generateGeminiServiceJson<TestResult>(
-        aiProvider,
+        aiProvider ?? createDefaultGeminiServiceAiProvider(),
         'placement test evaluation',
         'TestResult',
         `As a certified German language examiner following CEFR guidelines, evaluate this student's comprehensive placement test.
@@ -166,10 +186,10 @@ Provide detailed feedback on strengths, weaknesses, and specific recommendations
 export const evaluateWriting = async (
     prompt: string,
     userText: string,
-    aiProvider: AiProvider = defaultGeminiServiceAiProvider
+    aiProvider?: AiProvider
 ): Promise<TestResult> => {
     return generateGeminiServiceJson<TestResult>(
-        aiProvider,
+        aiProvider ?? createDefaultGeminiServiceAiProvider(),
         'writing evaluation',
         'TestResult',
         `As a certified German language examiner, please evaluate the following text written by a student.
@@ -185,10 +205,10 @@ export const evaluateWriting = async (
 
 export const generateLearningPlan = async (
     evaluation: TestResult,
-    aiProvider: AiProvider = defaultGeminiServiceAiProvider
+    aiProvider?: AiProvider
 ): Promise<LearningPlan> => {
     const parsedJson = await generateGeminiServiceJson<LearningPlan>(
-        aiProvider,
+        aiProvider ?? createDefaultGeminiServiceAiProvider(),
         'learning plan',
         'LearningPlan',
         `Based on this student's German language evaluation, create a personalized 4-week learning plan to help them reach the next CEFR level.

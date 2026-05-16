@@ -41,7 +41,7 @@ Implemented desktop foundation:
 - Tauri Store and Stronghold permissions are enabled in `src-tauri/capabilities/default.json`.
 - The Rust shell initializes the Store and Stronghold plugins.
 - The TypeScript provider settings wiring prefers a Tauri Stronghold secret adapter in packaged desktop builds, so OpenRouter and Deepgram keys are not stored in ordinary settings JSON.
-- `npm run tauri:build` produced `src-tauri/target/release/bundle/nsis/DeutschBoost_0.0.1_x64-setup.exe`.
+- `npm run tauri:build` produced `src-tauri/target/release/bundle/nsis/DeutschBoost_0.0.2_x64-setup.exe`.
 
 Useful commands:
 
@@ -55,17 +55,19 @@ npm run tauri:build
 The Windows desktop installer is built by `.github/workflows/desktop-release.yml`.
 
 - Keep the versions aligned in `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`.
-- Push a semantic version tag such as `v0.0.1` to run the release workflow.
+- Push a semantic version tag such as `v0.0.2` to run the release workflow.
 - The workflow runs the Vitest suite, builds the Tauri NSIS installer on `windows-latest`, and publishes a GitHub prerelease with the setup executable attached.
 - The current installer is unsigned, so Windows may show an unknown publisher warning until code signing is configured.
 
 Release commands:
 
 ```bash
-git tag -a v0.0.1 -m "DeutschBoost v0.0.1 desktop pre-release"
+git tag -a v0.0.2 -m "DeutschBoost v0.0.2 desktop pre-release"
 git push origin master
-git push origin v0.0.1
+git push origin v0.0.2
 ```
+
+Known release note: `v0.0.1` was the first desktop pre-release and exposed a blank-window startup bug caused by eager Gemini API key initialization. Use `v0.0.2` or newer for desktop testing.
 
 If a shell was open before Rust was installed, restart it or prepend Cargo manually for the current session:
 

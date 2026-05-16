@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import {
@@ -13,6 +13,7 @@ import {
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     const tauriDevHost = process.env.TAURI_DEV_HOST;
+    const isTauriBuild = Boolean(process.env.TAURI_ENV_PLATFORM);
     const deepgramProxy = {
       [DEEPGRAM_PROXY_PATH]: {
         target: DEEPGRAM_API_TARGET,
@@ -45,7 +46,7 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [
         react(),
-        VitePWA({
+        isTauriBuild ? tauriDesktopServiceWorkerCleanupPlugin() : VitePWA({
           registerType: 'autoUpdate',
           includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
           manifest: {
@@ -125,3 +126,41 @@ export default defineConfig(({ mode }) => {
       }
     };
 });
+
+function tauriDesktopServiceWorkerCleanupPlugin(): Plugin {
+  return {
+    name: 'tauri-desktop-service-worker-cleanup',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'sw.js',
+        source: `
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.map(key => caches.delete(key)));
+    await self.registration.unregister();
+    const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    await Promise.all(clientsList.map(client => client.navigate(client.url)));
+  })());
+});
+`.trimStart(),
+      });
+      this.emitFile({
+        type: 'asset',
+        fileName: 'registerSW.js',
+        source: `
+if ('serviceWorker' in navigator && location.hostname === 'tauri.localhost') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+  });
+}
+`.trimStart(),
+      });
+    },
+  };
+}

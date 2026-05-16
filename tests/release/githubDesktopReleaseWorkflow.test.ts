@@ -11,14 +11,14 @@ function readJson<T>(relativePath: string): T {
 }
 
 describe('GitHub desktop release workflow', () => {
-  it('keeps npm and Tauri desktop versions aligned for v0.0.1', () => {
+  it('keeps npm and Tauri desktop versions aligned for the current release', () => {
     const packageJson = readJson<{ version?: string }>('package.json');
     const tauriConfig = readJson<{ version?: string }>('src-tauri/tauri.conf.json');
     const cargoToml = readFileSync(path.join(root, 'src-tauri', 'Cargo.toml'), 'utf8');
 
-    expect(packageJson.version).toBe('0.0.1');
-    expect(tauriConfig.version).toBe('0.0.1');
-    expect(cargoToml).toContain('version = "0.0.1"');
+    expect(packageJson.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(tauriConfig.version).toBe(packageJson.version);
+    expect(cargoToml).toContain(`version = "${packageJson.version}"`);
   });
 
   it('builds a tagged Windows desktop release with Tauri artifacts', () => {
