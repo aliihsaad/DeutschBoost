@@ -1,0 +1,64 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to create or update, for example v0.0.1'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    name: Build Windows installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test:run
+
+      - name: Build and publish Tauri release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: "${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}"
+          releaseName: "DeutschBoost ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}"
+          releaseBody: |
+            DeutschBoost desktop pre-release.
+
+            Download the Windows setup executable from the assets below.
+            This build is unsigned, so Windows may show an unknown publisher warning until code signing is configured.
+          releaseDraft: false
+          prerelease: true
+          uploadUpdaterJson: false
+          updaterJsonPreferNsis: true
+          releaseAssetNamePattern: DeutschBoost_[version]_[platform]_[arch][setup][ext]
