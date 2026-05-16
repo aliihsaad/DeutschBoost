@@ -6,6 +6,7 @@ import { createGeminiAiProvider, type GeminiClientLike } from '../src/domain/ai/
 import { generateJsonWithProvider } from '../src/domain/ai/jsonGeneration';
 
 let geminiClient: GoogleGenAI | null = null;
+const DEFAULT_GEMINI_SERVICE_JSON_MODEL = 'gemini-2.5-pro';
 
 function getGeminiApiKey(): string | undefined {
     return process.env.API_KEY || process.env.GEMINI_API_KEY;
@@ -31,9 +32,11 @@ export const ai = {
     },
 } as GoogleGenAI;
 
-const createDefaultGeminiServiceAiProvider = () => createGeminiAiProvider({
-    client: getGeminiAiClient() as unknown as GeminiClientLike,
-});
+const createDefaultGeminiServiceAiProvider = () =>
+    createGeminiAiProvider({
+        client: getGeminiAiClient() as unknown as GeminiClientLike,
+        defaultJsonModel: DEFAULT_GEMINI_SERVICE_JSON_MODEL,
+    });
 
 const generateGeminiServiceJson = <T>(
     aiProvider: AiProvider,
@@ -50,14 +53,20 @@ const generateGeminiServiceJson = <T>(
                 content: prompt,
             },
         ],
-        options: {
-            model: 'gemini-2.5-pro',
-        },
     });
 };
 
+function jsonAsGenerateContentResponse(value: unknown): GenerateContentResponse {
+    return {
+        text: JSON.stringify(value),
+    } as GenerateContentResponse;
+}
+
 // Generate reading comprehension question
-export const generateReadingQuestion = async (level: CEFRLevel): Promise<GenerateContentResponse> => {
+export const generateReadingQuestion = async (
+    level: CEFRLevel,
+    aiProvider?: AiProvider
+): Promise<GenerateContentResponse> => {
     const levelGuidance = {
         [CEFRLevel.A1]: 'very simple text with basic vocabulary (family, food, numbers), present tense only, 2-3 sentences',
         [CEFRLevel.A2]: 'simple text about everyday topics (shopping, work, hobbies), present and perfect tense, 3-4 sentences',
@@ -67,9 +76,7 @@ export const generateReadingQuestion = async (level: CEFRLevel): Promise<Generat
         [CEFRLevel.C2]: 'highly complex text with subtle meanings and native-level expressions, 7-8 sentences'
     };
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Generate a multiple-choice German reading comprehension question for ${level} CEFR level.
+    const prompt = `Generate a multiple-choice German reading comprehension question for ${level} CEFR level.
 
 Guidelines for ${level}:
 ${levelGuidance[level]}
@@ -80,7 +87,28 @@ The question should test reading comprehension authentically. Provide:
 - Four possible answers in German
 - Make sure only ONE answer is clearly correct
 
-Format like Goethe-Zertifikat exams.`,
+Format like Goethe-Zertifikat exams.
+Return only valid JSON with this exact shape:
+{
+  "text": "German reading text",
+  "question": "German question",
+  "options": ["answer A", "answer B", "answer C", "answer D"],
+  "correctOptionIndex": 0
+}`;
+
+    if (aiProvider) {
+        const question = await generateGeminiServiceJson(
+            aiProvider,
+            'placement reading question',
+            'PlacementReadingQuestion',
+            prompt
+        );
+        return jsonAsGenerateContentResponse(question);
+    }
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -103,7 +131,10 @@ Format like Goethe-Zertifikat exams.`,
 };
 
 // Generate grammar question
-export const generateGrammarQuestion = async (level: CEFRLevel): Promise<GenerateContentResponse> => {
+export const generateGrammarQuestion = async (
+    level: CEFRLevel,
+    aiProvider?: AiProvider
+): Promise<GenerateContentResponse> => {
     const grammarTopics = {
         [CEFRLevel.A1]: 'present tense, articles (der/die/das), basic word order, or simple pronouns',
         [CEFRLevel.A2]: 'perfect tense, dative/accusative prepositions, modal verbs, or possessive pronouns',
@@ -113,9 +144,7 @@ export const generateGrammarQuestion = async (level: CEFRLevel): Promise<Generat
         [CEFRLevel.C2]: 'subtle modal particles, advanced conjunctions, or stylistic variations'
     };
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Generate a multiple-choice German grammar question for ${level} CEFR level.
+    const prompt = `Generate a multiple-choice German grammar question for ${level} CEFR level.
 
 Topic for ${level}: ${grammarTopics[level]}
 
@@ -125,7 +154,28 @@ Provide:
 - Four possible answers
 - Make sure only ONE answer is grammatically correct
 
-The question should test authentic grammar usage, not just memorization.`,
+The question should test authentic grammar usage, not just memorization.
+Return only valid JSON with this exact shape:
+{
+  "sentence": "German sentence with _____ as the blank",
+  "question": "Question asking what belongs in the blank",
+  "options": ["answer A", "answer B", "answer C", "answer D"],
+  "correctOptionIndex": 0
+}`;
+
+    if (aiProvider) {
+        const question = await generateGeminiServiceJson(
+            aiProvider,
+            'placement grammar question',
+            'PlacementGrammarQuestion',
+            prompt
+        );
+        return jsonAsGenerateContentResponse(question);
+    }
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
         config: {
             responseMimeType: "application/json",
             responseSchema: {

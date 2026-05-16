@@ -1,5 +1,7 @@
 import {
   SpeechProviderError,
+  type SpeechSynthesisRequest,
+  type SpeechSynthesisResult,
   type SpeechProvider,
   type SpeechTranscriptionRequest,
   type SpeechTranscriptionResult,
@@ -11,7 +13,9 @@ type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 interface DeepgramSpeechProviderOptions {
   apiKey?: string;
   baseUrl?: string;
+  ttsBaseUrl?: string;
   model?: string;
+  ttsModel?: string;
   language?: string;
   fetchFn?: FetchLike;
   now?: () => string;
@@ -54,8 +58,10 @@ interface DeepgramErrorBody {
 }
 
 const DEFAULT_BASE_URL = '/api/deepgram/v1/listen';
+const DEFAULT_TTS_BASE_URL = '/api/deepgram/v1/speak';
 const DEFAULT_AUTH_TOKEN_URL = '/api/deepgram/v1/auth/token';
 const DEFAULT_MODEL = 'nova-3';
+const DEFAULT_TTS_MODEL = 'aura-2-viktoria-de';
 const DEFAULT_LANGUAGE = 'de';
 
 const readErrorMessage = async (response: Response): Promise<string> => {
@@ -113,8 +119,35 @@ const buildTranscriptionUrl = (
   return `${providerOptions.baseUrl ?? DEFAULT_BASE_URL}?${params.toString()}`;
 };
 
+const buildSynthesisUrl = (
+  providerOptions: DeepgramSpeechProviderOptions,
+  request: SpeechSynthesisRequest
+): string => {
+  const params = new URLSearchParams();
+  params.set('model', request.options?.ttsModel ?? providerOptions.ttsModel ?? DEFAULT_TTS_MODEL);
+
+  if (request.options?.speed !== undefined) {
+    params.set('speed', String(request.options.speed));
+  }
+
+  return `${providerOptions.ttsBaseUrl ?? DEFAULT_TTS_BASE_URL}?${params.toString()}`;
+};
+
 const firstAlternative = (response: DeepgramResponse): DeepgramAlternative | undefined => {
   return response.results?.channels?.[0]?.alternatives?.[0];
+};
+
+const readAudioResponse = async (response: Response): Promise<ArrayBuffer> => {
+  const contentType = response.headers.get('Content-Type') ?? '';
+
+  if (contentType.includes('text/html')) {
+    await response.text();
+    throw new Error(
+      'Deepgram endpoint returned the app HTML instead of audio. Check the desktop provider bridge.'
+    );
+  }
+
+  return response.arrayBuffer();
 };
 
 export async function testDeepgramApiKey(
@@ -241,6 +274,52 @@ export const createDeepgramSpeechProvider = (
           metadata: responseBody.metadata,
         },
       };
+    },
+    async synthesize(request: SpeechSynthesisRequest): Promise<SpeechSynthesisResult> {
+      if (!options.apiKey?.trim()) {
+        throw new SpeechProviderError('Deepgram API key is required', {
+          provider: providerId,
+          feature: request.feature,
+          retryable: false,
+        });
+      }
+
+      const response = await fetchFn(buildSynthesisUrl(options, request), {
+        method: 'POST',
+        headers: {
+          Authorization: `Token ${options.apiKey.trim()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: request.text }),
+      });
+
+      if (!response.ok) {
+        throw new SpeechProviderError(`Deepgram TTS request failed: ${await readErrorMessage(response)}`, {
+          provider: providerId,
+          feature: request.feature,
+          retryable: isRetryableStatus(response.status),
+        });
+      }
+
+      try {
+        return {
+          audio: await readAudioResponse(response),
+          mimeType: response.headers.get('Content-Type') ?? 'audio/mpeg',
+          providerMetadata: {
+            requestId: response.headers.get('dg-request-id') ?? undefined,
+            model: response.headers.get('dg-model-name') ?? undefined,
+          },
+        };
+      } catch (error) {
+        throw new SpeechProviderError(
+          error instanceof Error ? error.message : String(error),
+          {
+            provider: providerId,
+            feature: request.feature,
+            retryable: false,
+          }
+        );
+      }
     },
   };
 };

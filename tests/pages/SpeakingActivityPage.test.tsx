@@ -40,6 +40,10 @@ function createSpeechProvider(): SpeechProvider {
         confidence: 0.92,
       },
     }),
+    synthesize: vi.fn().mockResolvedValue({
+      audio: new ArrayBuffer(3),
+      mimeType: 'audio/mpeg',
+    }),
   };
 }
 
@@ -60,6 +64,28 @@ describe('SpeakingActivityPage local conversation flow', () => {
       currentLevel: 'A2',
       motherLanguage: 'english',
     });
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:tutor-reply-audio'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    vi.stubGlobal(
+      'Audio',
+      class {
+        onended: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+
+        constructor(readonly src: string) {}
+
+        play() {
+          this.onended?.();
+          return Promise.resolve();
+        }
+      }
+    );
   });
 
   it('shows a setup state without free-text inputs when providers are missing', async () => {
@@ -156,6 +182,54 @@ describe('SpeakingActivityPage local conversation flow', () => {
           }),
         })
       );
+    });
+  });
+
+  it('plays tutor replies through the configured speech provider', async () => {
+    const aiProvider = createAiProvider();
+    const speechProvider = createSpeechProvider();
+    const conversationRepository = createConversationRepository();
+    const stopRecording = vi.fn().mockResolvedValue({
+      audio: new Blob(['voice'], { type: 'audio/webm' }),
+      mimeType: 'audio/webm',
+      playbackUrl: 'blob:conversation-turn',
+    });
+    const audioRecorder = vi.fn().mockResolvedValue({
+      stop: stopRecording,
+      cancel: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/conversation']}>
+        <SpeakingActivityPage
+          aiProvider={aiProvider}
+          speechProvider={speechProvider}
+          conversationRepository={conversationRepository}
+          audioRecorder={audioRecorder}
+        />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(profileRepository.loadProfile).toHaveBeenCalled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }));
+    await screen.findByRole('button', { name: 'Record answer' });
+    fireEvent.click(screen.getByRole('button', { name: 'Record answer' }));
+    await waitFor(() => {
+      expect(audioRecorder).toHaveBeenCalled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Stop and send' }));
+    await screen.findByText('Fast richtig: Ich mochte einen Kaffee. Trinkst du Kaffee gern mit Milch?');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Play tutor reply' }));
+
+    await waitFor(() => {
+      expect(speechProvider.synthesize).toHaveBeenCalledWith({
+        feature: 'conversation-tutor-reply',
+        text: 'Fast richtig: Ich mochte einen Kaffee. Trinkst du Kaffee gern mit Milch?',
+        options: { language: 'de' },
+      });
     });
   });
 });

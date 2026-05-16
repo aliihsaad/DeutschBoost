@@ -63,6 +63,7 @@ describe('providerSettingsRepository', () => {
         provider: 'deepgram',
         apiKey: 'deepgram-key',
         model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
     };
@@ -94,6 +95,7 @@ describe('providerSettingsRepository', () => {
         provider: 'deepgram',
         apiKey: 'deepgram-key',
         model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
     };
@@ -169,9 +171,34 @@ describe('providerSettingsRepository', () => {
         enabled: false,
         provider: 'deepgram',
         model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
     });
+  });
+
+  it('migrates older Deepgram settings without a TTS model', async () => {
+    const storage = createMemoryStorage({
+      [DEFAULT_PROVIDER_SETTINGS_STORAGE_KEY]: JSON.stringify({
+        ai: {
+          enabled: false,
+          provider: 'openrouter',
+          model: 'openrouter/auto',
+        },
+        speech: {
+          enabled: true,
+          provider: 'deepgram',
+          apiKey: 'deepgram-key',
+          model: 'nova-3',
+          language: 'de',
+        },
+      }),
+    });
+    const repository = createStorageProviderSettingsRepository({ storage });
+
+    const loaded = await repository.load();
+
+    expect(loaded.speech.ttsModel).toBe('aura-2-viktoria-de');
   });
 
   it('ignores invalid stored setting shapes', async () => {
@@ -228,6 +255,7 @@ describe('providerSettingsRepository', () => {
         provider: 'deepgram',
         apiKey: 'deepgram-key',
         model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
     });
@@ -292,6 +320,7 @@ describe('providerSettingsRepository', () => {
         provider: 'deepgram',
         apiKey: 'deepgram-key',
         model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
     });
@@ -317,6 +346,7 @@ describe('providerSettingsRepository', () => {
         provider: 'deepgram',
         apiKey: 'deepgram-key',
         model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
     });

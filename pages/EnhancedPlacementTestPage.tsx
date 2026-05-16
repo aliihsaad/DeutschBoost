@@ -60,7 +60,7 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
       let level = CEFRLevel.A2; // Start at A2
 
       for (let i = 0; i < 5; i++) {
-        const response = await generateReadingQuestion(level);
+        const response = await generateReadingQuestion(level, aiProvider);
         const data = JSON.parse(response.text);
         questions.push(data);
 
@@ -117,7 +117,7 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
       let level = CEFRLevel.A2;
 
       for (let i = 0; i < 5; i++) {
-        const response = await generateGrammarQuestion(level);
+        const response = await generateGrammarQuestion(level, aiProvider);
         const data = JSON.parse(response.text);
         questions.push(data);
 
@@ -192,8 +192,11 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
   };
 
   // Render functions
-  const renderIntro = () => (
-    <Card className="text-center">
+  const renderIntro = () => {
+    const providerReady = Boolean(aiProvider);
+
+    return (
+      <Card className="text-center">
       <div className="mb-6">
         <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
           <i className="fa-solid fa-clipboard-check text-white text-4xl"></i>
@@ -229,14 +232,22 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
         </p>
       </div>
 
+      {!providerReady ? (
+        <p role="alert" className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-6 text-sm text-red-800">
+          Connect OpenRouter in Settings before starting the placement test.
+        </p>
+      ) : null}
+
       <button
         onClick={startTest}
+        disabled={!providerReady || loading}
         className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-12 py-4 rounded-xl font-bold text-xl hover:shadow-lg transition"
       >
-        Start Test
+        {providerReady ? 'Start Test' : 'Connect OpenRouter first'}
       </button>
     </Card>
-  );
+    );
+  };
 
   const renderReading = () => {
     const question = readingQuestions[currentReadingIndex];

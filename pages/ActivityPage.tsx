@@ -8,6 +8,7 @@ import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
 import type { AiProvider } from '../src/domain/ai/aiProvider';
+import type { SpeechProvider } from '../src/domain/speech/speechProvider';
 import {
   MOTHER_LANGUAGE_OPTIONS,
 } from '../src/domain/profile/profileRepository';
@@ -15,9 +16,15 @@ import { browserProfileRepository } from '../src/infrastructure/browser/profileS
 
 interface ActivityPageProps {
   aiProvider?: AiProvider;
+  speechProvider?: SpeechProvider;
+  providerRuntimeReady?: boolean;
 }
 
-const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
+const ActivityPage: React.FC<ActivityPageProps> = ({
+  aiProvider,
+  speechProvider,
+  providerRuntimeReady = true,
+}) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const learnerId = 'local-learner';
@@ -76,6 +83,10 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
   }, []);
 
   useEffect(() => {
+    if (!providerRuntimeReady) {
+      return;
+    }
+
     if (!activityType || !topic) {
       toast.error('Invalid activity parameters');
       navigate('/learning-plan');
@@ -83,7 +94,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
     }
 
     loadActivity();
-  }, [activityType, topic, description, level, aiProvider, motherLanguage]);
+  }, [activityType, topic, description, level, aiProvider, motherLanguage, providerRuntimeReady]);
 
   const loadActivity = async () => {
     setLoading(true);
@@ -332,26 +343,37 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
     );
   };
 
-  const speakGermanWord = (text: string) => {
-    if ('speechSynthesis' in window) {
-      // Cancel any ongoing speech
-      window.speechSynthesis.cancel();
+  const playGermanAudio = async (text: string, feature: string): Promise<void> => {
+    const normalizedText = text.trim();
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'de-DE';
-      utterance.rate = 0.85; // Slightly slower for learning
-
-      // Try to find a German voice
-      const voices = window.speechSynthesis.getVoices();
-      const germanVoice = voices.find(voice => voice.lang.startsWith('de'));
-      if (germanVoice) {
-        utterance.voice = germanVoice;
-      }
-
-      window.speechSynthesis.speak(utterance);
-    } else {
-      toast.error('Text-to-speech is not supported in your browser');
+    if (!normalizedText) {
+      return;
     }
+
+    if (speechProvider) {
+      const result = await speechProvider.synthesize({
+        feature,
+        text: normalizedText,
+        options: { language: 'de' },
+      });
+      const playbackUrl = URL.createObjectURL(new Blob([result.audio], { type: result.mimeType }));
+
+      try {
+        await playAudioUrl(playbackUrl);
+      } finally {
+        releaseObjectUrl(playbackUrl);
+      }
+      return;
+    }
+
+    await speakText(normalizedText, 'de-DE');
+  };
+
+  const speakGermanWord = (text: string, feature: string) => {
+    void playGermanAudio(text, feature).catch(error => {
+      console.error('Error playing German audio:', error);
+      toast.error('Failed to play German audio');
+    });
   };
 
   const renderVocabularyActivity = () => {
@@ -394,7 +416,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        speakGermanWord(card.example_sentence);
+                        speakGermanWord(card.example_sentence, 'vocabulary-example');
                       }}
                       className="absolute -top-2 -right-2 w-10 h-10 bg-gradient-to-br from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center"
                       title="Listen to example sentence"
@@ -411,7 +433,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              speakGermanWord(card.german);
+              speakGermanWord(card.german, 'vocabulary-pronunciation');
             }}
             className="absolute top-4 right-4 w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group"
             title="Listen to pronunciation"
@@ -571,8 +593,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
     setIsPlayingAudio(true);
 
     try {
-      // Use browser's Web Speech API - much more reliable!
-      await speakText(audioText, 'de-DE');
+      await playGermanAudio(audioText, 'listening-practice');
 
       console.log('✅ Speech completed');
 
@@ -859,5 +880,25 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ aiProvider }) => {
     </div>
   );
 };
+
+function playAudioUrl(url: string): Promise<void> {
+  const audio = new Audio(url);
+
+  return new Promise((resolve, reject) => {
+    audio.onended = () => resolve();
+    audio.onerror = () => reject(new Error('Audio playback failed'));
+    const playback = audio.play();
+
+    if (playback) {
+      playback.catch(reject);
+    }
+  });
+}
+
+function releaseObjectUrl(url: string): void {
+  if (typeof URL.revokeObjectURL === 'function') {
+    URL.revokeObjectURL(url);
+  }
+}
 
 export default ActivityPage;

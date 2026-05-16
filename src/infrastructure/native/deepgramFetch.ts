@@ -3,7 +3,9 @@ type InvokeLike = <T>(command: string, args?: Record<string, unknown>) => Promis
 
 interface DeepgramProxyResponse {
   status: number;
-  body: string;
+  body?: string;
+  body_bytes?: number[];
+  bodyBytes?: number[];
   content_type?: string;
   contentType?: string;
 }
@@ -65,6 +67,25 @@ export function createTauriDeepgramFetch(invoke: InvokeLike): FetchLike {
           punctuate: readOptionalBoolean(request.searchParams, 'punctuate'),
           smartFormat: readOptionalBoolean(request.searchParams, 'smart_format'),
           diarize: readOptionalBoolean(request.searchParams, 'diarize'),
+        })
+      );
+    }
+
+    if (request.path === '/v1/speak') {
+      const body = await bodyToJsonObject(init?.body);
+      const text = typeof body.text === 'string' ? body.text : '';
+
+      if (!text.trim()) {
+        return jsonResponse(400, {
+          err_msg: 'Deepgram TTS text is required',
+        });
+      }
+
+      return proxyResponseToFetchResponse(
+        await invoke<DeepgramProxyResponse>('deepgram_speak', {
+          apiKey,
+          model: request.searchParams.get('model') ?? 'aura-2-viktoria-de',
+          text,
         })
       );
     }
@@ -136,6 +157,45 @@ async function bodyToNumberArray(body: BodyInit | null | undefined): Promise<num
   throw new Error('Unsupported Deepgram audio body type');
 }
 
+async function bodyToJsonObject(body: BodyInit | null | undefined): Promise<Record<string, unknown>> {
+  const text = await bodyToText(body);
+
+  if (!text) {
+    return {};
+  }
+
+  const parsed = JSON.parse(text);
+  return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed : {};
+}
+
+async function bodyToText(body: BodyInit | null | undefined): Promise<string> {
+  if (!body) {
+    return '';
+  }
+
+  if (typeof body === 'string') {
+    return body;
+  }
+
+  if (typeof Blob !== 'undefined' && body instanceof Blob) {
+    return body.text();
+  }
+
+  if (body instanceof ArrayBuffer) {
+    return new TextDecoder().decode(body);
+  }
+
+  if (ArrayBuffer.isView(body)) {
+    return new TextDecoder().decode(new Uint8Array(body.buffer, body.byteOffset, body.byteLength));
+  }
+
+  if (body instanceof URLSearchParams) {
+    return body.toString();
+  }
+
+  throw new Error('Unsupported Deepgram JSON body type');
+}
+
 function readOptionalBoolean(params: URLSearchParams, key: string): boolean | null {
   const value = params.get(key);
 
@@ -147,7 +207,10 @@ function readOptionalBoolean(params: URLSearchParams, key: string): boolean | nu
 }
 
 function proxyResponseToFetchResponse(response: DeepgramProxyResponse): Response {
-  return new Response(response.body, {
+  const bodyBytes = response.body_bytes ?? response.bodyBytes;
+  const body = bodyBytes ? new Uint8Array(bodyBytes) : (response.body ?? '');
+
+  return new Response(body, {
     status: response.status,
     headers: {
       'Content-Type': response.content_type ?? response.contentType ?? 'application/json',

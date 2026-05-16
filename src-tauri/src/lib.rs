@@ -3,7 +3,8 @@ use tauri::Manager;
 #[derive(serde::Serialize)]
 struct DeepgramProxyResponse {
     status: u16,
-    body: String,
+    body: Option<String>,
+    body_bytes: Option<Vec<u8>>,
     content_type: String,
 }
 
@@ -62,6 +63,28 @@ async fn deepgram_transcribe(
     response_to_proxy_response(response).await
 }
 
+#[tauri::command]
+async fn deepgram_speak(
+    api_key: String,
+    model: String,
+    text: String,
+) -> Result<DeepgramProxyResponse, String> {
+    let mut url = reqwest::Url::parse("https://api.deepgram.com/v1/speak")
+        .map_err(|error| format!("Could not build Deepgram TTS URL: {error}"))?;
+    url.query_pairs_mut().append_pair("model", &model);
+
+    let response = reqwest::Client::new()
+        .post(url)
+        .header("Authorization", format!("Token {}", api_key.trim()))
+        .header("Content-Type", "application/json")
+        .body(serde_json::json!({ "text": text }).to_string())
+        .send()
+        .await
+        .map_err(|error| format!("Deepgram TTS request failed: {error}"))?;
+
+    binary_response_to_proxy_response(response).await
+}
+
 async fn response_to_proxy_response(
     response: reqwest::Response,
 ) -> Result<DeepgramProxyResponse, String> {
@@ -79,7 +102,32 @@ async fn response_to_proxy_response(
 
     Ok(DeepgramProxyResponse {
         status,
-        body,
+        body: Some(body),
+        body_bytes: None,
+        content_type,
+    })
+}
+
+async fn binary_response_to_proxy_response(
+    response: reqwest::Response,
+) -> Result<DeepgramProxyResponse, String> {
+    let status = response.status().as_u16();
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("audio/mpeg")
+        .to_string();
+    let body_bytes = response
+        .bytes()
+        .await
+        .map_err(|error| format!("Could not read Deepgram audio response: {error}"))?
+        .to_vec();
+
+    Ok(DeepgramProxyResponse {
+        status,
+        body: None,
+        body_bytes: Some(body_bytes),
         content_type,
     })
 }
@@ -109,6 +157,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             deepgram_auth_token,
+            deepgram_speak,
             deepgram_transcribe
         ])
         .run(tauri::generate_context!())

@@ -63,6 +63,32 @@ describe('createTauriDeepgramFetch', () => {
       diarize: null,
     });
   });
+
+  it('routes Deepgram text-to-speech through the Tauri command bridge', async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      status: 200,
+      bodyBytes: [9, 8, 7],
+      content_type: 'audio/mpeg',
+    });
+    const fetchFn = createTauriDeepgramFetch(invoke);
+
+    const response = await fetchFn('/api/deepgram/v1/speak?model=aura-2-viktoria-de', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Token deepgram-key',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text: 'Hallo, ich lerne Deutsch.' }),
+    });
+
+    expect(Array.from(new Uint8Array(await response.arrayBuffer()))).toEqual([9, 8, 7]);
+    expect(response.headers.get('Content-Type')).toBe('audio/mpeg');
+    expect(invoke).toHaveBeenCalledWith('deepgram_speak', {
+      apiKey: 'deepgram-key',
+      model: 'aura-2-viktoria-de',
+      text: 'Hallo, ich lerne Deutsch.',
+    });
+  });
 });
 
 describe('createInstalledNativeDeepgramFetch', () => {

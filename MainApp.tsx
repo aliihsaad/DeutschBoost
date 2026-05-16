@@ -35,6 +35,7 @@ const MainApp: React.FC = () => {
   const [providerSettings, setProviderSettings] = useState<LocalProviderSettings>(
     createDefaultLocalProviderSettings
   );
+  const [providerSettingsLoaded, setProviderSettingsLoaded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -49,6 +50,10 @@ const MainApp: React.FC = () => {
         }
       } catch (error) {
         console.error('Error loading local provider settings:', error);
+      } finally {
+        if (!cancelled) {
+          setProviderSettingsLoaded(true);
+        }
       }
     }
 
@@ -167,7 +172,16 @@ const MainApp: React.FC = () => {
           <Route path="/practice" element={<PracticePage />} />
           <Route path="/exam" element={<ExamSimulatorPage />} />
           <Route path="/exam-simulator" element={<ExamSimulatorPage />} />
-          <Route path="/activity" element={<ActivityPage aiProvider={runtimeAiProvider} />} />
+          <Route
+            path="/activity"
+            element={
+              <ActivityPage
+                aiProvider={runtimeAiProvider}
+                speechProvider={runtimeSpeechProvider}
+                providerRuntimeReady={providerSettingsLoaded}
+              />
+            }
+          />
           <Route
             path="/speaking-activity"
             element={

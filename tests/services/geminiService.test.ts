@@ -97,11 +97,65 @@ describe('geminiService provider boundaries', () => {
             content: expect.stringContaining('READING COMPREHENSION: 3/5'),
           }),
         ],
-        options: expect.objectContaining({
-          model: 'gemini-2.5-pro',
-        }),
       })
     );
+    expect(vi.mocked(provider.generateJson).mock.calls[0][0].options?.model).toBeUndefined();
+    expect(geminiMock.generateContent).not.toHaveBeenCalled();
+  });
+
+  it('can generate placement reading questions through an injected AI provider', async () => {
+    const readingQuestion = {
+      text: 'Anna kauft Brot.',
+      question: 'Was kauft Anna?',
+      options: ['Brot', 'Milch', 'Kaffee', 'Tee'],
+      correctOptionIndex: 0,
+    };
+    const provider = createProvider(readingQuestion);
+    const { generateReadingQuestion } = await import('../../services/geminiService');
+
+    const result = await generateReadingQuestion(CEFRLevel.A2, provider);
+
+    expect(JSON.parse(result.text)).toEqual(readingQuestion);
+    expect(provider.generateJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feature: 'placement reading question',
+        schemaName: 'PlacementReadingQuestion',
+        messages: [
+          expect.objectContaining({
+            content: expect.stringContaining('A2 CEFR level'),
+          }),
+        ],
+      })
+    );
+    expect(vi.mocked(provider.generateJson).mock.calls[0][0].options?.model).toBeUndefined();
+    expect(geminiMock.generateContent).not.toHaveBeenCalled();
+  });
+
+  it('can generate placement grammar questions through an injected AI provider', async () => {
+    const grammarQuestion = {
+      sentence: 'Ich gehe _____ Schule.',
+      question: 'Was passt?',
+      options: ['in die', 'im', 'an der', 'auf den'],
+      correctOptionIndex: 0,
+    };
+    const provider = createProvider(grammarQuestion);
+    const { generateGrammarQuestion } = await import('../../services/geminiService');
+
+    const result = await generateGrammarQuestion(CEFRLevel.A2, provider);
+
+    expect(JSON.parse(result.text)).toEqual(grammarQuestion);
+    expect(provider.generateJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feature: 'placement grammar question',
+        schemaName: 'PlacementGrammarQuestion',
+        messages: [
+          expect.objectContaining({
+            content: expect.stringContaining('A2 CEFR level'),
+          }),
+        ],
+      })
+    );
+    expect(vi.mocked(provider.generateJson).mock.calls[0][0].options?.model).toBeUndefined();
     expect(geminiMock.generateContent).not.toHaveBeenCalled();
   });
 
@@ -125,11 +179,9 @@ describe('geminiService provider boundaries', () => {
             content: expect.stringContaining('As a certified German language examiner'),
           }),
         ],
-        options: expect.objectContaining({
-          model: 'gemini-2.5-pro',
-        }),
       })
     );
+    expect(vi.mocked(provider.generateJson).mock.calls[0][0].options?.model).toBeUndefined();
     expect(geminiMock.generateContent).not.toHaveBeenCalled();
   });
 
@@ -164,11 +216,9 @@ describe('geminiService provider boundaries', () => {
             content: expect.stringContaining('Current Level: A2'),
           }),
         ],
-        options: expect.objectContaining({
-          model: 'gemini-2.5-pro',
-        }),
       })
     );
+    expect(vi.mocked(provider.generateJson).mock.calls[0][0].options?.model).toBeUndefined();
     expect(geminiMock.generateContent).not.toHaveBeenCalled();
   });
 

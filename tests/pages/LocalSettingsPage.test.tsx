@@ -34,6 +34,7 @@ describe('LocalSettingsPage', () => {
     expect(screen.getByText('Deepgram voice is off')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'OpenRouter model' })).toHaveValue('openrouter/auto');
     expect(screen.getByRole('combobox', { name: 'Deepgram model' })).toHaveValue('nova-3');
+    expect(screen.getByRole('combobox', { name: 'Deepgram TTS voice' })).toHaveValue('aura-2-viktoria-de');
     expect(screen.getByRole('combobox', { name: 'Deepgram language' })).toHaveValue('de');
     expect(screen.queryByRole('textbox', { name: 'Deepgram language' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('OpenRouter site URL')).not.toBeInTheDocument();
@@ -77,6 +78,7 @@ describe('LocalSettingsPage', () => {
           provider: 'deepgram',
           apiKey: 'deepgram-key',
           model: 'nova-3',
+          ttsModel: 'aura-2-viktoria-de',
           language: 'de',
         }),
       });
@@ -101,6 +103,7 @@ describe('LocalSettingsPage', () => {
             provider: 'deepgram',
             apiKey: 'saved-deepgram-key',
             model: 'nova-3',
+            ttsModel: 'aura-2-viktoria-de',
             language: 'de',
           },
         }),
@@ -157,6 +160,7 @@ describe('LocalSettingsPage', () => {
             provider: 'deepgram',
             apiKey: 'saved-deepgram-key',
             model: 'nova-3',
+            ttsModel: 'aura-2-viktoria-de',
             language: 'de',
           },
         }),
@@ -218,6 +222,7 @@ describe('LocalSettingsPage', () => {
       expect(deepgramAudioTester).toHaveBeenCalledWith({
         apiKey: 'deepgram-key',
         model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
         language: 'de',
         audio,
         mimeType: 'audio/webm',
@@ -228,6 +233,53 @@ describe('LocalSettingsPage', () => {
       'blob:deepgram-test-sample'
     );
     expect(screen.getByText('Transcript: Hallo, ich lerne Deutsch.')).toBeInTheDocument();
+  });
+
+  it('plays a Deepgram TTS sample with the selected voice', async () => {
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:deepgram-tts-sample'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const repository = createStorageProviderSettingsRepository({
+      storage: createMemoryStorage(),
+    });
+    const deepgramTtsTester = vi.fn().mockResolvedValue({
+      audio: new Uint8Array([1, 2, 3]),
+      mimeType: 'audio/mpeg',
+      providerMetadata: {
+        model: 'aura-2-julius-de',
+      },
+    });
+
+    render(<LocalSettingsPage repository={repository} deepgramTtsTester={deepgramTtsTester} />);
+
+    await screen.findByRole('heading', { name: 'Local Settings' });
+    fireEvent.change(screen.getByLabelText('Deepgram API key'), {
+      target: { value: 'deepgram-key' },
+    });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Deepgram TTS voice' }), {
+      target: { value: 'aura-2-julius-de' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Play test voice' }));
+
+    await waitFor(() => {
+      expect(deepgramTtsTester).toHaveBeenCalledWith({
+        apiKey: 'deepgram-key',
+        model: 'nova-3',
+        ttsModel: 'aura-2-julius-de',
+        language: 'de',
+        text: 'Hallo. Ich bin deine DeutschBoost Stimme.',
+      });
+    });
+    expect(screen.getByLabelText('Deepgram TTS test playback')).toHaveAttribute(
+      'src',
+      'blob:deepgram-tts-sample'
+    );
+    expect(screen.getByText('Deepgram voice sample is ready')).toBeInTheDocument();
   });
 
   it('resets saved provider settings back to local defaults', async () => {
@@ -248,6 +300,7 @@ describe('LocalSettingsPage', () => {
         provider: 'deepgram',
         apiKey: 'deepgram-key',
         model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
     });
@@ -262,7 +315,12 @@ describe('LocalSettingsPage', () => {
     await waitFor(() => {
       expect(onSettingsChange).toHaveBeenCalledWith({
         ai: expect.objectContaining({ enabled: false, model: 'openrouter/auto' }),
-        speech: expect.objectContaining({ enabled: false, model: 'nova-3', language: 'de' }),
+        speech: expect.objectContaining({
+          enabled: false,
+          model: 'nova-3',
+          ttsModel: 'aura-2-viktoria-de',
+          language: 'de',
+        }),
       });
     });
     expect(screen.getByText('Settings reset')).toBeInTheDocument();

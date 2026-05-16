@@ -110,6 +110,99 @@ describe('createDeepgramSpeechProvider', () => {
     });
   });
 
+  it('synthesizes German speech through Deepgram Aura TTS', async () => {
+    const audioBytes = new Uint8Array([1, 2, 3, 4]);
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(audioBytes, {
+        status: 200,
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'dg-request-id': 'deepgram-tts-1',
+        },
+      })
+    );
+    const provider = createDeepgramSpeechProvider({
+      apiKey: 'deepgram-key',
+      model: 'nova-3',
+      language: 'de',
+      ttsModel: 'aura-2-viktoria-de',
+      fetchFn,
+    });
+
+    const result = await provider.synthesize({
+      feature: 'listening-practice',
+      text: 'Guten Morgen. Wie geht es dir?',
+    });
+
+    expect(new Uint8Array(result.audio)).toEqual(audioBytes);
+    expect(result.mimeType).toBe('audio/mpeg');
+    expect(result.providerMetadata).toEqual(
+      expect.objectContaining({ requestId: 'deepgram-tts-1' })
+    );
+    expect(fetchFn).toHaveBeenCalledWith(
+      '/api/deepgram/v1/speak?model=aura-2-viktoria-de',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          Authorization: 'Token deepgram-key',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: 'Guten Morgen. Wie geht es dir?' }),
+      })
+    );
+  });
+
+  it('allows a per-request Deepgram TTS voice override', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([5]), {
+        status: 200,
+        headers: { 'Content-Type': 'audio/mpeg' },
+      })
+    );
+    const provider = createDeepgramSpeechProvider({
+      apiKey: 'deepgram-key',
+      ttsModel: 'aura-2-viktoria-de',
+      fetchFn,
+    });
+
+    await provider.synthesize({
+      feature: 'vocabulary-pronunciation',
+      text: 'der Bahnhof',
+      options: { ttsModel: 'aura-2-julius-de' },
+    });
+
+    expect(fetchFn).toHaveBeenCalledWith(
+      '/api/deepgram/v1/speak?model=aura-2-julius-de',
+      expect.any(Object)
+    );
+  });
+
+  it('reports a provider error when Deepgram TTS returns app HTML', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response('<!DOCTYPE html><html></html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      })
+    );
+    const provider = createDeepgramSpeechProvider({
+      apiKey: 'deepgram-key',
+      fetchFn,
+    });
+
+    await expect(
+      provider.synthesize({
+        feature: 'settings-deepgram-tts-test',
+        text: 'Hallo.',
+      })
+    ).rejects.toMatchObject({
+      message:
+        'Deepgram endpoint returned the app HTML instead of audio. Check the desktop provider bridge.',
+      provider: 'deepgram',
+      feature: 'settings-deepgram-tts-test',
+      retryable: false,
+    });
+  });
+
   it('tests a Deepgram API key through the auth token endpoint', async () => {
     const fetchFn = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ member_id: 'member-123' }), { status: 200 })

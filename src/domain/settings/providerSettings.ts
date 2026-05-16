@@ -22,6 +22,7 @@ export interface LocalSpeechProviderSettings {
   provider: SpeechProviderSetting;
   apiKey?: string;
   model: string;
+  ttsModel: string;
   language: string;
 }
 
@@ -48,6 +49,7 @@ export interface ProviderModelOption {
 
 const DEFAULT_OPENROUTER_MODEL = 'openrouter/auto';
 const DEFAULT_DEEPGRAM_MODEL = 'nova-3';
+const DEFAULT_DEEPGRAM_TTS_MODEL = 'aura-2-viktoria-de';
 const DEFAULT_DEEPGRAM_LANGUAGE = 'de';
 const FIXED_OPENROUTER_APP_TITLE = 'DeutschBoost';
 const FIXED_OPENROUTER_SITE_URL = 'app://deutschboost';
@@ -61,6 +63,13 @@ export const OPENROUTER_MODEL_OPTIONS: ProviderModelOption[] = [
 export const DEEPGRAM_MODEL_OPTIONS: ProviderModelOption[] = [
   { value: 'nova-3', label: 'Nova-3' },
   { value: 'nova-2', label: 'Nova-2' },
+];
+
+export const DEEPGRAM_TTS_MODEL_OPTIONS: ProviderModelOption[] = [
+  { value: 'aura-2-viktoria-de', label: 'Viktoria (German)' },
+  { value: 'aura-2-julius-de', label: 'Julius (German)' },
+  { value: 'aura-2-elara-de', label: 'Elara (German)' },
+  { value: 'aura-2-fabian-de', label: 'Fabian (German)' },
 ];
 
 export const DEEPGRAM_LANGUAGE_OPTIONS: ProviderModelOption[] = [
@@ -78,6 +87,7 @@ export function createDefaultLocalProviderSettings(): LocalProviderSettings {
       enabled: false,
       provider: 'deepgram',
       model: DEFAULT_DEEPGRAM_MODEL,
+      ttsModel: DEFAULT_DEEPGRAM_TTS_MODEL,
       language: DEFAULT_DEEPGRAM_LANGUAGE,
     },
   };
@@ -157,6 +167,7 @@ export function createSpeechProviderFromSettings(
   return createDeepgramSpeechProvider({
     apiKey: settings.apiKey,
     model: settings.model,
+    ttsModel: settings.ttsModel,
     language: settings.language,
     fetchFn: dependencies.fetchFn,
     now: dependencies.now,

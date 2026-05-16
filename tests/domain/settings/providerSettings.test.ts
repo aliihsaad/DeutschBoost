@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   DEEPGRAM_LANGUAGE_OPTIONS,
   DEEPGRAM_MODEL_OPTIONS,
+  DEEPGRAM_TTS_MODEL_OPTIONS,
   OPENROUTER_MODEL_OPTIONS,
   buildProviderSettingsSnapshots,
   createAiProviderFromSettings,
@@ -23,6 +24,7 @@ describe('providerSettings', () => {
       enabled: false,
       provider: 'deepgram',
       model: 'nova-3',
+      ttsModel: 'aura-2-viktoria-de',
       language: 'de',
     });
     expect(snapshots.ai).toMatchObject({
@@ -46,7 +48,15 @@ describe('providerSettings', () => {
     expect(OPENROUTER_MODEL_OPTIONS.map(option => option.value)).toContain('openrouter/auto');
     expect(OPENROUTER_MODEL_OPTIONS.map(option => option.value)).toContain('openai/gpt-4o-mini');
     expect(DEEPGRAM_MODEL_OPTIONS.map(option => option.value)).toEqual(['nova-3', 'nova-2']);
+    expect(DEEPGRAM_TTS_MODEL_OPTIONS.map(option => option.value)).toContain('aura-2-viktoria-de');
+    expect(DEEPGRAM_TTS_MODEL_OPTIONS.map(option => option.value)).toContain('aura-2-julius-de');
     expect(DEEPGRAM_LANGUAGE_OPTIONS.map(option => option.value)).toContain('de');
+  });
+
+  it('defaults Deepgram TTS to a German Aura voice', () => {
+    const settings = createDefaultLocalProviderSettings();
+
+    expect(settings.speech.ttsModel).toBe('aura-2-viktoria-de');
   });
 
   it('does not create cloud providers when settings are disabled or missing keys', () => {
@@ -133,6 +143,7 @@ describe('providerSettings', () => {
         provider: 'deepgram',
         apiKey: 'deepgram-key',
         model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
       {
@@ -164,6 +175,36 @@ describe('providerSettings', () => {
           'Content-Type': 'audio/webm',
         }),
       })
+    );
+  });
+
+  it('passes Deepgram TTS model into the speech provider', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([1, 2]), {
+        status: 200,
+        headers: { 'Content-Type': 'audio/mpeg' },
+      })
+    );
+    const provider = createSpeechProviderFromSettings(
+      {
+        enabled: true,
+        provider: 'deepgram',
+        apiKey: 'deepgram-key',
+        model: 'nova-3',
+        ttsModel: 'aura-2-julius-de',
+        language: 'de',
+      },
+      { fetchFn }
+    );
+
+    await provider?.synthesize({
+      feature: 'settings-test',
+      text: 'Hallo.',
+    });
+
+    expect(fetchFn).toHaveBeenCalledWith(
+      '/api/deepgram/v1/speak?model=aura-2-julius-de',
+      expect.any(Object)
     );
   });
 });

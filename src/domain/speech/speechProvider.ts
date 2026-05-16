@@ -21,10 +21,30 @@ export interface SpeechTranscriptionResult {
   providerMetadata?: Record<string, unknown>;
 }
 
+export interface SpeechSynthesisOptions {
+  ttsModel?: string;
+  language?: string;
+  format?: 'mp3';
+  speed?: number;
+}
+
+export interface SpeechSynthesisRequest {
+  feature: string;
+  text: string;
+  options?: SpeechSynthesisOptions;
+}
+
+export interface SpeechSynthesisResult {
+  audio: ArrayBuffer;
+  mimeType: string;
+  providerMetadata?: Record<string, unknown>;
+}
+
 export interface SpeechProvider {
   id: string;
   displayName: string;
   transcribe(request: SpeechTranscriptionRequest): Promise<SpeechTranscriptionResult>;
+  synthesize(request: SpeechSynthesisRequest): Promise<SpeechSynthesisResult>;
 }
 
 export interface SpeechProviderErrorOptions {

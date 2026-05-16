@@ -28,6 +28,7 @@ describe('providerRuntime', () => {
         provider: 'deepgram',
         apiKey: 'deepgram-key',
         model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
     };

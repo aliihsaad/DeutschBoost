@@ -301,17 +301,28 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
     }
   }
 
-  function handlePlayTutorTurn(text: string) {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
-      setMessage('German playback is not available in this browser.');
+  async function handlePlayTutorTurn(text: string) {
+    if (!speechProvider) {
+      setMessage('Connect Deepgram in Settings to play tutor replies.');
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'de-DE';
-    utterance.rate = 0.95;
-    window.speechSynthesis.speak(utterance);
+    try {
+      const result = await speechProvider.synthesize({
+        feature: 'conversation-tutor-reply',
+        text,
+        options: { language: 'de' },
+      });
+      const playbackUrl = URL.createObjectURL(new Blob([result.audio], { type: result.mimeType }));
+
+      try {
+        await playAudioUrl(playbackUrl);
+      } finally {
+        releaseObjectUrl(playbackUrl);
+      }
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+    }
   }
 
   return (
@@ -470,7 +481,7 @@ const ProviderSetupState: React.FC = () => (
 
 const TranscriptBubble: React.FC<{
   turn: TranscriptTurn;
-  onPlayTutorTurn: (text: string) => void;
+  onPlayTutorTurn: (text: string) => void | Promise<void>;
 }> = ({ turn, onPlayTutorTurn }) => {
   const isLearner = turn.speaker === 'learner';
 
@@ -482,7 +493,7 @@ const TranscriptBubble: React.FC<{
       </div>
       <p>{turn.text}</p>
       {!isLearner ? (
-        <button type="button" className="db-icon-button" onClick={() => onPlayTutorTurn(turn.text)} aria-label="Play tutor reply">
+        <button type="button" className="db-icon-button" onClick={() => void onPlayTutorTurn(turn.text)} aria-label="Play tutor reply">
           <i className="fa-solid fa-volume-high" aria-hidden="true" />
         </button>
       ) : null}
@@ -507,6 +518,26 @@ function formatStatus(status: ConversationStatus): string {
 
 function releasePlaybackUrl(url: string | null | undefined): void {
   if (url && typeof URL.revokeObjectURL === 'function') {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function playAudioUrl(url: string): Promise<void> {
+  const audio = new Audio(url);
+
+  return new Promise((resolve, reject) => {
+    audio.onended = () => resolve();
+    audio.onerror = () => reject(new Error('Audio playback failed'));
+    const playback = audio.play();
+
+    if (playback) {
+      playback.catch(reject);
+    }
+  });
+}
+
+function releaseObjectUrl(url: string): void {
+  if (typeof URL.revokeObjectURL === 'function') {
     URL.revokeObjectURL(url);
   }
 }

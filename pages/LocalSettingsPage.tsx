@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   DEEPGRAM_LANGUAGE_OPTIONS,
   DEEPGRAM_MODEL_OPTIONS,
+  DEEPGRAM_TTS_MODEL_OPTIONS,
   OPENROUTER_MODEL_OPTIONS,
   buildProviderSettingsSnapshots,
   createDefaultLocalProviderSettings,
@@ -14,7 +15,10 @@ import {
   testDeepgramApiKey,
   type DeepgramApiKeyTestResult,
 } from '../src/domain/speech/deepgramProvider';
-import type { SpeechTranscriptionResult } from '../src/domain/speech/speechProvider';
+import type {
+  SpeechSynthesisResult,
+  SpeechTranscriptionResult,
+} from '../src/domain/speech/speechProvider';
 import { recordAudioSample, type RecordedAudioSample } from '../src/infrastructure/browser/audioRecorder';
 import { browserProviderSettingsRepository } from '../src/infrastructure/browser/providerSettingsStorage';
 import { createInstalledNativeDeepgramFetch } from '../src/infrastructure/native/deepgramFetch';
@@ -23,13 +27,23 @@ import { describeProviderStatus, type ProviderSettingsSnapshot } from '../src/ui
 type DeepgramApiKeyTester = (apiKey: string) => Promise<DeepgramApiKeyTestResult>;
 type DeepgramAudioRecorder = () => Promise<RecordedAudioSample>;
 type DeepgramAudioTester = (request: DeepgramAudioTestRequest) => Promise<SpeechTranscriptionResult>;
+type DeepgramTtsTester = (request: DeepgramTtsTestRequest) => Promise<SpeechSynthesisResult>;
 
 interface DeepgramAudioTestRequest {
   apiKey: string;
   model: string;
+  ttsModel: string;
   language: string;
   audio: Blob;
   mimeType: string;
+}
+
+interface DeepgramTtsTestRequest {
+  apiKey: string;
+  model: string;
+  ttsModel: string;
+  language: string;
+  text: string;
 }
 
 interface LocalSettingsPageProps {
@@ -38,6 +52,7 @@ interface LocalSettingsPageProps {
   deepgramApiKeyTester?: DeepgramApiKeyTester;
   deepgramAudioRecorder?: DeepgramAudioRecorder;
   deepgramAudioTester?: DeepgramAudioTester;
+  deepgramTtsTester?: DeepgramTtsTester;
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'reset' | 'error';
@@ -55,6 +70,7 @@ const defaultDeepgramAudioTester: DeepgramAudioTester = request =>
   createDeepgramSpeechProvider({
     apiKey: request.apiKey,
     model: request.model,
+    ttsModel: request.ttsModel,
     language: request.language,
     fetchFn: createInstalledNativeDeepgramFetch() ?? undefined,
   }).transcribe({
@@ -68,12 +84,29 @@ const defaultDeepgramAudioTester: DeepgramAudioTester = request =>
     },
   });
 
+const defaultDeepgramTtsTester: DeepgramTtsTester = request =>
+  createDeepgramSpeechProvider({
+    apiKey: request.apiKey,
+    model: request.model,
+    ttsModel: request.ttsModel,
+    language: request.language,
+    fetchFn: createInstalledNativeDeepgramFetch() ?? undefined,
+  }).synthesize({
+    feature: 'settings-deepgram-tts-test',
+    text: request.text,
+    options: {
+      ttsModel: request.ttsModel,
+      language: request.language,
+    },
+  });
+
 const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
   repository = browserProviderSettingsRepository,
   onSettingsChange,
   deepgramApiKeyTester = defaultDeepgramApiKeyTester,
   deepgramAudioRecorder = defaultDeepgramAudioRecorder,
   deepgramAudioTester = defaultDeepgramAudioTester,
+  deepgramTtsTester = defaultDeepgramTtsTester,
 }) => {
   const [settings, setSettings] = useState<LocalProviderSettings>(createDefaultLocalProviderSettings);
   const [apiKeyDrafts, setApiKeyDrafts] = useState({ ai: '', speech: '' });
@@ -87,7 +120,12 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
     state: ConnectionTestState;
     message: string | null;
   }>({ state: 'idle', message: null });
+  const [deepgramTtsTest, setDeepgramTtsTest] = useState<{
+    state: ConnectionTestState;
+    message: string | null;
+  }>({ state: 'idle', message: null });
   const [samplePlaybackUrl, setSamplePlaybackUrl] = useState<string | null>(null);
+  const [ttsPlaybackUrl, setTtsPlaybackUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -126,6 +164,12 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
       releasePlaybackUrl(samplePlaybackUrl);
     };
   }, [samplePlaybackUrl]);
+
+  useEffect(() => {
+    return () => {
+      releasePlaybackUrl(ttsPlaybackUrl);
+    };
+  }, [ttsPlaybackUrl]);
 
   const snapshots = useMemo(() => buildProviderSettingsSnapshots(settings), [settings]);
   const aiStatus = describeProviderStatus(snapshots.ai);
@@ -169,7 +213,12 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
   function resetDeepgramTestState() {
     setDeepgramTest({ state: 'idle', message: null });
     setDeepgramAudioTest({ state: 'idle', message: null });
+    setDeepgramTtsTest({ state: 'idle', message: null });
     setSamplePlaybackUrl(current => {
+      releasePlaybackUrl(current);
+      return null;
+    });
+    setTtsPlaybackUrl(current => {
       releasePlaybackUrl(current);
       return null;
     });
@@ -225,6 +274,7 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
       const result = await deepgramAudioTester({
         apiKey,
         model: settings.speech.model,
+        ttsModel: settings.speech.ttsModel,
         language: settings.speech.language,
         audio: sample.audio,
         mimeType: sample.mimeType,
@@ -236,6 +286,44 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
       });
     } catch (error) {
       setDeepgramAudioTest({
+        state: 'error',
+        message: getErrorMessage(error),
+      });
+    }
+  }
+
+  async function handlePlayDeepgramTts() {
+    const apiKey = selectSecret(apiKeyDrafts.speech, settings.speech.apiKey);
+
+    if (!apiKey) {
+      setDeepgramTtsTest({
+        state: 'error',
+        message: 'Add a Deepgram API key first',
+      });
+      return;
+    }
+
+    setDeepgramTtsTest({ state: 'testing', message: null });
+
+    try {
+      const result = await deepgramTtsTester({
+        apiKey,
+        model: settings.speech.model,
+        ttsModel: settings.speech.ttsModel,
+        language: settings.speech.language,
+        text: 'Hallo. Ich bin deine DeutschBoost Stimme.',
+      });
+      const nextUrl = URL.createObjectURL(new Blob([result.audio], { type: result.mimeType }));
+      setTtsPlaybackUrl(current => {
+        releasePlaybackUrl(current);
+        return nextUrl;
+      });
+      setDeepgramTtsTest({
+        state: 'success',
+        message: 'Deepgram voice sample is ready',
+      });
+    } catch (error) {
+      setDeepgramTtsTest({
         state: 'error',
         message: getErrorMessage(error),
       });
@@ -350,6 +438,14 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
               >
                 {deepgramAudioTest.state === 'testing' ? 'Recording...' : 'Record test audio'}
               </button>
+              <button
+                className="db-inline-button"
+                type="button"
+                onClick={handlePlayDeepgramTts}
+                disabled={loading || deepgramTtsTest.state === 'testing'}
+              >
+                {deepgramTtsTest.state === 'testing' ? 'Preparing...' : 'Play test voice'}
+              </button>
               <ProviderTestMessage state={deepgramTest.state} message={deepgramTest.message} />
             </div>
             {samplePlaybackUrl ? (
@@ -361,6 +457,16 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
               />
             ) : null}
             <ProviderTestMessage state={deepgramAudioTest.state} message={deepgramAudioTest.message} />
+            {ttsPlaybackUrl ? (
+              <audio
+                className="db-provider-test-audio"
+                controls
+                autoPlay
+                src={ttsPlaybackUrl}
+                aria-label="Deepgram TTS test playback"
+              />
+            ) : null}
+            <ProviderTestMessage state={deepgramTtsTest.state} message={deepgramTtsTest.message} />
             <SelectField
               label="Deepgram model"
               value={settings.speech.model}
@@ -369,6 +475,17 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
                 setSettings(current => ({
                   ...current,
                   speech: { ...current.speech, model: value },
+                }))
+              }
+            />
+            <SelectField
+              label="Deepgram TTS voice"
+              value={settings.speech.ttsModel}
+              options={DEEPGRAM_TTS_MODEL_OPTIONS}
+              onChange={value =>
+                setSettings(current => ({
+                  ...current,
+                  speech: { ...current.speech, ttsModel: value },
                 }))
               }
             />

@@ -4,7 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CEFRLevel, type LearningPlan, type TestResult } from '../types';
 
 const activityPageProps = vi.hoisted(() => ({
-  latest: null as null | { aiProvider?: { id: string } },
+  latest: null as null | {
+    aiProvider?: { id: string };
+    speechProvider?: { id: string };
+    providerRuntimeReady?: boolean;
+  },
 }));
 
 const speakingPageProps = vi.hoisted(() => ({
@@ -88,12 +92,19 @@ const generatedPlan: LearningPlan = {
   ],
 };
 
+const placementPageProps = vi.hoisted(() => ({
+  latest: null as null | { aiProvider?: { id: string } },
+}));
+
 vi.mock('../pages/EnhancedPlacementTestPage', () => ({
-  default: (props: { onTestComplete: (result: TestResult) => void }) => (
-    <main>
-      <button onClick={() => props.onTestComplete(placementResult)}>Finish placement</button>
-    </main>
-  ),
+  default: (props: { onTestComplete: (result: TestResult) => void; aiProvider?: { id: string } }) => {
+    placementPageProps.latest = props;
+    return (
+      <main>
+        <button onClick={() => props.onTestComplete(placementResult)}>Finish placement</button>
+      </main>
+    );
+  },
 }));
 
 vi.mock('../pages/LearningPlanPage', () => ({
@@ -101,7 +112,11 @@ vi.mock('../pages/LearningPlanPage', () => ({
 }));
 
 vi.mock('../pages/SpeakingActivityPage', () => ({
-  default: (props: { aiProvider?: { id: string }; speechProvider?: { id: string } }) => {
+  default: (props: {
+    aiProvider?: { id: string };
+    speechProvider?: { id: string };
+    providerRuntimeReady?: boolean;
+  }) => {
     speakingPageProps.latest = props;
     return <main>Speaking</main>;
   },
@@ -120,7 +135,7 @@ vi.mock('../pages/ExamSimulatorPage', () => ({
 }));
 
 vi.mock('../pages/ActivityPage', () => ({
-  default: (props: { aiProvider?: { id: string } }) => {
+  default: (props: { aiProvider?: { id: string }; speechProvider?: { id: string } }) => {
     activityPageProps.latest = props;
     return <main>Activity</main>;
   },
@@ -130,6 +145,7 @@ describe('MainApp provider runtime', () => {
   beforeEach(() => {
     activityPageProps.latest = null;
     speakingPageProps.latest = null;
+    placementPageProps.latest = null;
     vi.clearAllMocks();
     providerSettingsRepository.load.mockResolvedValue({
       ai: {
@@ -141,6 +157,7 @@ describe('MainApp provider runtime', () => {
         enabled: false,
         provider: 'deepgram',
         model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
     });
@@ -185,6 +202,7 @@ describe('MainApp provider runtime', () => {
         enabled: false,
         provider: 'deepgram',
         model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
     });
@@ -202,6 +220,36 @@ describe('MainApp provider runtime', () => {
     });
   });
 
+  it('passes the saved OpenRouter provider into the placement test route', async () => {
+    providerSettingsRepository.load.mockResolvedValue({
+      ai: {
+        enabled: true,
+        provider: 'openrouter',
+        apiKey: 'openrouter-key',
+        model: 'openrouter/auto',
+      },
+      speech: {
+        enabled: false,
+        provider: 'deepgram',
+        model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
+        language: 'de',
+      },
+    });
+
+    const { default: MainApp } = await import('../MainApp');
+
+    render(
+      <MemoryRouter initialEntries={['/placement-test']}>
+        <MainApp />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(placementPageProps.latest?.aiProvider?.id).toBe('openrouter');
+    });
+  });
+
   it('passes saved OpenRouter and Deepgram providers into the local conversation route', async () => {
     providerSettingsRepository.load.mockResolvedValue({
       ai: {
@@ -215,6 +263,7 @@ describe('MainApp provider runtime', () => {
         provider: 'deepgram',
         apiKey: 'deepgram-key',
         model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
     });
@@ -230,6 +279,37 @@ describe('MainApp provider runtime', () => {
     await waitFor(() => {
       expect(speakingPageProps.latest?.aiProvider?.id).toBe('openrouter');
       expect(speakingPageProps.latest?.speechProvider?.id).toBe('deepgram');
+    });
+  });
+
+  it('passes the saved Deepgram provider into activity routes', async () => {
+    providerSettingsRepository.load.mockResolvedValue({
+      ai: {
+        enabled: false,
+        provider: 'openrouter',
+        model: 'openrouter/auto',
+      },
+      speech: {
+        enabled: true,
+        provider: 'deepgram',
+        apiKey: 'deepgram-key',
+        model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
+        language: 'de',
+      },
+    });
+
+    const { default: MainApp } = await import('../MainApp');
+
+    render(
+      <MemoryRouter initialEntries={['/activity?type=listening&topic=Food&description=Words&level=A2']}>
+        <MainApp />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(activityPageProps.latest?.speechProvider?.id).toBe('deepgram');
+      expect(activityPageProps.latest?.providerRuntimeReady).toBe(true);
     });
   });
 

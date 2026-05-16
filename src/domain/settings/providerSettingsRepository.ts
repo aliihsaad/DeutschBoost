@@ -1,6 +1,7 @@
 import {
   DEEPGRAM_LANGUAGE_OPTIONS,
   DEEPGRAM_MODEL_OPTIONS,
+  DEEPGRAM_TTS_MODEL_OPTIONS,
   OPENROUTER_MODEL_OPTIONS,
   createDefaultLocalProviderSettings,
   type AiProviderSetting,
@@ -173,6 +174,11 @@ function normalizeProviderSettings(settings: unknown): LocalProviderSettings {
       enabled: normalizeBoolean(speech.enabled, defaults.speech.enabled),
       provider: normalizeSpeechProvider(speech.provider, defaults.speech.provider),
       model: normalizeModelOption(speech.model, DEEPGRAM_MODEL_OPTIONS, defaults.speech.model),
+      ttsModel: normalizeModelOption(
+        speech.ttsModel,
+        DEEPGRAM_TTS_MODEL_OPTIONS,
+        defaults.speech.ttsModel
+      ),
       language: normalizeModelOption(speech.language, DEEPGRAM_LANGUAGE_OPTIONS, defaults.speech.language),
       ...optionalText('apiKey', speech.apiKey, defaults.speech.apiKey),
     },
