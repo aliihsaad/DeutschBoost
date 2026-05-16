@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   evaluateNativeReadiness,
   formatNativeReadinessReport,
-} from '../../scripts/native-readiness.mjs';
+} from '../../scripts/native-readiness-core.mjs';
 
 const basePackageJson = {
   scripts: {
