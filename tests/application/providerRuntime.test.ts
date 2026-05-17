@@ -88,7 +88,7 @@ describe('providerRuntime', () => {
         enabled: true,
         provider: 'gemini-live',
         apiKey: 'gemini-key',
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Kore',
       },
     };
@@ -102,7 +102,7 @@ describe('providerRuntime', () => {
       kind: 'live',
       providerName: 'Gemini Live',
       configured: true,
-      model: 'gemini-3.1-flash-live-preview',
+      model: 'gemini-2.5-flash-native-audio-preview-12-2025',
     });
     expect(runtime.aiProvider).toBeNull();
     expect(runtime.speechProvider).toBeNull();

@@ -42,7 +42,7 @@ describe('Gemini Live conversation provider', () => {
   it('opens the fixed Gemini Live WebSocket and sends a German tutor setup message', async () => {
     const provider = createGeminiLiveConversationProvider({
       apiKey: 'gemini-key',
-      model: 'gemini-3.1-flash-live-preview',
+      model: 'gemini-2.5-flash-native-audio-preview-12-2025',
       voiceName: 'Kore',
       WebSocketCtor: MockWebSocket,
     });
@@ -64,7 +64,7 @@ describe('Gemini Live conversation provider', () => {
 
     expect(JSON.parse(socket.sent[0] as string)).toMatchObject({
       setup: {
-        model: 'models/gemini-3.1-flash-live-preview',
+        model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         generationConfig: {
           responseModalities: ['AUDIO'],
           speechConfig: {
@@ -92,7 +92,7 @@ describe('Gemini Live conversation provider', () => {
   it('sends PCM16 audio chunks and emits typed server events', async () => {
     const provider = createGeminiLiveConversationProvider({
       apiKey: 'gemini-key',
-      model: 'gemini-3.1-flash-live-preview',
+      model: 'gemini-2.5-flash-native-audio-preview-12-2025',
       voiceName: 'Puck',
       WebSocketCtor: MockWebSocket,
     });

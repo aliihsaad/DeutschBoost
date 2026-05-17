@@ -11,11 +11,7 @@ import type {
   LiveConversationSession,
 } from '../../src/domain/conversation/liveConversationProvider';
 import type { SpeechProvider } from '../../src/domain/speech/speechProvider';
-import type {
-  StreamingSpeechAudioEvent,
-  StreamingSpeechProvider,
-  StreamingTranscriptEvent,
-} from '../../src/domain/speech/streamingSpeechProvider';
+import type { StreamingSpeechProvider } from '../../src/domain/speech/streamingSpeechProvider';
 import { ConversationMode } from '../../types';
 
 const profileRepository = vi.hoisted(() => ({
@@ -31,9 +27,7 @@ function createAiProvider(): AiProvider {
     id: 'openrouter',
     displayName: 'OpenRouter',
     generateJson: vi.fn(),
-    generateText: vi.fn().mockResolvedValue(
-      'Fast richtig: Ich mochte einen Kaffee. Trinkst du Kaffee gern mit Milch?'
-    ),
+    generateText: vi.fn(),
   };
 }
 
@@ -41,20 +35,25 @@ function createSpeechProvider(): SpeechProvider {
   return {
     id: 'deepgram',
     displayName: 'Deepgram',
-    transcribe: vi.fn().mockResolvedValue({
-      rawText: 'Ich mochte ein Kaffee.',
-      transcript: {
-        speaker: 'learner',
-        text: 'Ich mochte ein Kaffee.',
-        occurredAt: '2026-05-15T15:00:00.000Z',
-        provider: 'deepgram',
-        confidence: 0.92,
-      },
-    }),
-    synthesize: vi.fn().mockResolvedValue({
-      audio: new ArrayBuffer(3),
-      mimeType: 'audio/mpeg',
-    }),
+    transcribe: vi.fn(),
+    synthesize: vi.fn(),
+  };
+}
+
+function createStreamingAiProvider(): StreamingAiProvider {
+  return {
+    id: 'openrouter',
+    displayName: 'OpenRouter',
+    streamText: vi.fn(),
+  };
+}
+
+function createStreamingSpeechProvider(): StreamingSpeechProvider {
+  return {
+    id: 'deepgram',
+    displayName: 'Deepgram',
+    startTranscription: vi.fn(),
+    startSynthesis: vi.fn(),
   };
 }
 
@@ -65,57 +64,6 @@ function createConversationRepository(): ConversationRepository {
     endSession: vi.fn().mockResolvedValue(undefined),
     loadRecentSessions: vi.fn().mockResolvedValue([]),
     loadLastFeedback: vi.fn().mockResolvedValue(null),
-  };
-}
-
-function createStreamingAiProvider(): StreamingAiProvider {
-  return {
-    id: 'openrouter',
-    displayName: 'OpenRouter',
-    async *streamText() {
-      yield { text: 'Sehr gut. ' };
-      yield { text: 'Was machst du morgen?' };
-    },
-  };
-}
-
-function createStreamingSpeechProvider() {
-  const sttListeners = new Set<(event: StreamingTranscriptEvent) => void>();
-  const ttsListeners = new Set<(event: StreamingSpeechAudioEvent) => void>();
-  const provider: StreamingSpeechProvider = {
-    id: 'deepgram',
-    displayName: 'Deepgram',
-    startTranscription: vi.fn().mockResolvedValue({
-      id: 'stt-1',
-      sendAudio: vi.fn(),
-      finalize: vi.fn(),
-      close: vi.fn(),
-      onEvent: (listener: (event: StreamingTranscriptEvent) => void) => {
-        sttListeners.add(listener);
-        return () => sttListeners.delete(listener);
-      },
-    }),
-    startSynthesis: vi.fn().mockResolvedValue({
-      id: 'tts-1',
-      sendText: vi.fn(),
-      flush: vi.fn(() => {
-        ttsListeners.forEach(listener =>
-          listener({ type: 'audio', audio: new Uint8Array([1, 2, 3, 4]).buffer, mimeType: 'audio/l16' })
-        );
-        ttsListeners.forEach(listener => listener({ type: 'flushed' }));
-      }),
-      clear: vi.fn(),
-      close: vi.fn(),
-      onEvent: (listener: (event: StreamingSpeechAudioEvent) => void) => {
-        ttsListeners.add(listener);
-        return () => ttsListeners.delete(listener);
-      },
-    }),
-  };
-
-  return {
-    provider,
-    emitTranscript: (event: StreamingTranscriptEvent) => sttListeners.forEach(listener => listener(event)),
   };
 }
 
@@ -145,7 +93,16 @@ function createLiveConversationProvider() {
   };
 }
 
-describe('SpeakingActivityPage local conversation flow', () => {
+function expectLegacyConversationControlsToBeAbsent() {
+  expect(screen.queryByRole('button', { name: 'Start session' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Record answer' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Stop and send' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Start live practice' })).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Live practice controls')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Last recorded learner audio')).not.toBeInTheDocument();
+}
+
+describe('SpeakingActivityPage Gemini Live conversation flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     profileRepository.loadProfile.mockResolvedValue({
@@ -154,7 +111,7 @@ describe('SpeakingActivityPage local conversation flow', () => {
     });
     Object.defineProperty(URL, 'createObjectURL', {
       configurable: true,
-      value: vi.fn(() => 'blob:tutor-reply-audio'),
+      value: vi.fn(() => 'blob:gemini-live-audio'),
     });
     Object.defineProperty(URL, 'revokeObjectURL', {
       configurable: true,
@@ -176,24 +133,32 @@ describe('SpeakingActivityPage local conversation flow', () => {
     );
   });
 
-  it('shows a Gemini Live setup state without free-text inputs when realtime provider is missing', async () => {
+  it('shows a Gemini Live-only setup state even when OpenRouter and Deepgram are configured', async () => {
     render(
       <MemoryRouter initialEntries={['/conversation']}>
-        <SpeakingActivityPage />
+        <SpeakingActivityPage
+          aiProvider={createAiProvider()}
+          speechProvider={createSpeechProvider()}
+          streamingAiProvider={createStreamingAiProvider()}
+          streamingSpeechProvider={createStreamingSpeechProvider()}
+        />
       </MemoryRouter>
     );
 
     await waitFor(() => {
       expect(profileRepository.loadProfile).toHaveBeenCalled();
     });
-    expect(screen.getByRole('heading', { name: 'Conversation Tutor' })).toBeInTheDocument();
+
+    expect(screen.getByRole('heading', { name: 'Live German Conversation' })).toBeInTheDocument();
     expect(screen.getByText('Connect Gemini Live')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open settings' })).toHaveAttribute('href', '/settings');
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start Gemini Live' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Start live conversation' })).toBeDisabled();
+    expect(screen.queryByText(/OpenRouter/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Deepgram/i)).not.toBeInTheDocument();
+    expectLegacyConversationControlsToBeAbsent();
   });
 
-  it('runs a Gemini Live realtime conversation as the primary voice mode', async () => {
+  it('runs Gemini Live as the only Conversation transport', async () => {
     const liveConversation = createLiveConversationProvider();
     const conversationRepository = createConversationRepository();
     const startGeminiLiveAudioCapture = vi.fn(async ({ onPcmChunk }) => {
@@ -205,6 +170,10 @@ describe('SpeakingActivityPage local conversation flow', () => {
     render(
       <MemoryRouter initialEntries={['/conversation']}>
         <SpeakingActivityPage
+          aiProvider={createAiProvider()}
+          speechProvider={createSpeechProvider()}
+          streamingAiProvider={createStreamingAiProvider()}
+          streamingSpeechProvider={createStreamingSpeechProvider()}
           liveConversationProvider={liveConversation.provider}
           conversationRepository={conversationRepository}
           startGeminiLiveAudioCapture={startGeminiLiveAudioCapture}
@@ -217,7 +186,8 @@ describe('SpeakingActivityPage local conversation flow', () => {
       expect(profileRepository.loadProfile).toHaveBeenCalled();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start Gemini Live' }));
+    expectLegacyConversationControlsToBeAbsent();
+    fireEvent.click(screen.getByRole('button', { name: 'Start live conversation' }));
 
     expect(
       await within(screen.getByLabelText('Gemini Live controls')).findByText('Listening')
@@ -255,35 +225,30 @@ describe('SpeakingActivityPage local conversation flow', () => {
       24000
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'End live session' }));
+    fireEvent.click(screen.getByRole('button', { name: 'End conversation' }));
 
     await waitFor(() => {
       expect(conversationRepository.endSession).toHaveBeenCalled();
     });
-    expect(await screen.findByRole('button', { name: 'Start Gemini Live' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Start live conversation' })).toBeInTheDocument();
   });
 
-  it('records a learner turn, transcribes it, gets a tutor response, and stores both turns locally', async () => {
-    const aiProvider = createAiProvider();
-    const speechProvider = createSpeechProvider();
-    const conversationRepository = createConversationRepository();
-    const stopRecording = vi.fn().mockResolvedValue({
-      audio: new Blob(['voice'], { type: 'audio/webm' }),
-      mimeType: 'audio/webm',
-      playbackUrl: 'blob:conversation-turn',
-    });
-    const audioRecorder = vi.fn().mockResolvedValue({
-      stop: stopRecording,
-      cancel: vi.fn(),
-    });
+  it('shows a clear Gemini Live startup error without falling back to OpenRouter or Deepgram', async () => {
+    const provider: LiveConversationProvider = {
+      id: 'gemini-live',
+      displayName: 'Gemini Live',
+      startSession: vi.fn().mockRejectedValue(new Error('Gemini Live socket closed before setup completed')),
+    };
 
     render(
       <MemoryRouter initialEntries={['/conversation']}>
         <SpeakingActivityPage
-          aiProvider={aiProvider}
-          speechProvider={speechProvider}
-          conversationRepository={conversationRepository}
-          audioRecorder={audioRecorder}
+          aiProvider={createAiProvider()}
+          speechProvider={createSpeechProvider()}
+          streamingAiProvider={createStreamingAiProvider()}
+          streamingSpeechProvider={createStreamingSpeechProvider()}
+          liveConversationProvider={provider}
+          conversationRepository={createConversationRepository()}
         />
       </MemoryRouter>
     );
@@ -292,171 +257,9 @@ describe('SpeakingActivityPage local conversation flow', () => {
       expect(profileRepository.loadProfile).toHaveBeenCalled();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start session' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start live conversation' }));
 
-    await waitFor(() => {
-      expect(conversationRepository.startSession).toHaveBeenCalledWith({
-        learnerId: 'local-learner',
-        mode: ConversationMode.FREE_CONVERSATION,
-        startedAt: expect.any(String),
-      });
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Record answer' }));
-
-    await waitFor(() => {
-      expect(audioRecorder).toHaveBeenCalled();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Stop and send' }));
-
-    expect(await screen.findByText('Ich mochte ein Kaffee.')).toBeInTheDocument();
-    expect(
-      await screen.findByText('Fast richtig: Ich mochte einen Kaffee. Trinkst du Kaffee gern mit Milch?')
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText('Last recorded learner audio')).toHaveAttribute(
-      'src',
-      'blob:conversation-turn'
-    );
-    expect(conversationRepository.appendTranscript).toHaveBeenCalledTimes(2);
-    expect(speechProvider.transcribe).toHaveBeenCalledWith(
-      expect.objectContaining({
-        audio: expect.any(Blob),
-        mimeType: 'audio/webm',
-      })
-    );
-    expect(aiProvider.generateText).toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole('button', { name: 'End session' }));
-
-    await waitFor(() => {
-      expect(conversationRepository.endSession).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'local-session-1',
-          feedback: expect.objectContaining({
-            overallScore: 0,
-            areasForImprovement: expect.arrayContaining([
-              expect.stringContaining('at least two spoken turns'),
-            ]),
-          }),
-        })
-      );
-    });
-  });
-
-  it('plays tutor replies through the configured speech provider', async () => {
-    const aiProvider = createAiProvider();
-    const speechProvider = createSpeechProvider();
-    const conversationRepository = createConversationRepository();
-    const stopRecording = vi.fn().mockResolvedValue({
-      audio: new Blob(['voice'], { type: 'audio/webm' }),
-      mimeType: 'audio/webm',
-      playbackUrl: 'blob:conversation-turn',
-    });
-    const audioRecorder = vi.fn().mockResolvedValue({
-      stop: stopRecording,
-      cancel: vi.fn(),
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/conversation']}>
-        <SpeakingActivityPage
-          aiProvider={aiProvider}
-          speechProvider={speechProvider}
-          conversationRepository={conversationRepository}
-          audioRecorder={audioRecorder}
-        />
-      </MemoryRouter>
-    );
-
-    await waitFor(() => {
-      expect(profileRepository.loadProfile).toHaveBeenCalled();
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Start session' }));
-    await screen.findByRole('button', { name: 'Record answer' });
-    fireEvent.click(screen.getByRole('button', { name: 'Record answer' }));
-    await waitFor(() => {
-      expect(audioRecorder).toHaveBeenCalled();
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Stop and send' }));
-    await screen.findByText('Fast richtig: Ich mochte einen Kaffee. Trinkst du Kaffee gern mit Milch?');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Play tutor reply' }));
-
-    await waitFor(() => {
-      expect(speechProvider.synthesize).toHaveBeenCalledWith({
-        feature: 'conversation-tutor-reply',
-        text: 'Fast richtig: Ich mochte einen Kaffee. Trinkst du Kaffee gern mit Milch?',
-        options: { language: 'de' },
-      });
-    });
-  });
-
-  it('runs a hands-free live practice turn when streaming providers are available', async () => {
-    const aiProvider = createAiProvider();
-    const speechProvider = createSpeechProvider();
-    const streamingAiProvider = createStreamingAiProvider();
-    const streamingSpeech = createStreamingSpeechProvider();
-    const conversationRepository = createConversationRepository();
-    const startLiveAudioStream = vi.fn(async ({ onAudioChunk }) => {
-      onAudioChunk(new Uint8Array([4, 5, 6]));
-      return { stop: vi.fn() };
-    });
-    const playLiveTutorAudio = vi.fn().mockResolvedValue(undefined);
-
-    render(
-      <MemoryRouter initialEntries={['/conversation']}>
-        <SpeakingActivityPage
-          aiProvider={aiProvider}
-          speechProvider={speechProvider}
-          streamingAiProvider={streamingAiProvider}
-          streamingSpeechProvider={streamingSpeech.provider}
-          conversationRepository={conversationRepository}
-          startLiveAudioStream={startLiveAudioStream}
-          playLiveTutorAudio={playLiveTutorAudio}
-        />
-      </MemoryRouter>
-    );
-
-    await waitFor(() => {
-      expect(profileRepository.loadProfile).toHaveBeenCalled();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Start live practice' }));
-
-    expect(
-      await within(screen.getByLabelText('Live practice controls')).findByText('Listening')
-    ).toBeInTheDocument();
-    expect(startLiveAudioStream).toHaveBeenCalled();
-
-    await act(async () => {
-      streamingSpeech.emitTranscript({
-        type: 'final',
-        turn: {
-          speaker: 'learner',
-          text: 'Ich gehe morgen ins Kino.',
-          occurredAt: '2026-05-16T12:00:00.000Z',
-          provider: 'deepgram',
-        },
-      });
-    });
-
-    expect(await screen.findByText('Ich gehe morgen ins Kino.')).toBeInTheDocument();
-    expect(await screen.findByText('Sehr gut. Was machst du morgen?')).toBeInTheDocument();
-    expect(conversationRepository.appendTranscript).toHaveBeenCalledTimes(2);
-    expect(streamingSpeech.provider.startSynthesis).toHaveBeenCalledWith({
-      ttsModel: 'aura-2-viktoria-de',
-      encoding: 'linear16',
-      sampleRate: 24000,
-    });
-    expect(playLiveTutorAudio).toHaveBeenCalledWith(expect.any(Blob), 'audio/wav');
-
-    fireEvent.click(screen.getByRole('button', { name: 'End session' }));
-    expect(await screen.findByRole('button', { name: 'Start live practice' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Start session' }));
-
-    expect(await screen.findByRole('button', { name: 'Record answer' })).toBeInTheDocument();
-    expect(screen.queryByText('Saved')).not.toBeInTheDocument();
+    expect(await screen.findByText('Gemini Live socket closed before setup completed')).toBeInTheDocument();
+    expectLegacyConversationControlsToBeAbsent();
   });
 });

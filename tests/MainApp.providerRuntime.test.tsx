@@ -265,7 +265,7 @@ describe('MainApp provider runtime', () => {
     });
   });
 
-  it('passes saved OpenRouter and Deepgram providers into the local conversation route', async () => {
+  it('keeps OpenRouter and Deepgram out of the Gemini Live conversation route', async () => {
     providerSettingsRepository.load.mockResolvedValue({
       ai: {
         enabled: true,
@@ -292,12 +292,14 @@ describe('MainApp provider runtime', () => {
     );
 
     await waitFor(() => {
-      expect(speakingPageProps.latest?.aiProvider?.id).toBe('openrouter');
-      expect(speakingPageProps.latest?.speechProvider?.id).toBe('deepgram');
+      expect(speakingPageProps.latest).not.toBeNull();
+      expect(speakingPageProps.latest?.aiProvider).toBeUndefined();
+      expect(speakingPageProps.latest?.speechProvider).toBeUndefined();
+      expect(speakingPageProps.latest?.liveConversationProvider).toBeUndefined();
     });
   });
 
-  it('passes streaming providers into the conversation route when providers are configured', async () => {
+  it('does not pass OpenRouter or Deepgram streaming providers into the conversation route', async () => {
     providerSettingsRepository.load.mockResolvedValue({
       ai: {
         enabled: true,
@@ -324,8 +326,9 @@ describe('MainApp provider runtime', () => {
     );
 
     await waitFor(() => {
-      expect(speakingPageProps.latest?.streamingAiProvider?.id).toBe('openrouter');
-      expect(speakingPageProps.latest?.streamingSpeechProvider?.id).toBe('deepgram');
+      expect(speakingPageProps.latest).not.toBeNull();
+      expect(speakingPageProps.latest?.streamingAiProvider).toBeUndefined();
+      expect(speakingPageProps.latest?.streamingSpeechProvider).toBeUndefined();
     });
   });
 

@@ -70,7 +70,7 @@ describe('providerSettingsRepository', () => {
         enabled: true,
         provider: 'gemini-live',
         apiKey: 'gemini-key',
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Kore',
       },
     };
@@ -109,7 +109,7 @@ describe('providerSettingsRepository', () => {
         enabled: true,
         provider: 'gemini-live',
         apiKey: 'gemini-key',
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Kore',
       },
     };
@@ -146,7 +146,7 @@ describe('providerSettingsRepository', () => {
           enabled: true,
           provider: 'gemini-live',
           apiKey: 'legacy-gemini-key',
-          model: 'gemini-3.1-flash-live-preview',
+          model: 'gemini-2.5-flash-live-preview',
           voiceName: 'Kore',
         },
       }),
@@ -203,6 +203,43 @@ describe('providerSettingsRepository', () => {
       live: {
         enabled: false,
         provider: 'gemini-live',
+        model: 'gemini-3.1-flash-live-preview',
+        voiceName: 'Kore',
+      },
+    });
+  });
+
+  it('migrates old invalid Gemini Live model values to a supported live model', async () => {
+    const storage = createMemoryStorage({
+      [DEFAULT_PROVIDER_SETTINGS_STORAGE_KEY]: JSON.stringify({
+        ai: {
+          enabled: false,
+          provider: 'openrouter',
+          model: 'openrouter/auto',
+        },
+        speech: {
+          enabled: false,
+          provider: 'deepgram',
+          model: 'nova-3',
+          ttsModel: 'aura-2-viktoria-de',
+          language: 'de',
+        },
+        live: {
+          enabled: true,
+          provider: 'gemini-live',
+          apiKey: 'gemini-key',
+          model: 'gemini-2.5-flash-live-preview',
+          voiceName: 'Kore',
+        },
+      }),
+    });
+    const repository = createStorageProviderSettingsRepository({ storage });
+
+    await expect(repository.load()).resolves.toMatchObject({
+      live: {
+        enabled: true,
+        provider: 'gemini-live',
+        apiKey: 'gemini-key',
         model: 'gemini-3.1-flash-live-preview',
         voiceName: 'Kore',
       },
@@ -294,7 +331,7 @@ describe('providerSettingsRepository', () => {
         enabled: true,
         provider: 'gemini-live',
         apiKey: 'gemini-key',
-        model: 'gemini-2.5-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Puck',
       },
     });
@@ -368,7 +405,7 @@ describe('providerSettingsRepository', () => {
         enabled: true,
         provider: 'gemini-live',
         apiKey: 'gemini-key',
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Kore',
       },
     });
@@ -401,7 +438,7 @@ describe('providerSettingsRepository', () => {
         enabled: true,
         provider: 'gemini-live',
         apiKey: 'gemini-key',
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Kore',
       },
     });

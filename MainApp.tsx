@@ -100,8 +100,6 @@ const MainApp: React.FC = () => {
   );
   const runtimeAiProvider = providerRuntime.aiProvider ?? undefined;
   const runtimeSpeechProvider = providerRuntime.speechProvider ?? undefined;
-  const runtimeStreamingAiProvider = providerRuntime.streamingAiProvider ?? undefined;
-  const runtimeStreamingSpeechProvider = providerRuntime.streamingSpeechProvider ?? undefined;
   const runtimeLiveConversationProvider = providerRuntime.liveConversationProvider ?? undefined;
 
   const handleTestComplete = useCallback(
@@ -189,10 +187,6 @@ const MainApp: React.FC = () => {
             path="/speaking-activity"
             element={
               <SpeakingActivityPage
-                aiProvider={runtimeAiProvider}
-                speechProvider={runtimeSpeechProvider}
-                streamingAiProvider={runtimeStreamingAiProvider}
-                streamingSpeechProvider={runtimeStreamingSpeechProvider}
                 liveConversationProvider={runtimeLiveConversationProvider}
               />
             }
@@ -201,10 +195,6 @@ const MainApp: React.FC = () => {
             path="/conversation"
             element={
               <SpeakingActivityPage
-                aiProvider={runtimeAiProvider}
-                speechProvider={runtimeSpeechProvider}
-                streamingAiProvider={runtimeStreamingAiProvider}
-                streamingSpeechProvider={runtimeStreamingSpeechProvider}
                 liveConversationProvider={runtimeLiveConversationProvider}
               />
             }

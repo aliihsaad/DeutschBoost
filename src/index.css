@@ -1022,6 +1022,70 @@ textarea {
   line-height: 1.45;
 }
 
+.db-live-room-stage {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid #edf0f2;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.db-live-room-stage h3 {
+  margin: 0 0 5px;
+  color: #18181b;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.db-live-room-stage p {
+  margin: 0;
+  color: #666f7b;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.db-live-signal {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  background: #f6f7f8;
+  color: #18181b;
+  font-size: 24px;
+}
+
+.db-live-signal-listening {
+  border-color: #a6f4c5;
+  background: #ecfdf3;
+  color: #16833a;
+}
+
+.db-live-signal-speaking {
+  border-color: #cfe4f7;
+  background: #eef7ff;
+  color: #1d4ed8;
+}
+
+.db-live-signal-connecting,
+.db-live-signal-ending {
+  border-color: #f5d98b;
+  background: #fff8e1;
+  color: #946200;
+}
+
+.db-live-signal-error {
+  border-color: #fecaca;
+  background: #fff1f1;
+  color: #d92d20;
+}
+
 .db-provider-required {
   min-height: 54px;
   display: flex;
@@ -1112,6 +1176,10 @@ textarea {
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid #edf0f2;
+  border-radius: 8px;
+  background: #fbfbfc;
 }
 
 .db-live-status {
@@ -1209,7 +1277,7 @@ textarea {
   width: min(78%, 560px);
   display: grid;
   gap: 6px;
-  padding: 10px 38px 11px 12px;
+  padding: 10px 12px 11px;
   border: 1px solid #dfe3e8;
   border-radius: 8px;
   background: #ffffff;
@@ -1411,6 +1479,10 @@ textarea {
 
   .db-mode-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .db-live-room-stage {
+    grid-template-columns: 1fr;
   }
 
   .db-conversation-actions button,

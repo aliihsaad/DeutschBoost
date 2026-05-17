@@ -69,7 +69,7 @@ describe('providerSettings', () => {
     expect(DEEPGRAM_LANGUAGE_OPTIONS.map(option => option.value)).toContain('de');
     expect(GEMINI_LIVE_MODEL_OPTIONS.map(option => option.value)).toEqual([
       'gemini-3.1-flash-live-preview',
-      'gemini-2.5-flash-live-preview',
+      'gemini-2.5-flash-native-audio-preview-12-2025',
     ]);
     expect(GEMINI_LIVE_VOICE_OPTIONS.map(option => option.value)).toContain('Kore');
     expect(GEMINI_LIVE_VOICE_OPTIONS.map(option => option.value)).toContain('Puck');
@@ -244,7 +244,7 @@ describe('providerSettings', () => {
         enabled: true,
         provider: 'gemini-live',
         apiKey: 'gemini-key',
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Kore',
       },
       { WebSocketCtor: vi.fn() as never }

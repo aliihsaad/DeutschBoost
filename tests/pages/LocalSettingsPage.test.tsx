@@ -73,7 +73,7 @@ describe('LocalSettingsPage', () => {
       target: { value: 'gemini-key' },
     });
     fireEvent.change(screen.getByRole('combobox', { name: 'Gemini Live model' }), {
-      target: { value: 'gemini-2.5-flash-live-preview' },
+      target: { value: 'gemini-2.5-flash-native-audio-preview-12-2025' },
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
@@ -98,7 +98,7 @@ describe('LocalSettingsPage', () => {
           enabled: true,
           provider: 'gemini-live',
           apiKey: 'gemini-key',
-          model: 'gemini-2.5-flash-live-preview',
+          model: 'gemini-2.5-flash-native-audio-preview-12-2025',
           voiceName: 'Kore',
         }),
       });

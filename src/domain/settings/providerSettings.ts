@@ -97,7 +97,10 @@ export const DEEPGRAM_LANGUAGE_OPTIONS: ProviderModelOption[] = [
 
 export const GEMINI_LIVE_MODEL_OPTIONS: ProviderModelOption[] = [
   { value: 'gemini-3.1-flash-live-preview', label: 'Gemini 3.1 Flash Live' },
-  { value: 'gemini-2.5-flash-live-preview', label: 'Gemini 2.5 Flash Live' },
+  {
+    value: 'gemini-2.5-flash-native-audio-preview-12-2025',
+    label: 'Gemini 2.5 Flash Native Audio',
+  },
 ];
 
 export const GEMINI_LIVE_VOICE_OPTIONS: ProviderModelOption[] = [
