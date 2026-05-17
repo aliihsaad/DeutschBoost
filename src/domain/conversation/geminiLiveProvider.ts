@@ -1,0 +1,317 @@
+import type {
+  LiveConversationEvent,
+  LiveConversationProvider,
+  LiveConversationSession,
+  LiveConversationStartInput,
+} from './liveConversationProvider';
+
+type WebSocketLike = {
+  onopen: (() => void) | null;
+  onmessage: ((event: { data: string | ArrayBuffer | Blob }) => void) | null;
+  onerror: ((event: unknown) => void) | null;
+  onclose: (() => void) | null;
+  readonly readyState?: number;
+  send(data: unknown): void;
+  close(): void;
+};
+
+export type GeminiLiveWebSocketCtor = new (
+  url: string,
+  protocols?: string | string[]
+) => WebSocketLike;
+
+interface GeminiLiveConversationProviderOptions {
+  apiKey: string;
+  model: string;
+  voiceName: string;
+  WebSocketCtor?: GeminiLiveWebSocketCtor;
+  endpoint?: string;
+}
+
+interface GeminiLiveServerMessage {
+  setupComplete?: Record<string, never>;
+  serverContent?: {
+    inputTranscription?: { text?: string };
+    outputTranscription?: { text?: string };
+    modelTurn?: {
+      parts?: Array<{
+        inlineData?: {
+          data?: string;
+          mimeType?: string;
+        };
+      }>;
+    };
+    interrupted?: boolean;
+    turnComplete?: boolean;
+  };
+  error?: {
+    message?: string;
+  };
+}
+
+const DEFAULT_ENDPOINT =
+  'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
+const OPEN_WEBSOCKET_STATE = 1;
+const GEMINI_OUTPUT_SAMPLE_RATE = 24000;
+
+export function createGeminiLiveConversationProvider(
+  options: GeminiLiveConversationProviderOptions
+): LiveConversationProvider {
+  return {
+    id: 'gemini-live',
+    displayName: 'Gemini Live',
+    startSession(input) {
+      return openGeminiLiveSession(options, input);
+    },
+  };
+}
+
+function openGeminiLiveSession(
+  options: GeminiLiveConversationProviderOptions,
+  input: LiveConversationStartInput
+): Promise<LiveConversationSession> {
+  const socket = createSocket(options);
+  const listeners = new Set<(event: LiveConversationEvent) => void>();
+  const sessionId = `gemini-live-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`;
+  let setupResolved = false;
+
+  const emit = (event: LiveConversationEvent) => {
+    listeners.forEach(listener => listener(event));
+  };
+
+  const session: LiveConversationSession = {
+    id: sessionId,
+    sendAudioPcm16(chunk) {
+      sendJsonIfOpen(socket, {
+        realtimeInput: {
+          audio: {
+            data: bytesToBase64(chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk)),
+            mimeType: 'audio/pcm;rate=16000',
+          },
+        },
+      });
+    },
+    sendAudioStreamEnd() {
+      sendJsonIfOpen(socket, {
+        realtimeInput: {
+          audioStreamEnd: true,
+        },
+      });
+    },
+    interrupt() {
+      sendJsonIfOpen(socket, {
+        realtimeInput: {
+          audioStreamEnd: true,
+        },
+      });
+      emit({ type: 'interrupted' });
+    },
+    close() {
+      socket.close();
+    },
+    onEvent(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+
+  return new Promise((resolve, reject) => {
+    socket.onopen = () => {
+      socket.send(JSON.stringify(buildSetupMessage(options, input)));
+    };
+
+    socket.onmessage = event => {
+      if (typeof event.data !== 'string') {
+        return;
+      }
+
+      try {
+        const message = JSON.parse(event.data) as GeminiLiveServerMessage;
+
+        if (message.error) {
+          const error = new Error(message.error.message ?? 'Gemini Live returned an error');
+          if (!setupResolved) {
+            reject(error);
+          } else {
+            emit({ type: 'error', error });
+          }
+          return;
+        }
+
+        if (message.setupComplete && !setupResolved) {
+          setupResolved = true;
+          resolve(session);
+          return;
+        }
+
+        if (message.serverContent) {
+          emitServerContent(message.serverContent, emit);
+        }
+      } catch (error) {
+        const normalizedError = error instanceof Error ? error : new Error('Gemini Live message parse failed');
+        if (!setupResolved) {
+          reject(normalizedError);
+        } else {
+          emit({ type: 'error', error: normalizedError });
+        }
+      }
+    };
+
+    socket.onerror = () => {
+      const error = new Error('Gemini Live socket failed');
+      if (!setupResolved) {
+        reject(error);
+      } else {
+        emit({ type: 'error', error });
+      }
+    };
+
+    socket.onclose = () => {
+      if (!setupResolved) {
+        reject(new Error('Gemini Live socket closed before setup completed'));
+        return;
+      }
+
+      emit({ type: 'closed' });
+    };
+  });
+}
+
+function createSocket(options: GeminiLiveConversationProviderOptions): WebSocketLike {
+  const SocketCtor = options.WebSocketCtor ?? globalThis.WebSocket;
+
+  if (!SocketCtor) {
+    throw new Error('WebSocket is not available in this environment');
+  }
+
+  const url = new URL(options.endpoint ?? DEFAULT_ENDPOINT);
+  url.searchParams.set('key', options.apiKey);
+  return new SocketCtor(url.toString());
+}
+
+function buildSetupMessage(
+  options: GeminiLiveConversationProviderOptions,
+  input: LiveConversationStartInput
+) {
+  return {
+    setup: {
+      model: formatModelName(options.model),
+      generationConfig: {
+        responseModalities: ['AUDIO'],
+        temperature: 0.55,
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: options.voiceName,
+            },
+          },
+        },
+      },
+      systemInstruction: {
+        parts: [
+          {
+            text: buildGermanTutorInstruction(input),
+          },
+        ],
+      },
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
+      realtimeInputConfig: {
+        activityHandling: 'START_OF_ACTIVITY_INTERRUPTS',
+      },
+    },
+  };
+}
+
+function formatModelName(model: string): string {
+  return model.startsWith('models/') ? model : `models/${model}`;
+}
+
+function buildGermanTutorInstruction(input: LiveConversationStartInput): string {
+  return [
+    'You are a helpful German conversation tutor inside DeutschBoost.',
+    `The learner is CEFR ${input.level}.`,
+    `The learner native language is ${input.motherLanguage}.`,
+    `Mode: ${input.mode}.`,
+    input.topic ? `Topic: ${input.topic}.` : '',
+    input.description ? `Task: ${input.description}.` : '',
+    'Speak mostly German at the learner level.',
+    'Keep turns short, natural, and useful for speaking practice.',
+    'Correct one important mistake gently, then ask one follow-up question.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function emitServerContent(
+  content: NonNullable<GeminiLiveServerMessage['serverContent']>,
+  emit: (event: LiveConversationEvent) => void
+): void {
+  const inputText = content.inputTranscription?.text?.trim();
+  if (inputText) {
+    emit({ type: 'input-transcript', text: inputText });
+  }
+
+  const outputText = content.outputTranscription?.text?.trim();
+  if (outputText) {
+    emit({ type: 'output-transcript', text: outputText });
+  }
+
+  content.modelTurn?.parts?.forEach(part => {
+    const data = part.inlineData?.data;
+    if (!data) {
+      return;
+    }
+
+    emit({
+      type: 'audio',
+      audio: base64ToArrayBuffer(data),
+      mimeType: part.inlineData?.mimeType ?? `audio/pcm;rate=${GEMINI_OUTPUT_SAMPLE_RATE}`,
+      sampleRate: GEMINI_OUTPUT_SAMPLE_RATE,
+    });
+  });
+
+  if (content.interrupted) {
+    emit({ type: 'interrupted' });
+  }
+
+  if (content.turnComplete) {
+    emit({ type: 'turn-complete' });
+  }
+}
+
+function sendJsonIfOpen(socket: WebSocketLike, payload: unknown): void {
+  if (typeof socket.readyState === 'number' && socket.readyState !== OPEN_WEBSOCKET_STATE) {
+    return;
+  }
+
+  socket.send(JSON.stringify(payload));
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(bytes).toString('base64');
+  }
+
+  let binary = '';
+  bytes.forEach(byte => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
+}
+
+function base64ToArrayBuffer(value: string): ArrayBuffer {
+  if (typeof Buffer !== 'undefined') {
+    const buffer = Buffer.from(value, 'base64');
+    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  }
+
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes.buffer;
+}

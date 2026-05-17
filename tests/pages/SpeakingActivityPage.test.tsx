@@ -5,6 +5,11 @@ import SpeakingActivityPage from '../../pages/SpeakingActivityPage';
 import type { AiProvider } from '../../src/domain/ai/aiProvider';
 import type { StreamingAiProvider } from '../../src/domain/ai/streamingAiProvider';
 import type { ConversationRepository } from '../../src/domain/conversation/conversationRepository';
+import type {
+  LiveConversationEvent,
+  LiveConversationProvider,
+  LiveConversationSession,
+} from '../../src/domain/conversation/liveConversationProvider';
 import type { SpeechProvider } from '../../src/domain/speech/speechProvider';
 import type {
   StreamingSpeechAudioEvent,
@@ -114,6 +119,32 @@ function createStreamingSpeechProvider() {
   };
 }
 
+function createLiveConversationProvider() {
+  const listeners = new Set<(event: LiveConversationEvent) => void>();
+  const session: LiveConversationSession = {
+    id: 'gemini-live-session',
+    sendAudioPcm16: vi.fn(),
+    sendAudioStreamEnd: vi.fn(),
+    interrupt: vi.fn(),
+    close: vi.fn(),
+    onEvent: (listener: (event: LiveConversationEvent) => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+  const provider: LiveConversationProvider = {
+    id: 'gemini-live',
+    displayName: 'Gemini Live',
+    startSession: vi.fn().mockResolvedValue(session),
+  };
+
+  return {
+    provider,
+    session,
+    emit: (event: LiveConversationEvent) => listeners.forEach(listener => listener(event)),
+  };
+}
+
 describe('SpeakingActivityPage local conversation flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -145,7 +176,7 @@ describe('SpeakingActivityPage local conversation flow', () => {
     );
   });
 
-  it('shows a setup state without free-text inputs when providers are missing', async () => {
+  it('shows a Gemini Live setup state without free-text inputs when realtime provider is missing', async () => {
     render(
       <MemoryRouter initialEntries={['/conversation']}>
         <SpeakingActivityPage />
@@ -156,9 +187,80 @@ describe('SpeakingActivityPage local conversation flow', () => {
       expect(profileRepository.loadProfile).toHaveBeenCalled();
     });
     expect(screen.getByRole('heading', { name: 'Conversation Tutor' })).toBeInTheDocument();
-    expect(screen.getByText('Connect OpenRouter and Deepgram')).toBeInTheDocument();
+    expect(screen.getByText('Connect Gemini Live')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open settings' })).toHaveAttribute('href', '/settings');
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start Gemini Live' })).toBeDisabled();
+  });
+
+  it('runs a Gemini Live realtime conversation as the primary voice mode', async () => {
+    const liveConversation = createLiveConversationProvider();
+    const conversationRepository = createConversationRepository();
+    const startGeminiLiveAudioCapture = vi.fn(async ({ onPcmChunk }) => {
+      onPcmChunk(new Uint8Array([1, 2, 3]));
+      return { stop: vi.fn() };
+    });
+    const playGeminiLiveAudio = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter initialEntries={['/conversation']}>
+        <SpeakingActivityPage
+          liveConversationProvider={liveConversation.provider}
+          conversationRepository={conversationRepository}
+          startGeminiLiveAudioCapture={startGeminiLiveAudioCapture}
+          playGeminiLiveAudio={playGeminiLiveAudio}
+        />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(profileRepository.loadProfile).toHaveBeenCalled();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start Gemini Live' }));
+
+    expect(
+      await within(screen.getByLabelText('Gemini Live controls')).findByText('Listening')
+    ).toBeInTheDocument();
+    expect(liveConversation.provider.startSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'A2',
+        motherLanguage: 'English',
+        mode: ConversationMode.FREE_CONVERSATION,
+      })
+    );
+    expect(liveConversation.session.sendAudioPcm16).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]));
+
+    await act(async () => {
+      liveConversation.emit({ type: 'input-transcript', text: 'Ich moechte Kaffee.' });
+      liveConversation.emit({ type: 'output-transcript', text: 'Gern. Ich moechte einen Kaffee.' });
+      liveConversation.emit({
+        type: 'audio',
+        audio: new Uint8Array([4, 5, 6]).buffer,
+        mimeType: 'audio/pcm;rate=24000',
+        sampleRate: 24000,
+      });
+    });
+
+    expect(
+      await within(screen.getByLabelText('Conversation transcript')).findByText('Ich moechte Kaffee.')
+    ).toBeInTheDocument();
+    expect(
+      await within(screen.getByLabelText('Conversation transcript')).findByText('Gern. Ich moechte einen Kaffee.')
+    ).toBeInTheDocument();
+    expect(conversationRepository.appendTranscript).toHaveBeenCalledTimes(2);
+    expect(playGeminiLiveAudio).toHaveBeenCalledWith(
+      expect.any(ArrayBuffer),
+      'audio/pcm;rate=24000',
+      24000
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'End live session' }));
+
+    await waitFor(() => {
+      expect(conversationRepository.endSession).toHaveBeenCalled();
+    });
+    expect(await screen.findByRole('button', { name: 'Start Gemini Live' })).toBeInTheDocument();
   });
 
   it('records a learner turn, transcribes it, gets a tutor response, and stores both turns locally', async () => {

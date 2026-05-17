@@ -17,6 +17,7 @@ const speakingPageProps = vi.hoisted(() => ({
     speechProvider?: { id: string };
     streamingAiProvider?: { id: string };
     streamingSpeechProvider?: { id: string };
+    liveConversationProvider?: { id: string };
   },
 }));
 
@@ -122,6 +123,7 @@ vi.mock('../pages/SpeakingActivityPage', () => ({
     speechProvider?: { id: string };
     streamingAiProvider?: { id: string };
     streamingSpeechProvider?: { id: string };
+    liveConversationProvider?: { id: string };
     providerRuntimeReady?: boolean;
   }) => {
     speakingPageProps.latest = props;
@@ -166,6 +168,12 @@ describe('MainApp provider runtime', () => {
         model: 'nova-3',
         ttsModel: 'aura-2-viktoria-de',
         language: 'de',
+      },
+      live: {
+        enabled: false,
+        provider: 'gemini-live',
+        model: 'gemini-3.1-flash-live-preview',
+        voiceName: 'Kore',
       },
     });
     learningPlanService.loadActiveLearningPlan.mockResolvedValue({ plan: null, error: null });
@@ -318,6 +326,42 @@ describe('MainApp provider runtime', () => {
     await waitFor(() => {
       expect(speakingPageProps.latest?.streamingAiProvider?.id).toBe('openrouter');
       expect(speakingPageProps.latest?.streamingSpeechProvider?.id).toBe('deepgram');
+    });
+  });
+
+  it('passes Gemini Live into the conversation route as the realtime provider', async () => {
+    providerSettingsRepository.load.mockResolvedValue({
+      ai: {
+        enabled: false,
+        provider: 'openrouter',
+        model: 'openrouter/auto',
+      },
+      speech: {
+        enabled: false,
+        provider: 'deepgram',
+        model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
+        language: 'de',
+      },
+      live: {
+        enabled: true,
+        provider: 'gemini-live',
+        apiKey: 'gemini-key',
+        model: 'gemini-3.1-flash-live-preview',
+        voiceName: 'Kore',
+      },
+    });
+
+    const { default: MainApp } = await import('../MainApp');
+
+    render(
+      <MemoryRouter initialEntries={['/conversation']}>
+        <MainApp />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(speakingPageProps.latest?.liveConversationProvider?.id).toBe('gemini-live');
     });
   });
 

@@ -2,6 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { generateLocalConversationFeedback } from '../src/application/conversationFeedback';
 import {
+  createGeminiLiveConversationController,
+  type GeminiLiveConversationController,
+  type GeminiLiveConversationState,
+  type PlayGeminiLiveAudio,
+  type StartGeminiLiveAudioCapture,
+} from '../src/application/geminiLiveConversation';
+import {
   createHandsFreeConversationController,
   type HandsFreeConversationController,
   type HandsFreeConversationState,
@@ -15,6 +22,7 @@ import type {
   ConversationFeedbackRecord,
   ConversationRepository,
 } from '../src/domain/conversation/conversationRepository';
+import type { LiveConversationProvider } from '../src/domain/conversation/liveConversationProvider';
 import type { SpeechProvider } from '../src/domain/speech/speechProvider';
 import type { StreamingSpeechProvider } from '../src/domain/speech/streamingSpeechProvider';
 import type { TranscriptTurn } from '../src/domain/speech/transcriptTypes';
@@ -23,6 +31,7 @@ import {
 } from '../src/infrastructure/browser/conversationStorage';
 import {
   startBrowserAudioRecording,
+  startBrowserPcmAudioCapture,
   startBrowserStreamingAudioCapture,
   type ActiveAudioRecording,
 } from '../src/infrastructure/browser/audioRecorder';
@@ -47,10 +56,13 @@ interface SpeakingActivityPageProps {
   speechProvider?: SpeechProvider;
   streamingAiProvider?: StreamingAiProvider;
   streamingSpeechProvider?: StreamingSpeechProvider;
+  liveConversationProvider?: LiveConversationProvider;
   conversationRepository?: ConversationRepository;
   audioRecorder?: ConversationAudioRecorder;
   startLiveAudioStream?: StartConversationAudioStream;
   playLiveTutorAudio?: PlayTutorAudio;
+  startGeminiLiveAudioCapture?: StartGeminiLiveAudioCapture;
+  playGeminiLiveAudio?: PlayGeminiLiveAudio;
 }
 
 interface ConversationModeOption {
@@ -100,10 +112,13 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
   speechProvider,
   streamingAiProvider,
   streamingSpeechProvider,
+  liveConversationProvider,
   conversationRepository = browserConversationRepository,
   audioRecorder = startBrowserAudioRecording,
   startLiveAudioStream = startBrowserStreamingAudioCapture,
   playLiveTutorAudio = playAudioBlob,
+  startGeminiLiveAudioCapture = startBrowserPcmAudioCapture,
+  playGeminiLiveAudio = playGeminiPcmAudio,
 }) => {
   const [searchParams] = useSearchParams();
   const activityTopic = searchParams.get('topic')?.trim() ?? '';
@@ -120,6 +135,7 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
   const [message, setMessage] = useState<string | null>(null);
   const [lastAudioUrl, setLastAudioUrl] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<ConversationFeedbackRecord | null>(null);
+  const [geminiLiveState, setGeminiLiveState] = useState<GeminiLiveConversationState>(() => createIdleGeminiLiveState());
   const [liveState, setLiveState] = useState<HandsFreeConversationState>(() => createIdleLiveState());
   const [profileContext, setProfileContext] = useState({
     level: CEFRLevel.A2,
@@ -127,12 +143,16 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
     firstName: 'Learner',
   });
   const activeRecordingRef = useRef<ActiveAudioRecording | null>(null);
+  const geminiLiveControllerRef = useRef<GeminiLiveConversationController | null>(null);
+  const geminiLiveUnsubscribeRef = useRef<(() => void) | null>(null);
   const liveControllerRef = useRef<HandsFreeConversationController | null>(null);
   const liveUnsubscribeRef = useRef<(() => void) | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
   const providersReady = Boolean(aiProvider && speechProvider);
+  const geminiLiveReady = Boolean(liveConversationProvider);
   const streamingReady = Boolean(streamingAiProvider && streamingSpeechProvider);
+  const geminiLiveSessionActive = !['idle', 'ended', 'error'].includes(geminiLiveState.status);
   const liveSessionActive = !['idle', 'ended', 'error'].includes(liveState.status);
   const learnerId = LOCAL_LEARNER_ID;
   const level = routeLevel ?? profileContext.level;
@@ -194,10 +214,58 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
 
   useEffect(() => {
     return () => {
+      geminiLiveUnsubscribeRef.current?.();
+      void geminiLiveControllerRef.current?.end();
       liveUnsubscribeRef.current?.();
       void liveControllerRef.current?.end();
     };
   }, []);
+
+  async function handleStartGeminiLive() {
+    if (!liveConversationProvider) {
+      setMessage('Connect Gemini Live before starting realtime conversation.');
+      return;
+    }
+
+    setStatus('idle');
+    setLiveState(createIdleLiveState());
+    setMessage(null);
+    setTurns([]);
+    setFeedback(null);
+    setLastAudioUrl(current => {
+      releasePlaybackUrl(current);
+      return null;
+    });
+
+    geminiLiveUnsubscribeRef.current?.();
+    const controller = createGeminiLiveConversationController({
+      liveProvider: liveConversationProvider,
+      conversationRepository,
+      learnerId,
+      level,
+      motherLanguage,
+      mode: selectedMode,
+      topic: activityTopic || selectedModeOption.label,
+      description: activityDescription || selectedModeOption.detail,
+      startAudioCapture: startGeminiLiveAudioCapture,
+      playTutorAudio: playGeminiLiveAudio,
+    });
+    geminiLiveControllerRef.current = controller;
+    geminiLiveUnsubscribeRef.current = controller.onStateChange(nextState => {
+      setGeminiLiveState(nextState);
+      setTurns(nextState.turns);
+      if (nextState.errorMessage) {
+        setMessage(nextState.errorMessage);
+      }
+    });
+
+    await controller.start();
+  }
+
+  async function handleEndGeminiLive() {
+    await geminiLiveControllerRef.current?.end();
+    setMessage('Gemini Live session saved locally.');
+  }
 
   async function handleStartLivePractice() {
     if (!providersReady || !streamingAiProvider || !streamingSpeechProvider) {
@@ -407,7 +475,7 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
       <header className="db-dashboard-header">
         <div>
           <h1>Conversation Tutor</h1>
-          <p>Turn-based German speaking with local transcripts and optional AI providers.</p>
+          <p>Realtime German speaking with Gemini Live and local transcripts.</p>
         </div>
         <div className="db-level-meter" aria-label="Conversation level">
           <div>
@@ -422,10 +490,16 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
         <section className="db-panel db-conversation-session-panel" aria-labelledby="conversation-session-heading">
           <div className="db-panel-heading">
             <h2 id="conversation-session-heading">Voice Session</h2>
-            <span>{liveState.status !== 'idle' ? formatLiveStatus(liveState.status) : formatStatus(status)}</span>
+            <span>
+              {geminiLiveState.status !== 'idle'
+                ? formatGeminiLiveStatus(geminiLiveState.status)
+                : liveState.status !== 'idle'
+                  ? formatLiveStatus(liveState.status)
+                  : formatStatus(status)}
+            </span>
           </div>
 
-          {!providersReady ? <ProviderSetupState /> : null}
+          {!geminiLiveReady ? <ProviderSetupState /> : null}
 
           <div className="db-conversation-task">
             <span className="db-section-label">{isPlanActivity ? 'Plan task' : 'Tutor mode'}</span>
@@ -440,7 +514,7 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
                 type="button"
                 className={`db-mode-option ${selectedMode === option.mode ? 'is-selected' : ''}`}
                 onClick={() => setSelectedMode(option.mode)}
-                disabled={status !== 'idle' && status !== 'ended'}
+                disabled={geminiLiveSessionActive || (status !== 'idle' && status !== 'ended')}
               >
                 <i className={`fa-solid ${option.icon}`} aria-hidden="true" />
                 <span>{option.label}</span>
@@ -448,13 +522,54 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
             ))}
           </div>
 
+          <div className="db-conversation-live-controls" aria-label="Gemini Live controls">
+            {geminiLiveState.status === 'idle' ||
+            geminiLiveState.status === 'ended' ||
+            geminiLiveState.status === 'error' ? (
+              <button
+                type="button"
+                className="db-primary-button"
+                onClick={() => void handleStartGeminiLive()}
+                disabled={!geminiLiveReady}
+              >
+                Start Gemini Live
+              </button>
+            ) : null}
+            {geminiLiveSessionActive ? (
+              <>
+                <button
+                  type="button"
+                  className="db-secondary-button"
+                  onClick={() => geminiLiveControllerRef.current?.interrupt()}
+                >
+                  Interrupt
+                </button>
+                <button
+                  type="button"
+                  className="db-secondary-button"
+                  onClick={() => void handleEndGeminiLive()}
+                >
+                  End live session
+                </button>
+              </>
+            ) : null}
+            <span className="db-live-status">{formatGeminiLiveStatus(geminiLiveState.status)}</span>
+          </div>
+
+          {geminiLiveState.latestLearnerText ? (
+            <p className="db-interim-transcript">{geminiLiveState.latestLearnerText}</p>
+          ) : null}
+          {geminiLiveState.latestTutorText ? (
+            <p className="db-streaming-tutor-text">{geminiLiveState.latestTutorText}</p>
+          ) : null}
+
           <div className="db-conversation-live-controls" aria-label="Live practice controls">
             {liveState.status === 'idle' || liveState.status === 'ended' || liveState.status === 'error' ? (
               <button
                 type="button"
                 className="db-primary-button"
                 onClick={() => void handleStartLivePractice()}
-                disabled={!providersReady || !streamingReady}
+                disabled={!providersReady || !streamingReady || geminiLiveSessionActive}
               >
                 Start live practice
               </button>
@@ -510,7 +625,7 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
                 type="button"
                 className="db-primary-button"
                 onClick={handleStartSession}
-                disabled={!providersReady || status === 'starting' || liveSessionActive}
+                disabled={!providersReady || status === 'starting' || liveSessionActive || geminiLiveSessionActive}
               >
                 Start session
               </button>
@@ -552,7 +667,13 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
             {turns.length === 0 ? (
               <div className="db-transcript-empty">
                 <i className="fa-solid fa-microphone-lines" aria-hidden="true" />
-                <strong>{streamingReady ? 'Start live practice and speak German.' : 'Start, record one German answer, then send it.'}</strong>
+                <strong>
+                  {geminiLiveReady
+                    ? 'Start Gemini Live and speak German naturally.'
+                    : streamingReady
+                      ? 'Start live practice and speak German.'
+                      : 'Start, record one German answer, then send it.'}
+                </strong>
                 <span>The tutor will correct one useful point and ask the next question.</span>
               </div>
             ) : (
@@ -573,11 +694,11 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
           <dl>
             <div>
               <dt>Input</dt>
-              <dd>Deepgram turn transcript</dd>
+              <dd>Gemini Live microphone stream</dd>
             </div>
             <div>
               <dt>Tutor</dt>
-              <dd>OpenRouter text response</dd>
+              <dd>Realtime Gemini audio</dd>
             </div>
             <div>
               <dt>Storage</dt>
@@ -603,8 +724,8 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
 const ProviderSetupState: React.FC = () => (
   <div className="db-provider-required" role="status">
     <div>
-      <strong>Connect OpenRouter and Deepgram</strong>
-      <span>Voice conversation needs both providers enabled in local settings.</span>
+      <strong>Connect Gemini Live</strong>
+      <span>Realtime Conversation needs Gemini Live enabled in local settings.</span>
     </div>
     <Link className="db-secondary-button" to="/settings">
       Open settings
@@ -659,6 +780,30 @@ function createIdleLiveState(): HandsFreeConversationState {
   };
 }
 
+function createIdleGeminiLiveState(): GeminiLiveConversationState {
+  return {
+    status: 'idle',
+    turns: [],
+    latestLearnerText: '',
+    latestTutorText: '',
+    errorMessage: null,
+  };
+}
+
+function formatGeminiLiveStatus(status: GeminiLiveConversationState['status']): string {
+  const labels: Record<GeminiLiveConversationState['status'], string> = {
+    idle: 'Ready',
+    connecting: 'Connecting',
+    listening: 'Listening',
+    speaking: 'Speaking',
+    ending: 'Saving',
+    ended: 'Saved',
+    error: 'Needs attention',
+  };
+
+  return labels[status];
+}
+
 function formatLiveStatus(status: HandsFreeConversationState['status']): string {
   const labels: Record<HandsFreeConversationState['status'], string> = {
     idle: 'Ready',
@@ -702,6 +847,53 @@ async function playAudioBlob(audio: Blob, mimeType: string): Promise<void> {
     await playAudioUrl(playbackUrl);
   } finally {
     releaseObjectUrl(playbackUrl);
+  }
+}
+
+async function playGeminiPcmAudio(
+  audio: ArrayBuffer,
+  mimeType: string,
+  sampleRate: number
+): Promise<void> {
+  const playbackBlob = mimeType.startsWith('audio/pcm')
+    ? createWavBlobFromPcm16(audio, sampleRate)
+    : new Blob([audio], { type: mimeType });
+  const playbackUrl = URL.createObjectURL(playbackBlob);
+
+  try {
+    await playAudioUrl(playbackUrl);
+  } finally {
+    releaseObjectUrl(playbackUrl);
+  }
+}
+
+function createWavBlobFromPcm16(audio: ArrayBuffer, sampleRate: number): Blob {
+  const header = new ArrayBuffer(44);
+  const view = new DataView(header);
+  const channelCount = 1;
+  const bytesPerSample = 2;
+  const byteRate = sampleRate * channelCount * bytesPerSample;
+
+  writeAscii(view, 0, 'RIFF');
+  view.setUint32(4, 36 + audio.byteLength, true);
+  writeAscii(view, 8, 'WAVE');
+  writeAscii(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channelCount, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, channelCount * bytesPerSample, true);
+  view.setUint16(34, bytesPerSample * 8, true);
+  writeAscii(view, 36, 'data');
+  view.setUint32(40, audio.byteLength, true);
+
+  return new Blob([header, audio], { type: 'audio/wav' });
+}
+
+function writeAscii(view: DataView, offset: number, value: string): void {
+  for (let index = 0; index < value.length; index += 1) {
+    view.setUint8(offset + index, value.charCodeAt(index));
   }
 }
 

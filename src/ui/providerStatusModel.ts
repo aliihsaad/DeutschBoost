@@ -1,4 +1,4 @@
-export type ProviderKind = 'ai' | 'speech';
+export type ProviderKind = 'ai' | 'speech' | 'live';
 export type ProviderState = 'configured' | 'disabled' | 'error';
 
 export interface ProviderSettingsSnapshot {
@@ -16,6 +16,7 @@ export interface ProviderCapabilities {
   canGenerateActivities: boolean;
   canEvaluateWriting: boolean;
   canTranscribeSpeech: boolean;
+  canRunRealtimeConversation: boolean;
 }
 
 export interface ProviderStatusDescription {
@@ -42,6 +43,18 @@ export function describeProviderStatus(snapshot: ProviderSettingsSnapshot): Prov
   const capabilities = getProviderCapabilities(snapshot, state);
 
   if (state === 'disabled') {
+    if (snapshot.kind === 'live') {
+      return {
+        kind: snapshot.kind,
+        providerName: snapshot.providerName,
+        state,
+        headline: 'Realtime conversation is off',
+        detail: 'Gemini Live is required for the primary realtime speaking tutor.',
+        actionLabel: 'Configure Gemini Live',
+        capabilities,
+      };
+    }
+
     return {
       kind: snapshot.kind,
       providerName: snapshot.providerName,
@@ -72,10 +85,7 @@ export function describeProviderStatus(snapshot: ProviderSettingsSnapshot): Prov
     kind: snapshot.kind,
     providerName: snapshot.providerName,
     state,
-    headline:
-      snapshot.kind === 'ai'
-        ? `${snapshot.providerName} AI is ready`
-        : `${snapshot.providerName} speech is ready`,
+    headline: formatReadyHeadline(snapshot),
     detail: describeConfiguredProvider(snapshot),
     actionLabel: 'Manage settings',
     capabilities,
@@ -131,7 +141,20 @@ function getProviderCapabilities(
     canGenerateActivities: active && snapshot.kind === 'ai',
     canEvaluateWriting: active && snapshot.kind === 'ai',
     canTranscribeSpeech: active && snapshot.kind === 'speech',
+    canRunRealtimeConversation: active && snapshot.kind === 'live',
   };
+}
+
+function formatReadyHeadline(snapshot: ProviderSettingsSnapshot): string {
+  if (snapshot.kind === 'ai') {
+    return `${snapshot.providerName} AI is ready`;
+  }
+
+  if (snapshot.kind === 'live') {
+    return `${snapshot.providerName} realtime is ready`;
+  }
+
+  return `${snapshot.providerName} speech is ready`;
 }
 
 function describeConfiguredProvider(snapshot: ProviderSettingsSnapshot): string {

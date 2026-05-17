@@ -68,6 +68,10 @@ const ExperienceAppShell: React.FC<ExperienceAppShellProps> = ({
             label={formatSidebarProviderLabel(providerSettings.speech)}
             tone={getSidebarProviderTone(providerSettings.speech)}
           />
+          <StatusDot
+            label={formatSidebarProviderLabel(providerSettings.live)}
+            tone={getSidebarProviderTone(providerSettings.live)}
+          />
         </div>
       </aside>
 

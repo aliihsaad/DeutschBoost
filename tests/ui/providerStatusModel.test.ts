@@ -37,6 +37,20 @@ describe('providerStatusModel', () => {
     expect(status.capabilities.canTranscribeSpeech).toBe(true);
   });
 
+  it('marks Gemini Live as configured for realtime conversation', () => {
+    const status = describeProviderStatus({
+      kind: 'live',
+      providerName: 'Gemini Live',
+      enabled: true,
+      configured: true,
+      model: 'gemini-3.1-flash-live-preview',
+    });
+
+    expect(status.state).toBe('configured');
+    expect(status.headline).toBe('Gemini Live realtime is ready');
+    expect(status.capabilities.canRunRealtimeConversation).toBe(true);
+  });
+
   it('keeps the provider visible when the last call failed', () => {
     const status = describeProviderStatus({
       kind: 'ai',

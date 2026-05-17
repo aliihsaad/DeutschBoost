@@ -48,6 +48,12 @@ describe('providerRuntime', () => {
         ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
+      live: {
+        enabled: false,
+        provider: 'gemini-live',
+        model: 'gemini-3.1-flash-live-preview',
+        voiceName: 'Kore',
+      },
     };
 
     const runtime = createLocalProviderRuntime(settings, {
@@ -59,8 +65,47 @@ describe('providerRuntime', () => {
     expect(runtime.speechProvider?.id).toBe('deepgram');
     expect(runtime.streamingAiProvider?.id).toBe('openrouter');
     expect(runtime.streamingSpeechProvider?.id).toBe('deepgram');
+    expect(runtime.liveConversationProvider).toBeNull();
     expect(runtime.snapshots.ai.configured).toBe(true);
     expect(runtime.snapshots.speech.configured).toBe(true);
+  });
+
+  it('materializes Gemini Live as a separate realtime conversation provider', () => {
+    const settings: LocalProviderSettings = {
+      ai: {
+        enabled: false,
+        provider: 'openrouter',
+        model: 'openrouter/auto',
+      },
+      speech: {
+        enabled: false,
+        provider: 'deepgram',
+        model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
+        language: 'de',
+      },
+      live: {
+        enabled: true,
+        provider: 'gemini-live',
+        apiKey: 'gemini-key',
+        model: 'gemini-3.1-flash-live-preview',
+        voiceName: 'Kore',
+      },
+    };
+
+    const runtime = createLocalProviderRuntime(settings, {
+      WebSocketCtor: MockWebSocket,
+    });
+
+    expect(runtime.liveConversationProvider?.id).toBe('gemini-live');
+    expect(runtime.snapshots.live).toMatchObject({
+      kind: 'live',
+      providerName: 'Gemini Live',
+      configured: true,
+      model: 'gemini-3.1-flash-live-preview',
+    });
+    expect(runtime.aiProvider).toBeNull();
+    expect(runtime.speechProvider).toBeNull();
   });
 
   it('lets Deepgram streaming fall back to the saved key when auth grant is forbidden', async () => {
@@ -78,6 +123,12 @@ describe('providerRuntime', () => {
         model: 'nova-3',
         ttsModel: 'aura-2-viktoria-de',
         language: 'de',
+      },
+      live: {
+        enabled: false,
+        provider: 'gemini-live',
+        model: 'gemini-3.1-flash-live-preview',
+        voiceName: 'Kore',
       },
     };
     const runtime = createLocalProviderRuntime(settings, {

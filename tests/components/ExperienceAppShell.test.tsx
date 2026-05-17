@@ -54,6 +54,7 @@ describe('ExperienceAppShell', () => {
     expect(screen.getByText('Local files')).toBeInTheDocument();
     expect(screen.getByText('OpenRouter off')).toBeInTheDocument();
     expect(screen.getByText('Deepgram off')).toBeInTheDocument();
+    expect(screen.getByText('Gemini Live off')).toBeInTheDocument();
   });
 
   it('shows configured provider status from local settings', () => {
@@ -71,6 +72,13 @@ describe('ExperienceAppShell', () => {
         model: 'nova-3',
         language: 'de',
       },
+      live: {
+        enabled: true,
+        provider: 'gemini-live',
+        apiKey: 'gemini-key',
+        model: 'gemini-3.1-flash-live-preview',
+        voiceName: 'Kore',
+      },
     });
 
     render(
@@ -83,5 +91,6 @@ describe('ExperienceAppShell', () => {
 
     expect(screen.getByText('OpenRouter ready')).toBeInTheDocument();
     expect(screen.getByText('Deepgram ready')).toBeInTheDocument();
+    expect(screen.getByText('Gemini Live ready')).toBeInTheDocument();
   });
 });

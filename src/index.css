@@ -1105,6 +1105,39 @@ textarea {
   margin-bottom: 12px;
 }
 
+.db-conversation-live-controls {
+  min-height: 42px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.db-live-status {
+  color: #666f7b;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.db-interim-transcript,
+.db-streaming-tutor-text {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid #edf0f2;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #2b2f33;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.db-streaming-tutor-text {
+  border-color: #cfe4f7;
+  background: #eef7ff;
+}
+
 .db-danger-button {
   background: #d92d20;
 }
@@ -1380,7 +1413,8 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .db-conversation-actions button {
+  .db-conversation-actions button,
+  .db-conversation-live-controls button {
     flex: 1;
   }
 

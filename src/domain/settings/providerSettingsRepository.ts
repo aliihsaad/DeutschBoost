@@ -2,9 +2,12 @@ import {
   DEEPGRAM_LANGUAGE_OPTIONS,
   DEEPGRAM_MODEL_OPTIONS,
   DEEPGRAM_TTS_MODEL_OPTIONS,
+  GEMINI_LIVE_MODEL_OPTIONS,
+  GEMINI_LIVE_VOICE_OPTIONS,
   OPENROUTER_MODEL_OPTIONS,
   createDefaultLocalProviderSettings,
   type AiProviderSetting,
+  type LiveConversationProviderSetting,
   type LocalProviderSettings,
   type SpeechProviderSetting,
 } from './providerSettings';
@@ -64,6 +67,7 @@ export function createStorageProviderSettingsRepository(
       await options.storage.removeItem(key);
       await options.secretStorage?.removeSecret('ai.apiKey');
       await options.secretStorage?.removeSecret('speech.apiKey');
+      await options.secretStorage?.removeSecret('live.apiKey');
       return createDefaultLocalProviderSettings();
     },
   };
@@ -94,6 +98,7 @@ async function loadFromStorage(
     await storage.removeItem(key);
     await secretStorage?.removeSecret('ai.apiKey');
     await secretStorage?.removeSecret('speech.apiKey');
+    await secretStorage?.removeSecret('live.apiKey');
     return createDefaultLocalProviderSettings();
   }
 }
@@ -104,6 +109,8 @@ async function mergeStoredProviderSecrets(
 ): Promise<LocalProviderSettings> {
   const aiApiKey = await secretStorage.getSecret('ai.apiKey') ?? settings.ai.apiKey;
   const speechApiKey = await secretStorage.getSecret('speech.apiKey') ?? settings.speech.apiKey;
+  const liveSettings = settings.live ?? createDefaultLocalProviderSettings().live!;
+  const liveApiKey = await secretStorage.getSecret('live.apiKey') ?? liveSettings.apiKey;
 
   return {
     ai: {
@@ -113,6 +120,10 @@ async function mergeStoredProviderSecrets(
     speech: {
       ...settings.speech,
       ...optionalText('apiKey', speechApiKey),
+    },
+    live: {
+      ...liveSettings,
+      ...optionalText('apiKey', liveApiKey),
     },
   };
 }
@@ -124,7 +135,7 @@ async function migrateInlineProviderSecrets(
   normalized: LocalProviderSettings,
   merged: LocalProviderSettings
 ): Promise<void> {
-  if (!normalized.ai.apiKey && !normalized.speech.apiKey) {
+  if (!normalized.ai.apiKey && !normalized.speech.apiKey && !normalized.live?.apiKey) {
     return;
   }
 
@@ -147,14 +158,22 @@ async function saveProviderSecrets(
   } else {
     await secretStorage.removeSecret('speech.apiKey');
   }
+
+  if (settings.live?.apiKey) {
+    await secretStorage.setSecret('live.apiKey', settings.live.apiKey);
+  } else {
+    await secretStorage.removeSecret('live.apiKey');
+  }
 }
 
 function removeProviderSecrets(settings: LocalProviderSettings): LocalProviderSettings {
   const ai = { ...settings.ai };
   const speech = { ...settings.speech };
+  const live = { ...(settings.live ?? createDefaultLocalProviderSettings().live!) };
   delete ai.apiKey;
   delete speech.apiKey;
-  return { ai, speech };
+  delete live.apiKey;
+  return { ai, speech, live };
 }
 
 function normalizeProviderSettings(settings: unknown): LocalProviderSettings {
@@ -162,6 +181,7 @@ function normalizeProviderSettings(settings: unknown): LocalProviderSettings {
   const root = asRecord(settings);
   const ai = asRecord(root.ai);
   const speech = asRecord(root.speech);
+  const live = asRecord(root.live);
 
   return {
     ai: {
@@ -182,6 +202,13 @@ function normalizeProviderSettings(settings: unknown): LocalProviderSettings {
       language: normalizeModelOption(speech.language, DEEPGRAM_LANGUAGE_OPTIONS, defaults.speech.language),
       ...optionalText('apiKey', speech.apiKey, defaults.speech.apiKey),
     },
+    live: {
+      enabled: normalizeBoolean(live.enabled, defaults.live!.enabled),
+      provider: normalizeLiveConversationProvider(live.provider, defaults.live!.provider),
+      model: normalizeModelOption(live.model, GEMINI_LIVE_MODEL_OPTIONS, defaults.live!.model),
+      voiceName: normalizeModelOption(live.voiceName, GEMINI_LIVE_VOICE_OPTIONS, defaults.live!.voiceName),
+      ...optionalText('apiKey', live.apiKey, defaults.live!.apiKey),
+    },
   };
 }
 
@@ -197,6 +224,13 @@ function normalizeSpeechProvider(
   fallback: SpeechProviderSetting
 ): SpeechProviderSetting {
   return value === 'deepgram' ? value : fallback;
+}
+
+function normalizeLiveConversationProvider(
+  value: unknown,
+  fallback: LiveConversationProviderSetting
+): LiveConversationProviderSetting {
+  return value === 'gemini-live' ? value : fallback;
 }
 
 function normalizeModelOption(

@@ -3,6 +3,8 @@ import {
   DEEPGRAM_LANGUAGE_OPTIONS,
   DEEPGRAM_MODEL_OPTIONS,
   DEEPGRAM_TTS_MODEL_OPTIONS,
+  GEMINI_LIVE_MODEL_OPTIONS,
+  GEMINI_LIVE_VOICE_OPTIONS,
   OPENROUTER_MODEL_OPTIONS,
   buildProviderSettingsSnapshots,
   createDefaultLocalProviderSettings,
@@ -109,7 +111,7 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
   deepgramTtsTester = defaultDeepgramTtsTester,
 }) => {
   const [settings, setSettings] = useState<LocalProviderSettings>(createDefaultLocalProviderSettings);
-  const [apiKeyDrafts, setApiKeyDrafts] = useState({ ai: '', speech: '' });
+  const [apiKeyDrafts, setApiKeyDrafts] = useState({ ai: '', speech: '', live: '' });
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [deepgramTest, setDeepgramTest] = useState<{
@@ -136,7 +138,7 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
         const loaded = await repository.load();
         if (!cancelled) {
           setSettings(loaded);
-          setApiKeyDrafts({ ai: '', speech: '' });
+          setApiKeyDrafts({ ai: '', speech: '', live: '' });
           resetDeepgramTestState();
           onSettingsChange?.(loaded);
         }
@@ -174,6 +176,7 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
   const snapshots = useMemo(() => buildProviderSettingsSnapshots(settings), [settings]);
   const aiStatus = describeProviderStatus(snapshots.ai);
   const speechStatus = describeProviderStatus(snapshots.speech);
+  const liveStatus = describeProviderStatus(snapshots.live);
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -184,7 +187,7 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
       const settingsToSave = mergeApiKeyDrafts(settings, apiKeyDrafts);
       const saved = await repository.save(settingsToSave);
       setSettings(saved);
-      setApiKeyDrafts({ ai: '', speech: '' });
+      setApiKeyDrafts({ ai: '', speech: '', live: '' });
       onSettingsChange?.(saved);
       setSaveState('saved');
     } catch (error) {
@@ -200,7 +203,7 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
     try {
       const resetSettings = await repository.reset();
       setSettings(resetSettings);
-      setApiKeyDrafts({ ai: '', speech: '' });
+      setApiKeyDrafts({ ai: '', speech: '', live: '' });
       resetDeepgramTestState();
       onSettingsChange?.(resetSettings);
       setSaveState('reset');
@@ -387,6 +390,73 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
           </div>
         </section>
 
+        <section className="db-panel db-settings-panel" aria-labelledby="live-provider-heading">
+          <ProviderPanelHeader snapshot={snapshots.live} />
+          <div className="db-settings-section-heading">
+            <h2 id="live-provider-heading">Realtime Conversation</h2>
+            <span>{liveStatus.detail}</span>
+          </div>
+
+          <label className="db-toggle-row">
+            <input
+              type="checkbox"
+              checked={settings.live?.enabled ?? false}
+              onChange={event =>
+                setSettings(current => ({
+                  ...current,
+                  live: {
+                    ...(current.live ?? createDefaultLocalProviderSettings().live!),
+                    enabled: event.target.checked,
+                  },
+                }))
+              }
+            />
+            <span>Enable Gemini Live</span>
+          </label>
+
+          <div className="db-field-grid">
+            <SecretField
+              label="Gemini Live API key"
+              value={apiKeyDrafts.live}
+              saved={hasSecret(settings.live?.apiKey)}
+              onChange={value =>
+                setApiKeyDrafts(current => ({
+                  ...current,
+                  live: value,
+                }))
+              }
+            />
+            <SelectField
+              label="Gemini Live model"
+              value={settings.live?.model ?? createDefaultLocalProviderSettings().live!.model}
+              options={GEMINI_LIVE_MODEL_OPTIONS}
+              onChange={value =>
+                setSettings(current => ({
+                  ...current,
+                  live: {
+                    ...(current.live ?? createDefaultLocalProviderSettings().live!),
+                    model: value,
+                  },
+                }))
+              }
+            />
+            <SelectField
+              label="Gemini Live voice"
+              value={settings.live?.voiceName ?? createDefaultLocalProviderSettings().live!.voiceName}
+              options={GEMINI_LIVE_VOICE_OPTIONS}
+              onChange={value =>
+                setSettings(current => ({
+                  ...current,
+                  live: {
+                    ...(current.live ?? createDefaultLocalProviderSettings().live!),
+                    voiceName: value,
+                  },
+                }))
+              }
+            />
+          </div>
+        </section>
+
         <section className="db-panel db-settings-panel" aria-labelledby="speech-provider-heading">
           <ProviderPanelHeader snapshot={snapshots.speech} />
           <div className="db-settings-section-heading">
@@ -507,7 +577,7 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
           <div>
             <span className="db-section-label">Local storage</span>
             <h2>Device only</h2>
-            <p>OpenRouter and Deepgram keys stay on this device.</p>
+            <p>OpenRouter, Deepgram, and Gemini Live keys stay on this device.</p>
           </div>
           <div className="db-settings-actions">
             <button
@@ -629,9 +699,15 @@ function formatProviderHeadline(snapshot: ProviderSettingsSnapshot): string {
   const status = describeProviderStatus(snapshot);
 
   if (status.state === 'disabled') {
-    return snapshot.kind === 'ai'
-      ? `${snapshot.providerName} AI is off`
-      : `${snapshot.providerName} voice is off`;
+    if (snapshot.kind === 'ai') {
+      return `${snapshot.providerName} AI is off`;
+    }
+
+    if (snapshot.kind === 'live') {
+      return `${snapshot.providerName} realtime is off`;
+    }
+
+    return `${snapshot.providerName} voice is off`;
   }
 
   return status.headline;
@@ -643,7 +719,7 @@ function getErrorMessage(error: unknown): string {
 
 function mergeApiKeyDrafts(
   settings: LocalProviderSettings,
-  apiKeyDrafts: { ai: string; speech: string }
+  apiKeyDrafts: { ai: string; speech: string; live: string }
 ): LocalProviderSettings {
   return {
     ai: {
@@ -653,6 +729,10 @@ function mergeApiKeyDrafts(
     speech: {
       ...settings.speech,
       ...optionalSecret('apiKey', apiKeyDrafts.speech, settings.speech.apiKey),
+    },
+    live: {
+      ...(settings.live ?? createDefaultLocalProviderSettings().live!),
+      ...optionalSecret('apiKey', apiKeyDrafts.live, settings.live?.apiKey),
     },
   };
 }

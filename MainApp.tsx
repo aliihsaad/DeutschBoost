@@ -102,6 +102,7 @@ const MainApp: React.FC = () => {
   const runtimeSpeechProvider = providerRuntime.speechProvider ?? undefined;
   const runtimeStreamingAiProvider = providerRuntime.streamingAiProvider ?? undefined;
   const runtimeStreamingSpeechProvider = providerRuntime.streamingSpeechProvider ?? undefined;
+  const runtimeLiveConversationProvider = providerRuntime.liveConversationProvider ?? undefined;
 
   const handleTestComplete = useCallback(
     async (result: TestResult) => {
@@ -192,6 +193,7 @@ const MainApp: React.FC = () => {
                 speechProvider={runtimeSpeechProvider}
                 streamingAiProvider={runtimeStreamingAiProvider}
                 streamingSpeechProvider={runtimeStreamingSpeechProvider}
+                liveConversationProvider={runtimeLiveConversationProvider}
               />
             }
           />
@@ -203,6 +205,7 @@ const MainApp: React.FC = () => {
                 speechProvider={runtimeSpeechProvider}
                 streamingAiProvider={runtimeStreamingAiProvider}
                 streamingSpeechProvider={runtimeStreamingSpeechProvider}
+                liveConversationProvider={runtimeLiveConversationProvider}
               />
             }
           />

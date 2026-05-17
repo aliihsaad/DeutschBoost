@@ -3,12 +3,18 @@ import { createGeminiAiProvider, type GeminiClientLike } from '../ai/geminiProvi
 import { createOpenRouterProvider } from '../ai/openRouterProvider';
 import type { SpeechProvider } from '../speech/speechProvider';
 import { createDeepgramSpeechProvider } from '../speech/deepgramProvider';
+import type { LiveConversationProvider } from '../conversation/liveConversationProvider';
+import {
+  createGeminiLiveConversationProvider,
+  type GeminiLiveWebSocketCtor,
+} from '../conversation/geminiLiveProvider';
 import type { ProviderSettingsSnapshot } from '../../ui/providerStatusModel';
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 export type AiProviderSetting = 'gemini' | 'openrouter';
 export type SpeechProviderSetting = 'deepgram';
+export type LiveConversationProviderSetting = 'gemini-live';
 
 export interface LocalAiProviderSettings {
   enabled: boolean;
@@ -26,20 +32,31 @@ export interface LocalSpeechProviderSettings {
   language: string;
 }
 
+export interface LocalLiveConversationProviderSettings {
+  enabled: boolean;
+  provider: LiveConversationProviderSetting;
+  apiKey?: string;
+  model: string;
+  voiceName: string;
+}
+
 export interface LocalProviderSettings {
   ai: LocalAiProviderSettings;
   speech: LocalSpeechProviderSettings;
+  live?: LocalLiveConversationProviderSettings;
 }
 
 export interface ProviderFactoryDependencies {
   geminiClient?: GeminiClientLike;
   fetchFn?: FetchLike;
   now?: () => string;
+  WebSocketCtor?: GeminiLiveWebSocketCtor;
 }
 
 export interface ProviderSettingsSnapshots {
   ai: ProviderSettingsSnapshot;
   speech: ProviderSettingsSnapshot;
+  live: ProviderSettingsSnapshot;
 }
 
 export interface ProviderModelOption {
@@ -51,6 +68,8 @@ const DEFAULT_OPENROUTER_MODEL = 'openrouter/auto';
 const DEFAULT_DEEPGRAM_MODEL = 'nova-3';
 const DEFAULT_DEEPGRAM_TTS_MODEL = 'aura-2-viktoria-de';
 const DEFAULT_DEEPGRAM_LANGUAGE = 'de';
+const DEFAULT_GEMINI_LIVE_MODEL = 'gemini-3.1-flash-live-preview';
+const DEFAULT_GEMINI_LIVE_VOICE = 'Kore';
 const FIXED_OPENROUTER_APP_TITLE = 'DeutschBoost';
 const FIXED_OPENROUTER_SITE_URL = 'app://deutschboost';
 
@@ -76,6 +95,18 @@ export const DEEPGRAM_LANGUAGE_OPTIONS: ProviderModelOption[] = [
   { value: 'de', label: 'German (de)' },
 ];
 
+export const GEMINI_LIVE_MODEL_OPTIONS: ProviderModelOption[] = [
+  { value: 'gemini-3.1-flash-live-preview', label: 'Gemini 3.1 Flash Live' },
+  { value: 'gemini-2.5-flash-live-preview', label: 'Gemini 2.5 Flash Live' },
+];
+
+export const GEMINI_LIVE_VOICE_OPTIONS: ProviderModelOption[] = [
+  { value: 'Kore', label: 'Kore' },
+  { value: 'Puck', label: 'Puck' },
+  { value: 'Charon', label: 'Charon' },
+  { value: 'Fenrir', label: 'Fenrir' },
+];
+
 export function createDefaultLocalProviderSettings(): LocalProviderSettings {
   return {
     ai: {
@@ -90,15 +121,24 @@ export function createDefaultLocalProviderSettings(): LocalProviderSettings {
       ttsModel: DEFAULT_DEEPGRAM_TTS_MODEL,
       language: DEFAULT_DEEPGRAM_LANGUAGE,
     },
+    live: {
+      enabled: false,
+      provider: 'gemini-live',
+      model: DEFAULT_GEMINI_LIVE_MODEL,
+      voiceName: DEFAULT_GEMINI_LIVE_VOICE,
+    },
   };
 }
 
 export function buildProviderSettingsSnapshots(
   settings: LocalProviderSettings
 ): ProviderSettingsSnapshots {
+  const defaults = createDefaultLocalProviderSettings();
+
   return {
     ai: buildAiProviderSettingsSnapshot(settings.ai),
     speech: buildSpeechProviderSettingsSnapshot(settings.speech),
+    live: buildLiveConversationProviderSettingsSnapshot(settings.live ?? defaults.live!),
   };
 }
 
@@ -124,6 +164,18 @@ export function buildSpeechProviderSettingsSnapshot(
     configured: isSpeechProviderConfigured(settings),
     model: settings.model,
     language: settings.language,
+  };
+}
+
+export function buildLiveConversationProviderSettingsSnapshot(
+  settings: LocalLiveConversationProviderSettings
+): ProviderSettingsSnapshot {
+  return {
+    kind: 'live',
+    providerName: getLiveConversationProviderName(settings.provider),
+    enabled: settings.enabled,
+    configured: isLiveConversationProviderConfigured(settings),
+    model: settings.model,
   };
 }
 
@@ -174,6 +226,22 @@ export function createSpeechProviderFromSettings(
   });
 }
 
+export function createLiveConversationProviderFromSettings(
+  settings: LocalLiveConversationProviderSettings,
+  dependencies: ProviderFactoryDependencies = {}
+): LiveConversationProvider | null {
+  if (!settings.enabled || !isLiveConversationProviderConfigured(settings)) {
+    return null;
+  }
+
+  return createGeminiLiveConversationProvider({
+    apiKey: settings.apiKey ?? '',
+    model: settings.model,
+    voiceName: settings.voiceName,
+    WebSocketCtor: dependencies.WebSocketCtor,
+  });
+}
+
 export function isAiProviderConfigured(settings: LocalAiProviderSettings): boolean {
   if (settings.provider === 'gemini') {
     return settings.enabled;
@@ -183,6 +251,12 @@ export function isAiProviderConfigured(settings: LocalAiProviderSettings): boole
 }
 
 export function isSpeechProviderConfigured(settings: LocalSpeechProviderSettings): boolean {
+  return settings.enabled && hasValue(settings.apiKey);
+}
+
+export function isLiveConversationProviderConfigured(
+  settings: LocalLiveConversationProviderSettings
+): boolean {
   return settings.enabled && hasValue(settings.apiKey);
 }
 
@@ -196,6 +270,10 @@ function getAiProviderName(provider: AiProviderSetting): string {
 
 function getSpeechProviderName(provider: SpeechProviderSetting): string {
   return provider === 'deepgram' ? 'Deepgram' : provider;
+}
+
+function getLiveConversationProviderName(provider: LiveConversationProviderSetting): string {
+  return provider === 'gemini-live' ? 'Gemini Live' : provider;
 }
 
 function hasValue(value: string | undefined): boolean {

@@ -13,6 +13,10 @@ export interface ActiveStreamingAudioCapture {
   stop(): void;
 }
 
+export interface ActivePcmAudioCapture {
+  stop(): void;
+}
+
 interface BrowserAudioRecordingOptions {
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   createRecorder?: (stream: MediaStream, options?: MediaRecorderOptions) => MediaRecorder;
@@ -26,6 +30,38 @@ interface BrowserStreamingAudioCaptureOptions {
   selectMimeType?: () => string | undefined;
   chunkIntervalMs?: number;
   onAudioChunk: (chunk: Blob) => void;
+  onError?: (error: Error) => void;
+}
+
+interface PcmAudioContextLike {
+  sampleRate: number;
+  destination: unknown;
+  createMediaStreamSource(stream: MediaStream): PcmAudioSourceNodeLike;
+  createScriptProcessor(
+    bufferSize: number,
+    numberOfInputChannels: number,
+    numberOfOutputChannels: number
+  ): PcmScriptProcessorNodeLike;
+  close?: () => void | Promise<void>;
+}
+
+interface PcmAudioSourceNodeLike {
+  connect(destination: unknown): void;
+  disconnect(): void;
+}
+
+interface PcmScriptProcessorNodeLike {
+  onaudioprocess: ((event: { inputBuffer: { getChannelData(channel: number): Float32Array } }) => void) | null;
+  connect(destination: unknown): void;
+  disconnect(): void;
+}
+
+interface BrowserPcmAudioCaptureOptions {
+  getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+  createAudioContext?: () => PcmAudioContextLike;
+  targetSampleRate?: number;
+  bufferSize?: number;
+  onPcmChunk: (chunk: Uint8Array) => void;
   onError?: (error: Error) => void;
 }
 
@@ -181,6 +217,85 @@ export async function startBrowserStreamingAudioCapture(
   }
 }
 
+export async function startBrowserPcmAudioCapture(
+  options: BrowserPcmAudioCaptureOptions
+): Promise<ActivePcmAudioCapture> {
+  const getUserMedia = options.getUserMedia ?? navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices);
+
+  if (!getUserMedia) {
+    throw new Error('Microphone recording is not available in this browser');
+  }
+
+  const createAudioContext = options.createAudioContext ?? createDefaultAudioContext;
+  const stream = await getUserMedia({ audio: true });
+
+  try {
+    const audioContext = createAudioContext();
+    const source = audioContext.createMediaStreamSource(stream);
+    const processor = audioContext.createScriptProcessor(options.bufferSize ?? 4096, 1, 1);
+    const targetSampleRate = options.targetSampleRate ?? 16000;
+
+    processor.onaudioprocess = event => {
+      try {
+        const input = event.inputBuffer.getChannelData(0);
+        const downsampled = downsampleFloat32Audio(input, audioContext.sampleRate, targetSampleRate);
+        options.onPcmChunk(convertFloat32ToPcm16(downsampled));
+      } catch (error) {
+        options.onError?.(error instanceof Error ? error : new Error('Microphone PCM conversion failed'));
+      }
+    };
+
+    source.connect(processor);
+    processor.connect(audioContext.destination);
+
+    return {
+      stop: () => {
+        processor.onaudioprocess = null;
+        source.disconnect();
+        processor.disconnect();
+        void audioContext.close?.();
+        stopTracks(stream);
+      },
+    };
+  } catch (error) {
+    stopTracks(stream);
+    throw error;
+  }
+}
+
+export function downsampleFloat32Audio(
+  samples: Float32Array,
+  sourceSampleRate: number,
+  targetSampleRate: number
+): Float32Array {
+  if (targetSampleRate >= sourceSampleRate) {
+    return samples;
+  }
+
+  const ratio = sourceSampleRate / targetSampleRate;
+  const outputLength = Math.floor(samples.length / ratio);
+  const output = new Float32Array(outputLength);
+
+  for (let index = 0; index < outputLength; index += 1) {
+    output[index] = samples[Math.floor(index * ratio)] ?? 0;
+  }
+
+  return output;
+}
+
+export function convertFloat32ToPcm16(samples: Float32Array): Uint8Array {
+  const bytes = new Uint8Array(samples.length * 2);
+  const view = new DataView(bytes.buffer);
+
+  samples.forEach((sample, index) => {
+    const clamped = Math.max(-1, Math.min(1, sample));
+    const value = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
+    view.setInt16(index * 2, value, true);
+  });
+
+  return bytes;
+}
+
 export async function recordAudioSample(
   options: RecordAudioSampleOptions | number = {}
 ): Promise<RecordedAudioSample> {
@@ -208,6 +323,16 @@ function createPlaybackUrl(
 
 function stopTracks(stream: MediaStream): void {
   stream.getTracks().forEach(track => track.stop());
+}
+
+function createDefaultAudioContext(): PcmAudioContextLike {
+  const AudioContextCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+  if (!AudioContextCtor) {
+    throw new Error('Raw microphone capture is not available in this browser');
+  }
+
+  return new AudioContextCtor();
 }
 
 function defaultDelay(ms: number): Promise<void> {

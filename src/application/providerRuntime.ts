@@ -3,15 +3,19 @@ import type { StreamingAiProvider } from '../domain/ai/streamingAiProvider';
 import { createOpenRouterStreamingProvider } from '../domain/ai/openRouterStreamingProvider';
 import type { SpeechProvider } from '../domain/speech/speechProvider';
 import type { StreamingSpeechProvider } from '../domain/speech/streamingSpeechProvider';
+import type { LiveConversationProvider } from '../domain/conversation/liveConversationProvider';
 import {
   createDeepgramStreamingSpeechProvider,
   type DeepgramStreamingWebSocketCtor,
 } from '../domain/speech/deepgramStreamingProvider';
 import {
   buildProviderSettingsSnapshots,
+  createDefaultLocalProviderSettings,
   createAiProviderFromSettings,
+  createLiveConversationProviderFromSettings,
   createSpeechProviderFromSettings,
   isAiProviderConfigured,
+  isLiveConversationProviderConfigured,
   isSpeechProviderConfigured,
   type LocalProviderSettings,
   type ProviderFactoryDependencies,
@@ -25,6 +29,7 @@ export interface LocalProviderRuntime {
   speechProvider: SpeechProvider | null;
   streamingAiProvider: StreamingAiProvider | null;
   streamingSpeechProvider: StreamingSpeechProvider | null;
+  liveConversationProvider: LiveConversationProvider | null;
 }
 
 export interface LocalProviderRuntimeDependencies extends ProviderFactoryDependencies {
@@ -49,7 +54,21 @@ export function createLocalProviderRuntime(
     speechProvider: createSpeechProviderFromSettings(settings.speech, dependencies),
     streamingAiProvider: createStreamingAiProvider(settings, dependencies),
     streamingSpeechProvider: createStreamingSpeechProvider(settings, dependencies),
+    liveConversationProvider: createLiveConversationProvider(settings, dependencies),
   };
+}
+
+function createLiveConversationProvider(
+  settings: LocalProviderSettings,
+  dependencies: LocalProviderRuntimeDependencies
+): LiveConversationProvider | null {
+  const liveSettings = settings.live ?? createDefaultLocalProviderSettings().live!;
+
+  if (!liveSettings.enabled || !isLiveConversationProviderConfigured(liveSettings)) {
+    return null;
+  }
+
+  return createLiveConversationProviderFromSettings(liveSettings, dependencies);
 }
 
 function createStreamingAiProvider(

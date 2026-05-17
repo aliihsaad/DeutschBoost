@@ -2,7 +2,7 @@ import type { KeyValueStorage } from '../storage/keyValueStorage';
 
 export const DEFAULT_PROVIDER_SECRETS_STORAGE_KEY = 'deutschboost.providerSecrets.v1';
 
-export type ProviderSecretName = 'ai.apiKey' | 'speech.apiKey';
+export type ProviderSecretName = 'ai.apiKey' | 'speech.apiKey' | 'live.apiKey';
 export type ProviderSecretStorageProtection =
   | 'system-secret-store'
   | 'stronghold'
@@ -84,6 +84,7 @@ function normalizeSecretStore(value: unknown): ProviderSecretStore {
   return {
     ...normalizeSecret(root, 'ai.apiKey'),
     ...normalizeSecret(root, 'speech.apiKey'),
+    ...normalizeSecret(root, 'live.apiKey'),
   };
 }
 

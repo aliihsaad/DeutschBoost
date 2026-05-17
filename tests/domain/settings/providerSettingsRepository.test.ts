@@ -66,6 +66,13 @@ describe('providerSettingsRepository', () => {
         ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
+      live: {
+        enabled: true,
+        provider: 'gemini-live',
+        apiKey: 'gemini-key',
+        model: 'gemini-3.1-flash-live-preview',
+        voiceName: 'Kore',
+      },
     };
 
     await repository.save(settings);
@@ -98,6 +105,13 @@ describe('providerSettingsRepository', () => {
         ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
+      live: {
+        enabled: true,
+        provider: 'gemini-live',
+        apiKey: 'gemini-key',
+        model: 'gemini-3.1-flash-live-preview',
+        voiceName: 'Kore',
+      },
     };
 
     await repository.save(settings);
@@ -105,8 +119,10 @@ describe('providerSettingsRepository', () => {
     const storedPublicSettings = JSON.parse(storage.read(DEFAULT_PROVIDER_SETTINGS_STORAGE_KEY)!);
     expect(storedPublicSettings.ai.apiKey).toBeUndefined();
     expect(storedPublicSettings.speech.apiKey).toBeUndefined();
+    expect(storedPublicSettings.live.apiKey).toBeUndefined();
     await expect(secretStorage.getSecret('ai.apiKey')).resolves.toBe('openrouter-key');
     await expect(secretStorage.getSecret('speech.apiKey')).resolves.toBe('deepgram-key');
+    await expect(secretStorage.getSecret('live.apiKey')).resolves.toBe('gemini-key');
     await expect(repository.load()).resolves.toEqual(settings);
   });
 
@@ -126,6 +142,13 @@ describe('providerSettingsRepository', () => {
           model: 'nova-3',
           language: 'de',
         },
+        live: {
+          enabled: true,
+          provider: 'gemini-live',
+          apiKey: 'legacy-gemini-key',
+          model: 'gemini-3.1-flash-live-preview',
+          voiceName: 'Kore',
+        },
       }),
     });
     const secretStorage = createSecretStorage();
@@ -134,13 +157,16 @@ describe('providerSettingsRepository', () => {
     await expect(repository.load()).resolves.toMatchObject({
       ai: { apiKey: 'legacy-openrouter-key' },
       speech: { apiKey: 'legacy-deepgram-key' },
+      live: { apiKey: 'legacy-gemini-key' },
     });
 
     const storedPublicSettings = JSON.parse(storage.read(DEFAULT_PROVIDER_SETTINGS_STORAGE_KEY)!);
     expect(storedPublicSettings.ai.apiKey).toBeUndefined();
     expect(storedPublicSettings.speech.apiKey).toBeUndefined();
+    expect(storedPublicSettings.live.apiKey).toBeUndefined();
     await expect(secretStorage.getSecret('ai.apiKey')).resolves.toBe('legacy-openrouter-key');
     await expect(secretStorage.getSecret('speech.apiKey')).resolves.toBe('legacy-deepgram-key');
+    await expect(secretStorage.getSecret('live.apiKey')).resolves.toBe('legacy-gemini-key');
   });
 
   it('merges older partial settings with current defaults', async () => {
@@ -173,6 +199,12 @@ describe('providerSettingsRepository', () => {
         model: 'nova-3',
         ttsModel: 'aura-2-viktoria-de',
         language: 'de',
+      },
+      live: {
+        enabled: false,
+        provider: 'gemini-live',
+        model: 'gemini-3.1-flash-live-preview',
+        voiceName: 'Kore',
       },
     });
   });
@@ -258,6 +290,13 @@ describe('providerSettingsRepository', () => {
         ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
+      live: {
+        enabled: true,
+        provider: 'gemini-live',
+        apiKey: 'gemini-key',
+        model: 'gemini-2.5-flash-live-preview',
+        voiceName: 'Puck',
+      },
     });
 
     const updated = await repository.update((settings) => ({
@@ -270,8 +309,10 @@ describe('providerSettingsRepository', () => {
 
     expect(updated.ai.apiKey).toBe('openrouter-key');
     expect(updated.speech.apiKey).toBe('deepgram-key');
+    expect(updated.live?.apiKey).toBe('gemini-key');
     await expect(secretStorage.getSecret('ai.apiKey')).resolves.toBe('openrouter-key');
     await expect(secretStorage.getSecret('speech.apiKey')).resolves.toBe('deepgram-key');
+    await expect(secretStorage.getSecret('live.apiKey')).resolves.toBe('gemini-key');
   });
 
   it('supports async storage adapters for native local persistence', async () => {
@@ -323,6 +364,13 @@ describe('providerSettingsRepository', () => {
         ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
+      live: {
+        enabled: true,
+        provider: 'gemini-live',
+        apiKey: 'gemini-key',
+        model: 'gemini-3.1-flash-live-preview',
+        voiceName: 'Kore',
+      },
     });
 
     await expect(repository.reset()).resolves.toEqual(createDefaultLocalProviderSettings());
@@ -349,12 +397,20 @@ describe('providerSettingsRepository', () => {
         ttsModel: 'aura-2-viktoria-de',
         language: 'de',
       },
+      live: {
+        enabled: true,
+        provider: 'gemini-live',
+        apiKey: 'gemini-key',
+        model: 'gemini-3.1-flash-live-preview',
+        voiceName: 'Kore',
+      },
     });
 
     await repository.reset();
 
     await expect(secretStorage.getSecret('ai.apiKey')).resolves.toBeNull();
     await expect(secretStorage.getSecret('speech.apiKey')).resolves.toBeNull();
+    await expect(secretStorage.getSecret('live.apiKey')).resolves.toBeNull();
   });
 
   it('recovers defaults and clears storage when saved JSON is corrupt', async () => {

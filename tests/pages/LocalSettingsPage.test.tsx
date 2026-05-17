@@ -32,11 +32,17 @@ describe('LocalSettingsPage', () => {
     expect(await screen.findByRole('heading', { name: 'Local Settings' })).toBeInTheDocument();
     expect(screen.getByText('OpenRouter AI is off')).toBeInTheDocument();
     expect(screen.getByText('Deepgram voice is off')).toBeInTheDocument();
+    expect(screen.getByText('Gemini Live realtime is off')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'OpenRouter model' })).toHaveValue('openrouter/auto');
     expect(screen.getByRole('combobox', { name: 'Deepgram model' })).toHaveValue('nova-3');
     expect(screen.getByRole('combobox', { name: 'Deepgram TTS voice' })).toHaveValue('aura-2-viktoria-de');
     expect(screen.getByRole('combobox', { name: 'Deepgram language' })).toHaveValue('de');
+    expect(screen.getByRole('combobox', { name: 'Gemini Live model' })).toHaveValue(
+      'gemini-3.1-flash-live-preview'
+    );
+    expect(screen.getByRole('combobox', { name: 'Gemini Live voice' })).toHaveValue('Kore');
     expect(screen.queryByRole('textbox', { name: 'Deepgram language' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Gemini Live model' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('OpenRouter site URL')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Deepgram base URL')).not.toBeInTheDocument();
   });
@@ -62,6 +68,13 @@ describe('LocalSettingsPage', () => {
     fireEvent.change(screen.getByLabelText('Deepgram API key'), {
       target: { value: 'deepgram-key' },
     });
+    fireEvent.click(screen.getByLabelText('Enable Gemini Live'));
+    fireEvent.change(screen.getByLabelText('Gemini Live API key'), {
+      target: { value: 'gemini-key' },
+    });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Gemini Live model' }), {
+      target: { value: 'gemini-2.5-flash-live-preview' },
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
 
@@ -81,11 +94,55 @@ describe('LocalSettingsPage', () => {
           ttsModel: 'aura-2-viktoria-de',
           language: 'de',
         }),
+        live: expect.objectContaining({
+          enabled: true,
+          provider: 'gemini-live',
+          apiKey: 'gemini-key',
+          model: 'gemini-2.5-flash-live-preview',
+          voiceName: 'Kore',
+        }),
       });
     });
     expect(screen.getByText('Settings saved locally')).toBeInTheDocument();
     expect(screen.getByText('OpenRouter AI is ready')).toBeInTheDocument();
     expect(screen.getByText('Deepgram speech is ready')).toBeInTheDocument();
+    expect(screen.getByText('Gemini Live realtime is ready')).toBeInTheDocument();
+  });
+
+  it('does not render a saved Gemini Live API key as plaintext', async () => {
+    const repository = createStorageProviderSettingsRepository({
+      storage: createMemoryStorage({
+        [DEFAULT_PROVIDER_SETTINGS_STORAGE_KEY]: JSON.stringify({
+          ai: {
+            enabled: false,
+            provider: 'openrouter',
+            model: 'openrouter/auto',
+          },
+          speech: {
+            enabled: false,
+            provider: 'deepgram',
+            model: 'nova-3',
+            ttsModel: 'aura-2-viktoria-de',
+            language: 'de',
+          },
+          live: {
+            enabled: true,
+            provider: 'gemini-live',
+            apiKey: 'saved-gemini-key',
+            model: 'gemini-3.1-flash-live-preview',
+            voiceName: 'Kore',
+          },
+        }),
+      }),
+    });
+
+    render(<LocalSettingsPage repository={repository} />);
+
+    await screen.findByText('Gemini Live realtime is ready');
+
+    expect(screen.getByLabelText('Gemini Live API key')).toHaveValue('');
+    expect(screen.queryByDisplayValue('saved-gemini-key')).not.toBeInTheDocument();
+    expect(screen.getByText('Saved key hidden')).toBeInTheDocument();
   });
 
   it('does not render saved API keys as plaintext', async () => {
@@ -320,6 +377,11 @@ describe('LocalSettingsPage', () => {
           model: 'nova-3',
           ttsModel: 'aura-2-viktoria-de',
           language: 'de',
+        }),
+        live: expect.objectContaining({
+          enabled: false,
+          model: 'gemini-3.1-flash-live-preview',
+          voiceName: 'Kore',
         }),
       });
     });

@@ -3,10 +3,13 @@ import {
   DEEPGRAM_LANGUAGE_OPTIONS,
   DEEPGRAM_MODEL_OPTIONS,
   DEEPGRAM_TTS_MODEL_OPTIONS,
+  GEMINI_LIVE_MODEL_OPTIONS,
+  GEMINI_LIVE_VOICE_OPTIONS,
   OPENROUTER_MODEL_OPTIONS,
   buildProviderSettingsSnapshots,
   createAiProviderFromSettings,
   createDefaultLocalProviderSettings,
+  createLiveConversationProviderFromSettings,
   createSpeechProviderFromSettings,
 } from '../../../src/domain/settings/providerSettings';
 
@@ -27,6 +30,12 @@ describe('providerSettings', () => {
       ttsModel: 'aura-2-viktoria-de',
       language: 'de',
     });
+    expect(settings.live).toMatchObject({
+      enabled: false,
+      provider: 'gemini-live',
+      model: 'gemini-3.1-flash-live-preview',
+      voiceName: 'Kore',
+    });
     expect(snapshots.ai).toMatchObject({
       kind: 'ai',
       providerName: 'OpenRouter',
@@ -42,6 +51,13 @@ describe('providerSettings', () => {
       model: 'nova-3',
       language: 'de',
     });
+    expect(snapshots.live).toMatchObject({
+      kind: 'live',
+      providerName: 'Gemini Live',
+      enabled: false,
+      configured: false,
+      model: 'gemini-3.1-flash-live-preview',
+    });
   });
 
   it('exposes fixed model choices for the settings UI', () => {
@@ -51,6 +67,12 @@ describe('providerSettings', () => {
     expect(DEEPGRAM_TTS_MODEL_OPTIONS.map(option => option.value)).toContain('aura-2-viktoria-de');
     expect(DEEPGRAM_TTS_MODEL_OPTIONS.map(option => option.value)).toContain('aura-2-julius-de');
     expect(DEEPGRAM_LANGUAGE_OPTIONS.map(option => option.value)).toContain('de');
+    expect(GEMINI_LIVE_MODEL_OPTIONS.map(option => option.value)).toEqual([
+      'gemini-3.1-flash-live-preview',
+      'gemini-2.5-flash-live-preview',
+    ]);
+    expect(GEMINI_LIVE_VOICE_OPTIONS.map(option => option.value)).toContain('Kore');
+    expect(GEMINI_LIVE_VOICE_OPTIONS.map(option => option.value)).toContain('Puck');
   });
 
   it('defaults Deepgram TTS to a German Aura voice', () => {
@@ -64,6 +86,7 @@ describe('providerSettings', () => {
 
     expect(createAiProviderFromSettings(settings.ai)).toBeNull();
     expect(createSpeechProviderFromSettings(settings.speech)).toBeNull();
+    expect(createLiveConversationProviderFromSettings(settings.live)).toBeNull();
 
     expect(
       createAiProviderFromSettings({
@@ -75,6 +98,13 @@ describe('providerSettings', () => {
     expect(
       createSpeechProviderFromSettings({
         ...settings.speech,
+        enabled: true,
+        apiKey: '',
+      })
+    ).toBeNull();
+    expect(
+      createLiveConversationProviderFromSettings({
+        ...settings.live,
         enabled: true,
         apiKey: '',
       })
@@ -206,5 +236,21 @@ describe('providerSettings', () => {
       '/api/deepgram/v1/speak?model=aura-2-julius-de',
       expect.any(Object)
     );
+  });
+
+  it('creates a Gemini Live provider from enabled live conversation settings', () => {
+    const provider = createLiveConversationProviderFromSettings(
+      {
+        enabled: true,
+        provider: 'gemini-live',
+        apiKey: 'gemini-key',
+        model: 'gemini-3.1-flash-live-preview',
+        voiceName: 'Kore',
+      },
+      { WebSocketCtor: vi.fn() as never }
+    );
+
+    expect(provider?.id).toBe('gemini-live');
+    expect(provider?.displayName).toBe('Gemini Live');
   });
 });

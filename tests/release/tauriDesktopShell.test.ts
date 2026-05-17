@@ -151,4 +151,22 @@ describe('Tauri desktop shell configuration', () => {
     expect(connectSrc).toContain('https://api.deepgram.com');
     expect(connectSrc).toContain('wss://api.deepgram.com');
   });
+
+  it('allows packaged desktop Gemini Live WebSocket connections', () => {
+    const config = readJson<{
+      app?: {
+        security?: {
+          csp?: string;
+        };
+      };
+    }>('src-tauri/tauri.conf.json');
+    const csp = config.app?.security?.csp ?? '';
+    const connectSrc = csp
+      .split(';')
+      .map(directive => directive.trim())
+      .find(directive => directive.startsWith('connect-src'));
+
+    expect(connectSrc).toContain('https://generativelanguage.googleapis.com');
+    expect(connectSrc).toContain('wss://generativelanguage.googleapis.com');
+  });
 });
