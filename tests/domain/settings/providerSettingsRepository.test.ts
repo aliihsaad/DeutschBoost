@@ -246,6 +246,42 @@ describe('providerSettingsRepository', () => {
     });
   });
 
+  it('migrates legacy Gemini AI provider settings back to OpenRouter', async () => {
+    const storage = createMemoryStorage({
+      [DEFAULT_PROVIDER_SETTINGS_STORAGE_KEY]: JSON.stringify({
+        ai: {
+          enabled: true,
+          provider: 'gemini',
+          apiKey: 'gemini-key',
+          model: 'gemini-2.5-flash',
+        },
+        speech: {
+          enabled: false,
+          provider: 'deepgram',
+          model: 'nova-3',
+          ttsModel: 'aura-2-viktoria-de',
+          language: 'de',
+        },
+        live: {
+          enabled: true,
+          provider: 'gemini-live',
+          apiKey: 'gemini-key',
+          model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+          voiceName: 'Kore',
+        },
+      }),
+    });
+    const repository = createStorageProviderSettingsRepository({ storage });
+
+    await expect(repository.load()).resolves.toMatchObject({
+      ai: {
+        enabled: true,
+        provider: 'openrouter',
+        model: 'openrouter/auto',
+      },
+    });
+  });
+
   it('migrates older Deepgram settings without a TTS model', async () => {
     const storage = createMemoryStorage({
       [DEFAULT_PROVIDER_SETTINGS_STORAGE_KEY]: JSON.stringify({

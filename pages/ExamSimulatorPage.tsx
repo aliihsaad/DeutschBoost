@@ -207,11 +207,15 @@ export const ExamSimulatorPage: React.FC<ExamSimulatorPageProps> = ({
       return;
     }
 
-    const audioText = getListeningAudioText(question);
+    if (playedListeningQuestionIds.has(question.id)) {
+      return;
+    }
+
     setLoadingListeningQuestionId(question.id);
     setListeningAudioError(null);
 
     try {
+      const audioText = getListeningAudioText(question);
       const result = await speechProvider.synthesize({
         feature: 'goethe-exam-listening',
         text: audioText,
@@ -397,12 +401,21 @@ export const ExamSimulatorPage: React.FC<ExamSimulatorPageProps> = ({
           ) : null}
 
           {status === 'generating' ? (
-            <div className="db-exam-empty-state" role="status">
+            <div className="db-exam-empty-state db-exam-generating-state" role="status" aria-live="polite">
+              <div className="db-exam-generation-loader" role="progressbar" aria-label="Generating exam">
+                <span />
+              </div>
               <span className="db-section-label">Generating</span>
               <h2 id="exam-runner-heading">Creating your {selectedLevel} exam</h2>
               <p>
-                The app is building original Goethe-style tasks from the public exam structure.
+                Creating listening, reading, writing, and speaking tasks from the public exam structure.
               </p>
+              <div className="db-exam-generation-steps" aria-hidden="true">
+                <span>Structure</span>
+                <span>Tasks</span>
+                <span>Scoring</span>
+                <span>Timer</span>
+              </div>
             </div>
           ) : null}
 
@@ -481,7 +494,7 @@ const ExamSetup: React.FC<{
       <strong>{aiReady ? 'AI generation enabled' : 'Local fallback ready'}</strong>
       <span>
         {aiReady
-          ? 'OpenRouter/Gemini will generate fresh exam tasks from the official-style structure.'
+          ? 'OpenRouter will generate fresh exam tasks with the model selected in Settings.'
           : 'No AI provider is configured, so a local original model exam will be used.'}
       </span>
     </div>
@@ -630,7 +643,11 @@ const ExamRunner: React.FC<{
                 type="button"
                 className="db-secondary-button"
                 onClick={() => onPlayListeningAudio(question)}
-                disabled={!listeningAudioReady || loadingListeningQuestionId !== null}
+                disabled={
+                  !listeningAudioReady ||
+                  loadingListeningQuestionId !== null ||
+                  playedListeningQuestionIds.has(question.id)
+                }
                 aria-label={`Play listening audio for question ${index + 1}`}
               >
                 <i
@@ -642,7 +659,7 @@ const ExamRunner: React.FC<{
                 {loadingListeningQuestionId === question.id
                   ? 'Loading audio'
                   : playedListeningQuestionIds.has(question.id)
-                    ? 'Play again'
+                    ? 'Audio played'
                     : 'Play audio'}
               </button>
             </div>
@@ -807,7 +824,13 @@ function buildOralExamInstruction(exam: GoetheExam, module: ExamModule): string 
 }
 
 function getListeningAudioText(question: ExamObjectiveQuestion): string {
-  return (question.passage ?? question.prompt).trim();
+  const audioScript = question.passage?.trim();
+
+  if (!audioScript) {
+    throw new Error('This Hoeren question does not have a hidden audio script.');
+  }
+
+  return audioScript;
 }
 
 async function playBrowserAudio(audio: ArrayBuffer, mimeType: string): Promise<void> {

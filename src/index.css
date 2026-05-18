@@ -542,6 +542,57 @@ textarea {
   line-height: 1.55;
 }
 
+.db-exam-generating-state {
+  justify-items: start;
+}
+
+.db-exam-generation-loader {
+  position: relative;
+  width: min(100%, 360px);
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--db-surface-muted);
+  border: 1px solid var(--db-border);
+}
+
+.db-exam-generation-loader span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  border-radius: inherit;
+  background: var(--db-accent);
+  animation: db-exam-loader-slide 1.15s ease-in-out infinite;
+}
+
+.db-exam-generation-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.db-exam-generation-steps span {
+  padding: 6px 10px;
+  border: 1px solid var(--db-border);
+  border-radius: 999px;
+  background: var(--db-surface-muted);
+  color: var(--db-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@keyframes db-exam-loader-slide {
+  0% {
+    transform: translateX(-105%);
+  }
+  50% {
+    transform: translateX(70%);
+  }
+  100% {
+    transform: translateX(245%);
+  }
+}
+
 .db-exam-source-box,
 .db-exam-runner-meta {
   display: grid;

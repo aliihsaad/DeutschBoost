@@ -1,5 +1,4 @@
 import type { AiProvider } from '../ai/aiProvider';
-import { createGeminiAiProvider, type GeminiClientLike } from '../ai/geminiProvider';
 import { createOpenRouterProvider } from '../ai/openRouterProvider';
 import type { SpeechProvider } from '../speech/speechProvider';
 import { createDeepgramSpeechProvider } from '../speech/deepgramProvider';
@@ -12,7 +11,7 @@ import type { ProviderSettingsSnapshot } from '../../ui/providerStatusModel';
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-export type AiProviderSetting = 'gemini' | 'openrouter';
+export type AiProviderSetting = 'openrouter';
 export type SpeechProviderSetting = 'deepgram';
 export type LiveConversationProviderSetting = 'gemini-live';
 
@@ -47,7 +46,6 @@ export interface LocalProviderSettings {
 }
 
 export interface ProviderFactoryDependencies {
-  geminiClient?: GeminiClientLike;
   fetchFn?: FetchLike;
   now?: () => string;
   WebSocketCtor?: GeminiLiveWebSocketCtor;
@@ -189,18 +187,6 @@ export function createAiProviderFromSettings(
     return null;
   }
 
-  if (settings.provider === 'gemini') {
-    if (!dependencies.geminiClient) {
-      return null;
-    }
-
-    return createGeminiAiProvider({
-      client: dependencies.geminiClient,
-      defaultJsonModel: settings.model,
-      defaultTextModel: settings.model,
-    });
-  }
-
   return createOpenRouterProvider({
     apiKey: settings.apiKey,
     model: settings.model,
@@ -245,10 +231,6 @@ export function createLiveConversationProviderFromSettings(
 }
 
 export function isAiProviderConfigured(settings: LocalAiProviderSettings): boolean {
-  if (settings.provider === 'gemini') {
-    return settings.enabled;
-  }
-
   return settings.enabled && hasValue(settings.apiKey);
 }
 
@@ -262,11 +244,7 @@ export function isLiveConversationProviderConfigured(
   return settings.enabled && hasValue(settings.apiKey);
 }
 
-function getAiProviderName(provider: AiProviderSetting): string {
-  if (provider === 'gemini') {
-    return 'Gemini';
-  }
-
+function getAiProviderName(_provider: AiProviderSetting): string {
   return 'OpenRouter';
 }
 

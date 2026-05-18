@@ -44,6 +44,22 @@ describe('Goethe exam generation and scoring', () => {
     ]);
   });
 
+  it('creates natural Hoeren fallback items without placeholder prompts or answer labels', () => {
+    const exam = createFallbackGoetheExam({
+      level: CEFRLevel.B1,
+      idFactory: () => 'exam-b1',
+    });
+    const listening = findModule(exam, 'listening');
+
+    listening.objectiveQuestions.forEach(question => {
+      expect(question.passage).toBeTruthy();
+      expect(question.passage).not.toMatch(/Audio script|Hoertext|kurze .*Situation|wichtige Information/i);
+      expect(question.prompt).not.toMatch(/Die gehoerte Information passt zur Situation/i);
+      expect(question.options.join(' ')).not.toMatch(/Option [abc] aus dem Hoertext/i);
+      expect(new Set(question.options).size).toBe(question.options.length);
+    });
+  });
+
   it('scores objective and productive exam answers into module results', () => {
     const exam = createFallbackGoetheExam({ level: CEFRLevel.B1 });
     const answers = {
@@ -247,6 +263,44 @@ describe('Goethe exam generation and scoring', () => {
     expect(exam.modules.map(module => module.id)).toEqual(['listening', 'reading', 'writing', 'speaking']);
   });
 
+  it('rejects placeholder Hoeren output from AI generation and keeps hidden audio scripts natural', async () => {
+    const aiProvider = {
+      id: 'openrouter',
+      displayName: 'OpenRouter',
+      generateText: vi.fn(),
+      generateJson: vi.fn().mockResolvedValue({
+        title: 'AI generated placeholder test',
+        modules: [
+          {
+            id: 'listening',
+            objectiveQuestions: [
+              {
+                id: 'bad-listening-1',
+                partId: 'teil-1',
+                passage: 'Audio script Teil 1.1: Eine kurze B1-Situation zu Announcements.',
+                prompt: 'Aussage 1: Die gehoerte Information passt zur Situation.',
+                options: ['Option a aus dem Hoertext', 'Option b aus dem Hoertext', 'Option c aus dem Hoertext'],
+                correctOptionIndex: 0,
+                points: 1,
+              },
+            ],
+          },
+        ],
+      }),
+    };
+
+    const exam = await generateGoetheExam({
+      level: CEFRLevel.B1,
+      aiProvider,
+      idFactory: () => 'exam-ai',
+    });
+    const firstListening = findModule(exam, 'listening').objectiveQuestions[0];
+
+    expect(firstListening.id).not.toBe('bad-listening-1');
+    expect(firstListening.passage).not.toMatch(/Audio script|Hoertext|kurze .*Situation/i);
+    expect(firstListening.options.join(' ')).not.toMatch(/Option [abc] aus dem Hoertext/i);
+  });
+
   it('passes the exact public exam blueprint to the AI provider', async () => {
     const aiProvider = {
       id: 'openrouter',
@@ -283,6 +337,8 @@ describe('Goethe exam generation and scoring', () => {
         ],
       })
     );
+    expect(prompt.constraints.listeningAudio).toMatch(/hidden German audio script/i);
+    expect(prompt.constraints.noListeningPlaceholders).toMatch(/Option a aus dem Hoertext/i);
   });
 
   it('passes weighted C2 public scoring blueprints to the AI provider', async () => {

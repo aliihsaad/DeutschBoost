@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.0.8 - 2026-05-18
+
+Desktop hotfix for the installed v0.0.7 exam and live-audio smoke findings.
+
+- Confirmed Gemini Live uses Google's current Live API native-audio model name, `gemini-2.5-flash-native-audio-preview-12-2025`.
+- Kept exam generation on the configured OpenRouter provider and selected OpenRouter model; Gemini is not used for exam generation.
+- Tightened Hoeren generation so Deepgram TTS reads only the hidden per-question audio script, not visible prompts or answer labels.
+- Blocked placeholder Hoeren content such as generic `Audio script` / `Option a aus dem Hoertext` output from AI generation.
+- Made Hoeren playback one-shot per question: once the hidden script has played, answer options unlock and the audio button stays disabled.
+- Added an active exam-generation progress indicator so starting an AI-generated exam does not look frozen.
+
 ## v0.0.7 - 2026-05-18
 
 Desktop pre-release focused on stability and learner workflow clarity.

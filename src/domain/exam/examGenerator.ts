@@ -422,43 +422,248 @@ function createObjectiveQuestions(
     return [];
   }
 
-  const isListening = moduleId === 'listening';
-
   return templateParts.flatMap(partSpec => {
     const count = Math.max(1, partSpec.questionCount ?? partSpec.maxPoints ?? 1);
     const pointsPerQuestion = (partSpec.maxPoints ?? count) / count;
 
     return Array.from({ length: count }, (_, index) => {
       const itemNumber = index + 1;
-      const firstLegacyQuestion = partSpec.id === 'teil-1' && index === 0;
-      const secondLegacyQuestion = partSpec.id === 'teil-1' && index === 1;
+      const content = createObjectiveFallbackContent(level, moduleId, partSpec, itemNumber);
 
-      const question = {
+      return {
         id: `${level}-${moduleId}-${partSpec.id}-${itemNumber}`,
         moduleId,
         partId: partSpec.id,
-        passage: createObjectivePassage(level, moduleId, partSpec, itemNumber),
-        prompt: firstLegacyQuestion
-          ? (isListening ? 'Wann beginnt der Kurs?' : 'Wo findet der Kurs statt?')
-          : secondLegacyQuestion
-            ? (isListening ? 'Was wollen die Freunde machen?' : 'Wann trifft Lea Max?')
-            : createObjectivePrompt(moduleId, partSpec, itemNumber),
-        options: firstLegacyQuestion
-          ? (isListening ? ['Um 8 Uhr', 'Um 18 Uhr', 'Am Freitag'] : ['Im Raum 204', 'Im Rathaus', 'Online'])
-          : secondLegacyQuestion
-            ? (isListening ? ['Einkaufen gehen', 'Ins Kino gehen', 'Deutsch lernen'] : ['Am Freitag', 'Um 10 Uhr', 'Am Abend'])
-            : createObjectiveOptions(moduleId, itemNumber),
-        correctOptionIndex: firstLegacyQuestion ? (isListening ? 1 : 0) : secondLegacyQuestion ? (isListening ? 0 : 1) : undefined,
+        passage: content.passage,
+        prompt: content.prompt,
+        options: content.options,
+        correctOptionIndex: content.correctOptionIndex,
         points: pointsPerQuestion,
         explanation: 'One raw point is awarded only for the correct answer.',
-      } satisfies Omit<ExamObjectiveQuestion, 'correctOptionIndex'> & { correctOptionIndex?: number };
-
-      return {
-        ...question,
-        correctOptionIndex: question.correctOptionIndex ?? (itemNumber % question.options.length),
       };
     });
   });
+}
+
+interface ObjectiveFallbackContent {
+  passage: string;
+  prompt: string;
+  options: string[];
+  correctOptionIndex: number;
+}
+
+interface ListeningScenario {
+  passage: string;
+  question: string;
+  options: string[];
+  correctOptionIndex: number;
+  trueStatement: string;
+  falseStatement: string;
+  matchingPrompt: string;
+  matchingOptions: string[];
+}
+
+const LISTENING_SCENARIOS: ListeningScenario[] = [
+  {
+    passage: 'Guten Tag, hier ist die Sprachschule Berger. Der B1-Abendkurs beginnt heute ausnahmsweise um 18 Uhr in Raum 204. Bitte bringen Sie Ihr Kursbuch mit.',
+    question: 'Wann beginnt der B1-Abendkurs heute?',
+    options: ['Um 18 Uhr', 'Um 8 Uhr', 'Am Freitag'],
+    correctOptionIndex: 0,
+    trueStatement: 'Der Kurs beginnt heute um 18 Uhr.',
+    falseStatement: 'Der Kurs findet heute im Rathaus statt.',
+    matchingPrompt: 'Welche Situation passt zu dieser Nachricht?',
+    matchingOptions: ['Eine Sprachschule informiert ueber den Kursbeginn', 'Ein Hotel bestaetigt eine Buchung', 'Eine Apotheke nennt Oeffnungszeiten'],
+  },
+  {
+    passage: 'Achtung an Gleis 3. Der Regionalzug nach Leipzig faehrt heute nicht um 14:20 Uhr, sondern um 14:45 Uhr ab. Grund ist eine technische Kontrolle.',
+    question: 'Wann faehrt der Regionalzug nach Leipzig ab?',
+    options: ['Um 14:45 Uhr', 'Um 14:20 Uhr', 'Morgen frueh'],
+    correctOptionIndex: 0,
+    trueStatement: 'Der Zug faehrt spaeter als geplant ab.',
+    falseStatement: 'Der Zug nach Leipzig faellt komplett aus.',
+    matchingPrompt: 'Wo hoert man diese Durchsage?',
+    matchingOptions: ['Am Bahnhof', 'Im Supermarkt', 'In der Arztpraxis'],
+  },
+  {
+    passage: 'Guten Morgen, hier ist die Praxis Dr. Klein. Ihr Termin am Mittwoch muss leider auf Donnerstag um 9:30 Uhr verschoben werden. Bitte rufen Sie uns kurz zurueck.',
+    question: 'Was soll die Person tun?',
+    options: ['Die Praxis zurueckrufen', 'Am Mittwoch um 9:30 Uhr kommen', 'Einen neuen Arzt suchen'],
+    correctOptionIndex: 0,
+    trueStatement: 'Die Praxis bittet um einen Rueckruf.',
+    falseStatement: 'Der Termin bleibt am Mittwoch.',
+    matchingPrompt: 'Worum geht es in der Nachricht?',
+    matchingOptions: ['Um einen Arzttermin', 'Um eine Wohnungsbesichtigung', 'Um eine Reisebuchung'],
+  },
+  {
+    passage: 'Liebe Kundinnen und Kunden, heute gibt es frische Erdbeeren im Angebot. Ein Kilo kostet 3 Euro 90. Sie finden die Erdbeeren direkt am Eingang.',
+    question: 'Was ist heute im Angebot?',
+    options: ['Erdbeeren', 'Aepfel', 'Brot'],
+    correctOptionIndex: 0,
+    trueStatement: 'Die Erdbeeren stehen direkt am Eingang.',
+    falseStatement: 'Ein Kilo Erdbeeren kostet 9 Euro 30.',
+    matchingPrompt: 'Wo hoert man diese Information wahrscheinlich?',
+    matchingOptions: ['Im Supermarkt', 'In der Bibliothek', 'Im Zug'],
+  },
+  {
+    passage: 'Die Stadtbibliothek schliesst heute bereits um 16 Uhr. Ab morgen gelten wieder die normalen Oeffnungszeiten von 10 bis 19 Uhr.',
+    question: 'Wann schliesst die Bibliothek heute?',
+    options: ['Um 16 Uhr', 'Um 19 Uhr', 'Um 10 Uhr'],
+    correctOptionIndex: 0,
+    trueStatement: 'Heute schliesst die Bibliothek frueher.',
+    falseStatement: 'Die Bibliothek bleibt heute bis 19 Uhr geoeffnet.',
+    matchingPrompt: 'Welche Einrichtung informiert hier?',
+    matchingOptions: ['Eine Bibliothek', 'Ein Fitnessstudio', 'Ein Kino'],
+  },
+  {
+    passage: 'Hallo Frau Neumann, hier spricht Herr Yilmaz aus dem dritten Stock. Das Treffen der Hausgemeinschaft beginnt heute um 19 Uhr im Hof, nicht im Keller.',
+    question: 'Wo findet das Treffen statt?',
+    options: ['Im Hof', 'Im Keller', 'Im dritten Stock'],
+    correctOptionIndex: 0,
+    trueStatement: 'Die Hausgemeinschaft trifft sich im Hof.',
+    falseStatement: 'Das Treffen beginnt um 17 Uhr.',
+    matchingPrompt: 'Wer spricht wahrscheinlich?',
+    matchingOptions: ['Ein Nachbar', 'Ein Fahrkartenkontrolleur', 'Eine Kursleiterin'],
+  },
+  {
+    passage: 'Und nun das Wetter: Am Vormittag bleibt es trocken. Am Nachmittag gibt es starke Schauer und Wind. Nehmen Sie bitte einen Regenschirm mit.',
+    question: 'Wie wird das Wetter am Nachmittag?',
+    options: ['Es gibt Schauer und Wind', 'Es bleibt sonnig', 'Es schneit stark'],
+    correctOptionIndex: 0,
+    trueStatement: 'Am Nachmittag soll es regnen.',
+    falseStatement: 'Am Vormittag gibt es starke Schauer.',
+    matchingPrompt: 'Welche Art von Meldung ist das?',
+    matchingOptions: ['Ein Wetterbericht', 'Eine Verkehrsmeldung', 'Eine private Einladung'],
+  },
+  {
+    passage: 'Guten Tag, Frau Becker. Ihr Vorstellungsgespraech bei der Firma Nordlicht ist am Montag um 11 Uhr. Bitte melden Sie sich am Empfang im zweiten Stock.',
+    question: 'Wo soll Frau Becker sich melden?',
+    options: ['Am Empfang im zweiten Stock', 'In der Kantine', 'Am Montag zu Hause'],
+    correctOptionIndex: 0,
+    trueStatement: 'Das Vorstellungsgespraech ist am Montag.',
+    falseStatement: 'Frau Becker soll in die Kantine kommen.',
+    matchingPrompt: 'Worum geht es?',
+    matchingOptions: ['Um ein Vorstellungsgespraech', 'Um eine Paketlieferung', 'Um einen Konzertbesuch'],
+  },
+  {
+    passage: 'Liebe Eltern, der Elternabend der Klasse 6b beginnt morgen um 18:30 Uhr in der Aula. Die Klassenlehrerin stellt den neuen Stundenplan vor.',
+    question: 'Was wird am Elternabend vorgestellt?',
+    options: ['Der neue Stundenplan', 'Die Speisekarte', 'Ein Ferienhotel'],
+    correctOptionIndex: 0,
+    trueStatement: 'Der Elternabend findet in der Aula statt.',
+    falseStatement: 'Der Elternabend beginnt morgen um 8:30 Uhr.',
+    matchingPrompt: 'Wer soll diese Nachricht hoeren?',
+    matchingOptions: ['Eltern einer Schulklasse', 'Fahrgaeste in einem Zug', 'Gaeste in einem Restaurant'],
+  },
+  {
+    passage: 'Restaurant Lindenhof, guten Abend. Wir bestaetigen Ihre Reservierung fuer vier Personen am Samstag um 20 Uhr. Der Tisch ist auf den Namen Schmitt reserviert.',
+    question: 'Fuer wie viele Personen ist der Tisch reserviert?',
+    options: ['Fuer vier Personen', 'Fuer zwei Personen', 'Fuer zwanzig Personen'],
+    correctOptionIndex: 0,
+    trueStatement: 'Die Reservierung ist fuer Samstag um 20 Uhr.',
+    falseStatement: 'Der Tisch ist auf den Namen Becker reserviert.',
+    matchingPrompt: 'Welche Buchung wird bestaetigt?',
+    matchingOptions: ['Eine Restaurantreservierung', 'Ein Sprachkurs', 'Ein Arzttermin'],
+  },
+  {
+    passage: 'DHL Paketstation. Ihr Paket liegt ab heute in der Filiale in der Marktstrasse 12 bereit. Bitte bringen Sie Ihren Ausweis und die Abholnummer mit.',
+    question: 'Was muss die Person mitbringen?',
+    options: ['Ausweis und Abholnummer', 'Kursbuch und Stift', 'Reisepass und Flugticket'],
+    correctOptionIndex: 0,
+    trueStatement: 'Das Paket liegt in der Marktstrasse 12 bereit.',
+    falseStatement: 'Das Paket wird morgen nach Hause geliefert.',
+    matchingPrompt: 'Worum geht es in der Nachricht?',
+    matchingOptions: ['Um ein Paket', 'Um einen Deutschkurs', 'Um eine Kinokarte'],
+  },
+  {
+    passage: 'Fitness Aktiv informiert: Der Yogakurs um 18 Uhr faellt heute wegen Krankheit aus. Als Ersatz koennen Sie morgen um 17 Uhr am Pilateskurs teilnehmen.',
+    question: 'Warum faellt der Yogakurs aus?',
+    options: ['Wegen Krankheit', 'Wegen Renovierung', 'Wegen eines Feiertags'],
+    correctOptionIndex: 0,
+    trueStatement: 'Morgen gibt es einen Ersatzkurs.',
+    falseStatement: 'Der Yogakurs beginnt heute um 17 Uhr.',
+    matchingPrompt: 'Welche Freizeitaktivitaet betrifft die Nachricht?',
+    matchingOptions: ['Sportkurs', 'Theaterprobe', 'Stadtfuehrung'],
+  },
+];
+
+function createObjectiveFallbackContent(
+  level: CEFRLevel,
+  moduleId: ExamModuleId,
+  partSpec: ExamModuleTemplatePart,
+  itemNumber: number
+): ObjectiveFallbackContent {
+  if (moduleId === 'listening') {
+    return createListeningFallbackContent(level, partSpec, itemNumber);
+  }
+
+  if (moduleId === 'reading' && partSpec.id === 'teil-1' && itemNumber === 1) {
+    return {
+      passage: 'Text: Im Stadtteilzentrum beginnt am Dienstag ein Deutschkurs. Der Kurs findet abends in Raum 204 statt.',
+      prompt: 'Wo findet der Kurs statt?',
+      options: ['Im Raum 204', 'Im Rathaus', 'Online'],
+      correctOptionIndex: 0,
+    };
+  }
+
+  if (moduleId === 'reading' && partSpec.id === 'teil-1' && itemNumber === 2) {
+    return {
+      passage: 'Text: Lea schreibt Max, dass sie am Samstag einkaufen gehen moechte und ihn um 10 Uhr trifft.',
+      prompt: 'Wann trifft Lea Max?',
+      options: ['Am Freitag', 'Um 10 Uhr', 'Am Abend'],
+      correctOptionIndex: 1,
+    };
+  }
+
+  const passage = createObjectivePassage(level, moduleId, partSpec, itemNumber);
+  const prompt = createObjectivePrompt(moduleId, partSpec, itemNumber);
+  const options = createObjectiveOptions(moduleId, itemNumber);
+
+  return {
+    passage,
+    prompt,
+    options,
+    correctOptionIndex: itemNumber % options.length,
+  };
+}
+
+function createListeningFallbackContent(
+  _level: CEFRLevel,
+  partSpec: ExamModuleTemplatePart,
+  itemNumber: number
+): ObjectiveFallbackContent {
+  const scenario = LISTENING_SCENARIOS[
+    Math.abs(hashString(`${partSpec.id}-${itemNumber}`)) % LISTENING_SCENARIOS.length
+  ]!;
+
+  if (partSpec.answerFormat.includes('right / wrong')) {
+    const usesFalseStatement = itemNumber % 2 === 0;
+    return {
+      passage: scenario.passage,
+      prompt: usesFalseStatement ? scenario.falseStatement : scenario.trueStatement,
+      options: ['Richtig', 'Falsch'],
+      correctOptionIndex: usesFalseStatement ? 1 : 0,
+    };
+  }
+
+  if (partSpec.answerFormat.includes('matching')) {
+    return {
+      passage: scenario.passage,
+      prompt: scenario.matchingPrompt,
+      options: scenario.matchingOptions,
+      correctOptionIndex: 0,
+    };
+  }
+
+  return {
+    passage: scenario.passage,
+    prompt: scenario.question,
+    options: scenario.options,
+    correctOptionIndex: scenario.correctOptionIndex,
+  };
+}
+
+function hashString(value: string): number {
+  return value.split('').reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0);
 }
 
 function createProductiveTasks(
@@ -502,13 +707,7 @@ function createObjectivePassage(
   itemNumber: number
 ): string {
   if (moduleId === 'listening') {
-    if (partSpec.id === 'teil-1' && itemNumber === 1) {
-      return 'Audio script: Eine Frau ruft im Sprachkurs an. Der Unterricht beginnt heute um 18 Uhr in Raum 204.';
-    }
-    if (partSpec.id === 'teil-1' && itemNumber === 2) {
-      return 'Audio script: Zwei Freunde sprechen ueber das Wochenende. Sie wollen am Samstag zusammen einkaufen gehen.';
-    }
-    return `Audio script ${partSpec.title}.${itemNumber}: Eine kurze ${level}-Situation zu ${partSpec.taskFamily}. Die wichtige Information ist Nummer ${itemNumber}.`;
+    return createListeningFallbackContent(level, partSpec, itemNumber).passage;
   }
 
   if (partSpec.id === 'teil-1' && itemNumber === 1) {
@@ -527,7 +726,7 @@ function createObjectivePrompt(
 ): string {
   if (partSpec.answerFormat.includes('right / wrong')) {
     return moduleId === 'listening'
-      ? `Aussage ${itemNumber}: Die gehoerte Information passt zur Situation.`
+      ? `Welche Aussage zu Aufgabe ${itemNumber} ist richtig?`
       : `Aussage ${itemNumber}: Die Aussage passt zum Text.`;
   }
 
@@ -544,7 +743,7 @@ function createObjectiveOptions(moduleId: ExamModuleId, itemNumber: number): str
   }
 
   return moduleId === 'listening'
-    ? ['Option a aus dem Hoertext', 'Option b aus dem Hoertext', 'Option c aus dem Hoertext']
+    ? ['Richtig', 'Falsch']
     : ['Option a aus dem Text', 'Option b aus dem Text', 'Option c aus dem Text'];
 }
 
@@ -901,7 +1100,9 @@ function normalizeModule(value: unknown, fallback?: ExamModule): ExamModule | nu
   const root = asRecord(value);
   const id = normalizeModuleId(root.id) ?? fallback.id;
   const objectiveQuestions = Array.isArray(root.objectiveQuestions)
-    ? root.objectiveQuestions.map((question, index) => normalizeObjectiveQuestion(question, id, fallback.objectiveQuestions[index])).filter(isObjectiveQuestion)
+    ? fallback.objectiveQuestions
+        .map((fallbackQuestion, index) => normalizeObjectiveQuestion(root.objectiveQuestions[index], id, fallbackQuestion))
+        .filter(isObjectiveQuestion)
     : fallback.objectiveQuestions;
   const productiveTasks = Array.isArray(root.productiveTasks)
     ? root.productiveTasks.map((task, index) => normalizeProductiveTask(task, fallback.productiveTasks[index])).filter(isProductiveTask)
@@ -938,7 +1139,7 @@ function normalizeObjectiveQuestion(
     ? Math.max(0, Math.min(options.length - 1, Math.round(root.correctOptionIndex)))
     : fallback?.correctOptionIndex ?? 0;
 
-  return {
+  const normalized = {
     id: normalizeString(root.id) ?? fallback?.id ?? `${moduleId}-${Math.random().toString(36).slice(2, 8)}`,
     moduleId,
     partId: normalizeString(root.partId) ?? fallback?.partId,
@@ -949,6 +1150,33 @@ function normalizeObjectiveQuestion(
     points: typeof root.points === 'number' && root.points > 0 ? root.points : fallback?.points ?? 10,
     explanation: normalizeString(root.explanation) ?? fallback?.explanation,
   };
+
+  if (moduleId === 'listening' && !isValidListeningQuestion(normalized)) {
+    return fallback ?? null;
+  }
+
+  return normalized;
+}
+
+function isValidListeningQuestion(question: ExamObjectiveQuestion): boolean {
+  const passage = question.passage?.trim() ?? '';
+
+  if (!passage) {
+    return false;
+  }
+
+  const visibleText = `${question.prompt} ${question.options.join(' ')}`;
+  const allText = `${passage} ${visibleText}`;
+
+  if (/Audio script|Hoertext|Hörtext|Option [abc]|kurze .*Situation|wichtige Information/i.test(allText)) {
+    return false;
+  }
+
+  if (/Die gehoerte Information passt zur Situation/i.test(question.prompt)) {
+    return false;
+  }
+
+  return true;
 }
 
 function normalizeProductiveTask(value: unknown, fallback?: ExamProductiveTask): ExamProductiveTask | null {
@@ -1002,6 +1230,8 @@ function buildGenerationPrompt(level: CEFRLevel, fallback: GoetheExam): string {
       passThreshold: fallback.passThreshold,
       objectiveQuestionsPerPart: 'Use each moduleBlueprint part questionCount exactly when generating objective items.',
       productiveTasksPerPart: 'Generate one productive task for each Writing and Speaking blueprint part, except global pronunciation criteria.',
+      listeningAudio: 'For listening objectiveQuestions, passage is the hidden German audio script that Deepgram TTS reads verbatim. The learner must not see passage. The visible prompt and options must be concrete answer items about that script.',
+      noListeningPlaceholders: 'Never use placeholder text such as Audio script, Hoertext, Option a aus dem Hoertext, wichtige Information, or generic Aussage passt zur Situation prompts.',
       outputLanguage: 'German prompts with concise English labels allowed',
       preserveTemplateShape: 'Do not change module order, timing, part count, answer formats, or pass threshold.',
       scoring: 'Each module reports 100 certificate points. Reading/listening objective raw points are converted to 100. Writing/speaking use the criteria and max point values in the moduleBlueprints.',

@@ -182,13 +182,14 @@ function normalizeProviderSettings(settings: unknown): LocalProviderSettings {
   const ai = asRecord(root.ai);
   const speech = asRecord(root.speech);
   const live = asRecord(root.live);
+  const aiProvider = normalizeAiProvider(ai.provider, defaults.ai.provider);
 
   return {
     ai: {
       enabled: normalizeBoolean(ai.enabled, defaults.ai.enabled),
-      provider: normalizeAiProvider(ai.provider, defaults.ai.provider),
+      provider: aiProvider,
       model: normalizeModelOption(ai.model, OPENROUTER_MODEL_OPTIONS, defaults.ai.model),
-      ...optionalText('apiKey', ai.apiKey, defaults.ai.apiKey),
+      ...(ai.provider === aiProvider ? optionalText('apiKey', ai.apiKey, defaults.ai.apiKey) : {}),
     },
     speech: {
       enabled: normalizeBoolean(speech.enabled, defaults.speech.enabled),
@@ -205,7 +206,7 @@ function normalizeProviderSettings(settings: unknown): LocalProviderSettings {
     live: {
       enabled: normalizeBoolean(live.enabled, defaults.live!.enabled),
       provider: normalizeLiveConversationProvider(live.provider, defaults.live!.provider),
-      model: normalizeModelOption(live.model, GEMINI_LIVE_MODEL_OPTIONS, defaults.live!.model),
+      model: normalizeLiveModel(live.model, defaults.live!.model),
       voiceName: normalizeModelOption(live.voiceName, GEMINI_LIVE_VOICE_OPTIONS, defaults.live!.voiceName),
       ...optionalText('apiKey', live.apiKey, defaults.live!.apiKey),
     },
@@ -216,7 +217,7 @@ function normalizeAiProvider(
   value: unknown,
   fallback: AiProviderSetting
 ): AiProviderSetting {
-  return value === 'gemini' || value === 'openrouter' ? value : fallback;
+  return value === 'openrouter' ? value : fallback;
 }
 
 function normalizeSpeechProvider(
@@ -239,6 +240,10 @@ function normalizeModelOption(
   fallback: string
 ): string {
   return typeof value === 'string' && options.some(option => option.value === value) ? value : fallback;
+}
+
+function normalizeLiveModel(value: unknown, fallback: string): string {
+  return normalizeModelOption(value, GEMINI_LIVE_MODEL_OPTIONS, fallback);
 }
 
 function normalizeBoolean(value: unknown, fallback: boolean): boolean {

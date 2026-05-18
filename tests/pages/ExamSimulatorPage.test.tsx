@@ -62,10 +62,10 @@ describe('ExamSimulatorPage', () => {
     expect(screen.getByText(/40:00/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Play listening audio for question 1' }));
     await waitFor(() => expect(speechProvider.synthesize).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByLabelText('Um 18 Uhr'));
+    answerQuestion(0, 'Richtig');
     fireEvent.click(screen.getByRole('button', { name: 'Play listening audio for question 2' }));
     await waitFor(() => expect(speechProvider.synthesize).toHaveBeenCalledTimes(2));
-    fireEvent.click(screen.getByLabelText('Einkaufen gehen'));
+    answerQuestion(1, 'Falsch');
     fireEvent.click(screen.getByRole('button', { name: /Next module/i }));
 
     expect(await screen.findByRole('heading', { name: /Lesen - Reading/i })).toBeInTheDocument();
@@ -115,19 +115,30 @@ describe('ExamSimulatorPage', () => {
 
     expect(await screen.findByRole('heading', { name: /Hoeren - Listening/i })).toBeInTheDocument();
     expect(screen.queryByText(/Audio Teil 1\.1/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Um 18 Uhr')).toBeDisabled();
+    expect(within(getQuestion(0)).getByLabelText('Richtig')).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Play listening audio for question 1' }));
 
     await waitFor(() => {
       expect(speechProvider.synthesize).toHaveBeenCalledWith({
         feature: 'goethe-exam-listening',
-        text: expect.stringContaining('Unterricht beginnt heute um 18 Uhr'),
+        text: expect.stringContaining('Sprachschule Berger'),
         options: { language: 'de' },
       });
       expect(playExamAudio).toHaveBeenCalledWith(expect.any(ArrayBuffer), 'audio/mpeg');
     });
-    expect(screen.getByLabelText('Um 18 Uhr')).not.toBeDisabled();
+    expect(screen.queryByText(/Guten Tag, hier ist die Sprachschule Berger/i)).not.toBeInTheDocument();
+    expect(speechProvider.synthesize).toHaveBeenCalledWith({
+      feature: 'goethe-exam-listening',
+      text: expect.stringContaining('Sprachschule Berger'),
+      options: { language: 'de' },
+    });
+    expect(within(getQuestion(0)).getByLabelText('Richtig')).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Play listening audio for question 1' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Play listening audio for question 1' }));
+
+    expect(speechProvider.synthesize).toHaveBeenCalledTimes(1);
   });
 
   it('uses the configured AI provider to generate original exam content', async () => {
@@ -161,6 +172,43 @@ describe('ExamSimulatorPage', () => {
     );
   });
 
+  it('shows an active progress indicator while AI exam generation is still running', async () => {
+    let resolveGeneration: (value: unknown) => void = () => {};
+    const aiProvider = {
+      id: 'openrouter',
+      displayName: 'OpenRouter',
+      generateText: vi.fn(),
+      generateJson: vi.fn(
+        () =>
+          new Promise(resolve => {
+            resolveGeneration = resolve;
+          })
+      ),
+    };
+
+    render(
+      <MemoryRouter>
+        <ExamSimulatorPage
+          aiProvider={aiProvider}
+          examRepository={createMemoryExamRepository()}
+          now={() => '2026-05-18T12:00:00.000Z'}
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Generate and start exam/i }));
+
+    expect(await screen.findByRole('progressbar', { name: /Generating exam/i })).toBeInTheDocument();
+    expect(screen.getByText(/Creating listening, reading, writing, and speaking tasks/i)).toBeInTheDocument();
+
+    resolveGeneration({ title: 'Generated B1 Exam', modules: [] });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('progressbar', { name: /Generating exam/i })).not.toBeInTheDocument();
+    });
+    expect(await screen.findByRole('heading', { name: /Hoeren - Listening/i })).toBeInTheDocument();
+  });
+
   it('uses Gemini Live as an oral examiner and saves the learner speaking transcript', async () => {
     const repository = createMemoryExamRepository();
     const speechProvider = createSpeechProvider();
@@ -190,10 +238,10 @@ describe('ExamSimulatorPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play listening audio for question 1' }));
     await waitFor(() => expect(speechProvider.synthesize).toHaveBeenCalledTimes(1));
-    fireEvent.click(await screen.findByLabelText('Um 18 Uhr'));
+    answerQuestion(0, 'Richtig');
     fireEvent.click(screen.getByRole('button', { name: 'Play listening audio for question 2' }));
     await waitFor(() => expect(speechProvider.synthesize).toHaveBeenCalledTimes(2));
-    fireEvent.click(screen.getByLabelText('Einkaufen gehen'));
+    answerQuestion(1, 'Falsch');
     fireEvent.click(screen.getByRole('button', { name: /Next module/i }));
 
     fireEvent.click(await screen.findByLabelText('Im Raum 204'));
@@ -266,6 +314,14 @@ describe('ExamSimulatorPage', () => {
     expect(within(history).getByText('Needs work')).toBeInTheDocument();
   });
 });
+
+function getQuestion(index: number): HTMLElement {
+  return screen.getAllByRole('group')[index] as HTMLElement;
+}
+
+function answerQuestion(index: number, label: string): void {
+  fireEvent.click(within(getQuestion(index)).getByLabelText(label));
+}
 
 function createConversationRepository(): ConversationRepository {
   return {
