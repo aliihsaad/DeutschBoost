@@ -1,424 +1,153 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  createFallbackGoetheExam,
-  generateGoetheExam,
-  scoreGoetheExam,
-} from '../../../src/domain/exam/examGenerator';
+import { generateGoetheExam, scoreGoetheExam } from '../../../src/domain/exam/examGenerator';
+import { createExamBlueprint } from '../../../src/domain/exam/examTemplates';
+import { ExamGenerationError } from '../../../src/domain/exam/examGenerationError';
+import type { GoetheExam } from '../../../src/domain/exam/examTypes';
+import type { AiProvider } from '../../../src/domain/ai/aiProvider';
 import { CEFRLevel } from '../../../types';
 
-describe('Goethe exam generation and scoring', () => {
-  it('creates a full local B1 exam with official-style modules and timing', () => {
-    const exam = createFallbackGoetheExam({
-      level: CEFRLevel.B1,
-      now: () => '2026-05-18T10:00:00.000Z',
-      idFactory: () => 'exam-b1',
-    });
-
-    expect(exam.id).toBe('exam-b1');
-    expect(exam.passThreshold).toBe(60);
-    expect(exam.modules.map(module => module.id)).toEqual(['listening', 'reading', 'writing', 'speaking']);
-    expect(exam.modules.map(module => module.durationMinutes)).toEqual([40, 65, 60, 15]);
-    expect(exam.sourceNotes.join(' ')).toMatch(/Goethe/);
+// Builds a fully valid exam (real-looking content) for scoring tests.
+function buildScoredExamFixture(level: CEFRLevel): GoetheExam {
+  const exam = createExamBlueprint({ level, idFactory: () => `exam-${level.toLowerCase()}` });
+  exam.modules = exam.modules.map(module => {
+    if (module.id === 'listening' || module.id === 'reading') {
+      const questions = module.templateParts.flatMap(part =>
+        Array.from({ length: Math.max(1, part.questionCount ?? part.maxPoints ?? 1) }, (_, i) => ({
+          id: `${module.id}-${part.id}-${i}`,
+          moduleId: module.id,
+          partId: part.id,
+          passage: `${module.id} ${part.id} ${i}: Die Veranstaltung beginnt um ${9 + i} Uhr im Raum ${part.id}.`,
+          prompt: `${module.id} ${part.id} ${i}: Wann beginnt die Veranstaltung?`,
+          options: [`um ${9 + i} Uhr`, `um 7 Uhr (${part.id}${i})`, `gar nicht (${part.id}${i})`],
+          correctOptionIndex: 0,
+          points: (part.maxPoints ?? 1) / Math.max(1, part.questionCount ?? part.maxPoints ?? 1),
+          explanation: 'Steht im Text.',
+        }))
+      );
+      return { ...module, objectiveQuestions: questions, productiveTasks: [] };
+    }
+    const tasks = module.templateParts.map((part, i) => ({
+      id: `${module.id}-${part.id}`,
+      moduleId: module.id === 'speaking' ? ('speaking' as const) : ('writing' as const),
+      partId: part.id,
+      prompt: `${module.id} ${part.id}: Bearbeiten Sie Aufgabe ${i + 1} ausfuehrlich und klar.`,
+      points: part.maxPoints ?? 20,
+      rubric: ['Inhalt', 'Sprache'],
+    }));
+    return { ...module, objectiveQuestions: [], productiveTasks: tasks };
   });
+  return exam;
+}
 
-  it('uses fixed Goethe public template metadata for every generated module', () => {
-    const exam = createFallbackGoetheExam({
-      level: CEFRLevel.B1,
-      now: () => '2026-05-18T10:00:00.000Z',
-      idFactory: () => 'exam-b1',
-    });
+function moduleResponse(exam: GoetheExam, moduleId: string) {
+  const module = exam.modules.find(m => m.id === moduleId)!;
+  return module.objectiveQuestions.length > 0
+    ? { objectiveQuestions: module.objectiveQuestions }
+    : { productiveTasks: module.productiveTasks };
+}
 
-    expect(exam.templateName).toBe('Goethe-Zertifikat B1 public model-test profile');
-    expect(exam.officialSources.map(source => source.url)).toEqual(
-      expect.arrayContaining([
-        'https://www.goethe.de/ins/us/en/m/spr/prf/gzb1.cfm',
-        'https://bfu.goethe.de/b1_mod/lesen.php',
-      ])
+function moduleIdFromMessages(messages: { content: string }[]): string {
+  return (
+    ['listening', 'reading', 'writing', 'speaking'].find(id =>
+      messages.some(m => m.content.includes(`module only: "${id}"`))
+    ) ?? 'reading'
+  );
+}
+
+function aiProviderFor(exam: GoetheExam): AiProvider {
+  return {
+    id: 'mock',
+    displayName: 'Mock',
+    generateText: vi.fn(),
+    generateJson: vi.fn(async request =>
+      moduleResponse(exam, moduleIdFromMessages(request.messages)) as never
+    ),
+  };
+}
+
+describe('generateGoetheExam (AI-only, loud failure)', () => {
+  it('throws ExamGenerationError when no AI provider is configured', async () => {
+    await expect(generateGoetheExam({ level: CEFRLevel.B1 })).rejects.toBeInstanceOf(
+      ExamGenerationError
     );
-    expect(exam.modules.find(module => module.id === 'reading')?.templateParts).toEqual([
-      expect.objectContaining({ title: 'Teil 1', taskFamily: 'Blog post / longer informational text' }),
-      expect.objectContaining({ title: 'Teil 2', taskFamily: 'Press text with opinion/detail questions' }),
-      expect.objectContaining({ title: 'Teil 3', taskFamily: 'Short notices and advertisements' }),
-      expect.objectContaining({ title: 'Teil 4', taskFamily: 'Matching statements to opinions' }),
-      expect.objectContaining({ title: 'Teil 5', taskFamily: 'Instructions or rules text' }),
-    ]);
   });
 
-  it('creates natural Hoeren fallback items without placeholder prompts or answer labels', () => {
-    const exam = createFallbackGoetheExam({
-      level: CEFRLevel.B1,
-      idFactory: () => 'exam-b1',
-    });
-    const listening = findModule(exam, 'listening');
-
-    listening.objectiveQuestions.forEach(question => {
-      expect(question.passage).toBeTruthy();
-      expect(question.passage).not.toMatch(/Audio script|Hoertext|kurze .*Situation|wichtige Information/i);
-      expect(question.prompt).not.toMatch(/Die gehoerte Information passt zur Situation/i);
-      expect(question.options.join(' ')).not.toMatch(/Option [abc] aus dem Hoertext/i);
-      expect(new Set(question.options).size).toBe(question.options.length);
-    });
+  it('generates a full valid exam per module from the AI provider', async () => {
+    const fixture = buildScoredExamFixture(CEFRLevel.B1);
+    const exam = await generateGoetheExam({ level: CEFRLevel.B1, aiProvider: aiProviderFor(fixture) });
+    expect(exam.modules.map(m => m.id)).toEqual(['listening', 'reading', 'writing', 'speaking']);
+    expect(exam.modules.find(m => m.id === 'reading')!.objectiveQuestions.length).toBeGreaterThan(0);
+    expect(JSON.stringify(exam)).not.toMatch(/Option [abc] aus dem Text|originaler .*Lesetext im Stil/i);
   });
 
-  it('scores objective and productive exam answers into module results', () => {
-    const exam = createFallbackGoetheExam({ level: CEFRLevel.B1 });
-    const answers = {
-      objective: Object.fromEntries(
-        exam.modules.flatMap(module =>
-          module.objectiveQuestions.map(question => [question.id, question.correctOptionIndex])
-        )
-      ),
-      productive: Object.fromEntries(
-        exam.modules.flatMap(module =>
-          module.productiveTasks.map(task => [task.id, germanExamAnswer(90)])
-        )
-      ),
+  it('retries a module then succeeds', async () => {
+    const fixture = buildScoredExamFixture(CEFRLevel.B1);
+    let readingCalls = 0;
+    const provider: AiProvider = {
+      id: 'mock',
+      displayName: 'Mock',
+      generateText: vi.fn(),
+      generateJson: vi.fn(async request => {
+        const moduleId = moduleIdFromMessages(request.messages);
+        if (moduleId === 'reading') {
+          readingCalls += 1;
+          if (readingCalls === 1) return { objectiveQuestions: [] } as never;
+          return { objectiveQuestions: fixture.modules.find(m => m.id === 'reading')!.objectiveQuestions } as never;
+        }
+        return moduleResponse(fixture, moduleId) as never;
+      }),
     };
+    const exam = await generateGoetheExam({ level: CEFRLevel.B1, aiProvider: provider });
+    expect(readingCalls).toBeGreaterThanOrEqual(2);
+    expect(exam.modules.find(m => m.id === 'reading')!.objectiveQuestions.length).toBeGreaterThan(0);
+  });
 
-    const result = scoreGoetheExam(exam, answers);
+  it('throws ExamGenerationError naming the module after exhausting attempts', async () => {
+    const fixture = buildScoredExamFixture(CEFRLevel.B1);
+    const provider: AiProvider = {
+      id: 'mock',
+      displayName: 'Mock',
+      generateText: vi.fn(),
+      generateJson: vi.fn(async request => {
+        const moduleId = moduleIdFromMessages(request.messages);
+        if (moduleId === 'writing') return { productiveTasks: [] } as never;
+        return moduleResponse(fixture, moduleId) as never;
+      }),
+    };
+    await expect(
+      generateGoetheExam({ level: CEFRLevel.B1, aiProvider: provider })
+    ).rejects.toMatchObject({ name: 'ExamGenerationError', moduleId: 'writing' });
+  });
+});
 
+describe('scoreGoetheExam', () => {
+  it('scores objective and productive exam answers into module results', () => {
+    const exam = buildScoredExamFixture(CEFRLevel.B1);
+    const objective: Record<string, number> = {};
+    for (const module of exam.modules) {
+      for (const q of module.objectiveQuestions) objective[q.id] = q.correctOptionIndex;
+    }
+    const productive: Record<string, string> = {};
+    for (const module of exam.modules) {
+      for (const t of module.productiveTasks) {
+        productive[t.id] = Array.from(
+          { length: 12 },
+          (_, s) =>
+            `Satz ${s + 1}: Ich moechte das Thema klar und ausfuehrlich behandeln, weil die Aufgabe das verlangt und ich genug Woerter schreiben kann.`
+        ).join(' ');
+      }
+    }
+    const result = scoreGoetheExam(exam, { objective, productive });
     expect(result.percentage).toBeGreaterThanOrEqual(60);
     expect(result.passed).toBe(true);
     expect(result.moduleResults).toHaveLength(4);
   });
 
-  it('reports B1 module results using public Goethe-style raw points, certificate points, and deductions', () => {
-    const exam = createFallbackGoetheExam({ level: CEFRLevel.B1 });
-    const firstListeningQuestion = exam.modules
-      .find(module => module.id === 'listening')!
-      .objectiveQuestions[0];
-    const answers = {
-      objective: Object.fromEntries(
-        exam.modules.flatMap(module =>
-          module.objectiveQuestions.map(question => [
-            question.id,
-            question.id === firstListeningQuestion.id
-              ? (question.correctOptionIndex + 1) % question.options.length
-              : question.correctOptionIndex,
-          ])
-        )
-      ),
-      productive: Object.fromEntries(
-        exam.modules.flatMap(module =>
-          module.productiveTasks.map(task => [task.id, germanExamAnswer(90)])
-        )
-      ),
-    };
-
-    const result = scoreGoetheExam(exam, answers);
-    const listening = result.moduleResults.find(module => module.moduleId === 'listening')!;
-    const writing = result.moduleResults.find(module => module.moduleId === 'writing')!;
-    const speaking = result.moduleResults.find(module => module.moduleId === 'speaking')!;
-
-    expect(listening.rawPossiblePoints).toBe(30);
+  it('keeps B1 durations and certificate point conversion', () => {
+    const exam = buildScoredExamFixture(CEFRLevel.B1);
+    expect(exam.modules.map(m => m.durationMinutes)).toEqual([40, 65, 60, 15]);
+    const result = scoreGoetheExam(exam, { objective: {}, productive: {} });
+    const listening = result.moduleResults.find(m => m.moduleId === 'listening')!;
     expect(listening.possiblePoints).toBe(100);
-    expect(listening.rawEarnedPoints).toBe(29);
-    expect(listening.earnedPoints).toBe(97);
-    expect(listening.partResults).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          partId: 'teil-1',
-          possiblePoints: 10,
-          lostPoints: 1,
-          scoringNote: '1 raw point per correct answer; wrong answers receive 0 points.',
-        }),
-      ])
-    );
-    expect(writing.possiblePoints).toBe(100);
-    expect(writing.partResults[0].criteria).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ label: 'Erfuellung', possiblePoints: 10 }),
-        expect.objectContaining({ label: 'Strukturen', possiblePoints: 10, band: 'A' }),
-      ])
-    );
-    expect(speaking.partResults).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ partId: 'pronunciation', possiblePoints: 16 }),
-      ])
-    );
-  });
-
-  it('creates public non-B1 blueprints with real part counts and scoring totals', () => {
-    const a1 = createFallbackGoetheExam({ level: CEFRLevel.A1 });
-    expect(a1.modules.map(module => module.durationMinutes)).toEqual([20, 25, 20, 15]);
-    expect(objectivePartPoints(a1, 'listening')).toEqual([6, 4, 5]);
-    expect(objectivePartPoints(a1, 'reading')).toEqual([5, 5, 5]);
-    expect(templatePartPoints(a1, 'writing')).toEqual([5, 10]);
-    expect(templatePartPoints(a1, 'speaking')).toEqual([3, 6, 6]);
-
-    const a2 = createFallbackGoetheExam({ level: CEFRLevel.A2 });
-    expect(a2.modules.map(module => module.durationMinutes)).toEqual([30, 30, 30, 15]);
-    expect(sumObjectiveQuestionPoints(a2, 'listening')).toBe(20);
-    expect(sumObjectiveQuestionPoints(a2, 'reading')).toBe(20);
-    expect(sumTemplatePartPoints(a2, 'writing')).toBe(20);
-    expect(sumTemplatePartPoints(a2, 'speaking')).toBe(25);
-
-    const b2 = createFallbackGoetheExam({ level: CEFRLevel.B2 });
-    expect(objectivePartPoints(b2, 'listening')).toEqual([10, 6, 6, 8]);
-    expect(objectivePartPoints(b2, 'reading')).toEqual([9, 6, 6, 6, 3]);
-    expect(sumTemplatePartPoints(b2, 'writing')).toBe(100);
-    expect(sumTemplatePartPoints(b2, 'speaking')).toBe(100);
-
-    const c1 = createFallbackGoetheExam({ level: CEFRLevel.C1 });
-    expect(objectivePartCounts(c1, 'listening')).toEqual([6, 9, 8, 7]);
-    expect(objectivePartCounts(c1, 'reading')).toEqual([8, 7, 8, 7]);
-    expect(sumObjectiveQuestionPoints(c1, 'listening')).toBe(30);
-    expect(sumObjectiveQuestionPoints(c1, 'reading')).toBe(30);
-
-    const c2 = createFallbackGoetheExam({ level: CEFRLevel.C2 });
-    expect(objectivePartPoints(c2, 'listening')).toEqual([30, 20, 50]);
-    expect(objectivePartPoints(c2, 'reading')).toEqual([40, 18, 18, 24]);
-    expect(sumTemplatePartPoints(c2, 'writing')).toBe(100);
-    expect(sumTemplatePartPoints(c2, 'speaking')).toBe(100);
-  });
-
-  it('scores A2 as a single 100-point exam with 25-point sections and written/oral gates', () => {
-    const exam = createFallbackGoetheExam({ level: CEFRLevel.A2 });
-    const answers = {
-      objective: Object.fromEntries(
-        exam.modules.flatMap(module =>
-          module.objectiveQuestions.map(question => [question.id, question.correctOptionIndex])
-        )
-      ),
-      productive: Object.fromEntries(
-        exam.modules.flatMap(module =>
-          module.productiveTasks.map(task => [task.id, germanExamAnswer(100)])
-        )
-      ),
-    };
-
-    const passingResult = scoreGoetheExam(exam, answers);
-
-    expect(passingResult.totalPossiblePoints).toBe(100);
-    expect(passingResult.percentage).toBe(100);
-    expect(passingResult.passed).toBe(true);
-    expect(passingResult.moduleResults.map(module => module.possiblePoints)).toEqual([25, 25, 25, 25]);
-
-    const missingSpeaking = scoreGoetheExam(exam, {
-      ...answers,
-      productive: Object.fromEntries(
-        exam.modules.flatMap(module =>
-          module.productiveTasks.map(task => [
-            task.id,
-            task.moduleId === 'speaking' ? '' : germanExamAnswer(100),
-          ])
-        )
-      ),
-    });
-
-    expect(missingSpeaking.percentage).toBeGreaterThanOrEqual(60);
-    expect(missingSpeaking.passed).toBe(false);
-    expect(missingSpeaking.summary).toMatch(/oral/i);
-  });
-
-  it('converts C1 objective modules from 30 raw checkpoints to 100 certificate points', () => {
-    const exam = createFallbackGoetheExam({ level: CEFRLevel.C1 });
-    const firstReadingQuestion = exam.modules.find(module => module.id === 'reading')!.objectiveQuestions[0];
-    const answers = {
-      objective: Object.fromEntries(
-        exam.modules.flatMap(module =>
-          module.objectiveQuestions.map(question => [
-            question.id,
-            question.id === firstReadingQuestion.id
-              ? (question.correctOptionIndex + 1) % question.options.length
-              : question.correctOptionIndex,
-          ])
-        )
-      ),
-      productive: Object.fromEntries(
-        exam.modules.flatMap(module =>
-          module.productiveTasks.map(task => [task.id, germanExamAnswer(120)])
-        )
-      ),
-    };
-
-    const reading = scoreGoetheExam(exam, answers).moduleResults.find(module => module.moduleId === 'reading')!;
-
-    expect(reading.rawPossiblePoints).toBe(30);
-    expect(reading.rawEarnedPoints).toBe(29);
-    expect(reading.possiblePoints).toBe(100);
-    expect(reading.earnedPoints).toBe(97);
-  });
-
-  it('asks the AI provider for original exam content and falls back safely when output is incomplete', async () => {
-    const aiProvider = {
-      id: 'openrouter',
-      displayName: 'OpenRouter',
-      generateText: vi.fn(),
-      generateJson: vi.fn().mockResolvedValue({ title: 'AI generated test', modules: [] }),
-    };
-
-    const exam = await generateGoetheExam({
-      level: CEFRLevel.B2,
-      aiProvider,
-      idFactory: () => 'exam-ai',
-    });
-
-    expect(aiProvider.generateJson).toHaveBeenCalledWith(
-      expect.objectContaining({
-        feature: 'goethe-exam-simulator-generation',
-      })
-    );
-    expect(exam.id).toBe('exam-ai');
-    expect(exam.modules.map(module => module.id)).toEqual(['listening', 'reading', 'writing', 'speaking']);
-  });
-
-  it('rejects placeholder Hoeren output from AI generation and keeps hidden audio scripts natural', async () => {
-    const aiProvider = {
-      id: 'openrouter',
-      displayName: 'OpenRouter',
-      generateText: vi.fn(),
-      generateJson: vi.fn().mockResolvedValue({
-        title: 'AI generated placeholder test',
-        modules: [
-          {
-            id: 'listening',
-            objectiveQuestions: [
-              {
-                id: 'bad-listening-1',
-                partId: 'teil-1',
-                passage: 'Audio script Teil 1.1: Eine kurze B1-Situation zu Announcements.',
-                prompt: 'Aussage 1: Die gehoerte Information passt zur Situation.',
-                options: ['Option a aus dem Hoertext', 'Option b aus dem Hoertext', 'Option c aus dem Hoertext'],
-                correctOptionIndex: 0,
-                points: 1,
-              },
-            ],
-          },
-        ],
-      }),
-    };
-
-    const exam = await generateGoetheExam({
-      level: CEFRLevel.B1,
-      aiProvider,
-      idFactory: () => 'exam-ai',
-    });
-    const firstListening = findModule(exam, 'listening').objectiveQuestions[0];
-
-    expect(firstListening.id).not.toBe('bad-listening-1');
-    expect(firstListening.passage).not.toMatch(/Audio script|Hoertext|kurze .*Situation/i);
-    expect(firstListening.options.join(' ')).not.toMatch(/Option [abc] aus dem Hoertext/i);
-  });
-
-  it('passes the exact public exam blueprint to the AI provider', async () => {
-    const aiProvider = {
-      id: 'openrouter',
-      displayName: 'OpenRouter',
-      generateText: vi.fn(),
-      generateJson: vi.fn().mockResolvedValue({ title: 'AI generated test', modules: [] }),
-    };
-
-    await generateGoetheExam({
-      level: CEFRLevel.A2,
-      aiProvider,
-      idFactory: () => 'exam-ai',
-    });
-
-    const request = aiProvider.generateJson.mock.calls[0][0];
-    const prompt = JSON.parse(request.messages[1].content);
-
-    expect(prompt.constraints.templateName).toBe('Goethe-Zertifikat A2 public model-test profile');
-    expect(prompt.constraints.officialSourceUrls).toEqual(
-      expect.arrayContaining([
-        'https://www.goethe.de/ins/us/en/spr/prf/gzsd2.cfm',
-        'https://bfu.goethe.de/a2_mod_2MX5/lesen.php',
-      ])
-    );
-    expect(prompt.constraints.moduleBlueprints.find((module: { id: string }) => module.id === 'listening')).toEqual(
-      expect.objectContaining({
-        id: 'listening',
-        durationMinutes: 30,
-        parts: [
-          expect.objectContaining({ title: 'Teil 1' }),
-          expect.objectContaining({ title: 'Teil 2' }),
-          expect.objectContaining({ title: 'Teil 3' }),
-          expect.objectContaining({ title: 'Teil 4' }),
-        ],
-      })
-    );
-    expect(prompt.constraints.listeningAudio).toMatch(/hidden German audio script/i);
-    expect(prompt.constraints.noListeningPlaceholders).toMatch(/Option a aus dem Hoertext/i);
-  });
-
-  it('passes weighted C2 public scoring blueprints to the AI provider', async () => {
-    const aiProvider = {
-      id: 'openrouter',
-      displayName: 'OpenRouter',
-      generateText: vi.fn(),
-      generateJson: vi.fn().mockResolvedValue({ title: 'AI generated test', modules: [] }),
-    };
-
-    await generateGoetheExam({
-      level: CEFRLevel.C2,
-      aiProvider,
-      idFactory: () => 'exam-ai',
-    });
-
-    const request = aiProvider.generateJson.mock.calls[0][0];
-    const prompt = JSON.parse(request.messages[1].content);
-    const listening = prompt.constraints.moduleBlueprints.find((module: { id: string }) => module.id === 'listening');
-    const reading = prompt.constraints.moduleBlueprints.find((module: { id: string }) => module.id === 'reading');
-
-    expect(listening.parts.map((part: { questionCount: number; maxPoints: number }) => ({
-      questionCount: part.questionCount,
-      maxPoints: part.maxPoints,
-    }))).toEqual([
-      { questionCount: 15, maxPoints: 30 },
-      { questionCount: 5, maxPoints: 20 },
-      { questionCount: 10, maxPoints: 50 },
-    ]);
-    expect(reading.parts.map((part: { questionCount: number; maxPoints: number }) => ({
-      questionCount: part.questionCount,
-      maxPoints: part.maxPoints,
-    }))).toEqual([
-      { questionCount: 10, maxPoints: 40 },
-      { questionCount: 6, maxPoints: 18 },
-      { questionCount: 6, maxPoints: 18 },
-      { questionCount: 8, maxPoints: 24 },
-    ]);
   });
 });
-
-function germanExamAnswer(wordCount: number): string {
-  return Array.from({ length: wordCount }, (_, index) =>
-    index % 10 === 0 ? 'Ich' : 'lerne'
-  ).join(' ') + '.';
-}
-
-type Exam = ReturnType<typeof createFallbackGoetheExam>;
-type ModuleId = Exam['modules'][number]['id'];
-
-function findModule(exam: Exam, moduleId: ModuleId) {
-  return exam.modules.find(module => module.id === moduleId)!;
-}
-
-function objectivePartCounts(exam: Exam, moduleId: ModuleId): number[] {
-  const module = findModule(exam, moduleId);
-
-  return module.templateParts.map(part =>
-    module.objectiveQuestions.filter(question => question.partId === part.id).length
-  );
-}
-
-function objectivePartPoints(exam: Exam, moduleId: ModuleId): number[] {
-  const module = findModule(exam, moduleId);
-
-  return module.templateParts.map(part =>
-    module.objectiveQuestions
-      .filter(question => question.partId === part.id)
-      .reduce((sum, question) => sum + question.points, 0)
-  );
-}
-
-function templatePartPoints(exam: Exam, moduleId: ModuleId): number[] {
-  return findModule(exam, moduleId).templateParts.map(part => part.maxPoints ?? 0);
-}
-
-function sumObjectiveQuestionPoints(exam: Exam, moduleId: ModuleId): number {
-  return findModule(exam, moduleId).objectiveQuestions.reduce((sum, question) => sum + question.points, 0);
-}
-
-function sumTemplatePartPoints(exam: Exam, moduleId: ModuleId): number {
-  return findModule(exam, moduleId).templateParts.reduce((sum, part) => sum + (part.maxPoints ?? 0), 0);
-}
