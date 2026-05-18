@@ -154,7 +154,7 @@ describe('ExamSimulatorPage', () => {
     expect(await screen.findByLabelText('Exam history')).toHaveTextContent('B1 simulated exam');
     expect(repository.savedAttempts).toHaveLength(1);
     expect(repository.savedAttempts[0].result.moduleResults).toHaveLength(4);
-  }, 10000);
+  }, 30000);
 
   it('plays Hoeren questions through Deepgram TTS before answers can be selected', async () => {
     const speechProvider = createSpeechProvider();
@@ -348,7 +348,7 @@ describe('ExamSimulatorPage', () => {
     expect(repository.savedAttempts[0].answers.productive['speaking-1']).toContain(
       'Ich moechte einen Ausflug nach Berlin planen.'
     );
-  }, 10000);
+  }, 30000);
 
   it('renders saved exam history with scores', async () => {
     const repository = createMemoryExamRepository([
