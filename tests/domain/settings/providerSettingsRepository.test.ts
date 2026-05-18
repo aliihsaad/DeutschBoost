@@ -203,7 +203,7 @@ describe('providerSettingsRepository', () => {
       live: {
         enabled: false,
         provider: 'gemini-live',
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Kore',
       },
     });
@@ -240,7 +240,7 @@ describe('providerSettingsRepository', () => {
         enabled: true,
         provider: 'gemini-live',
         apiKey: 'gemini-key',
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Kore',
       },
     });

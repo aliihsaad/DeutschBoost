@@ -174,6 +174,29 @@ export const PracticePage: React.FC = () => {
           </div>
         </div>
 
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold text-indigo-600 uppercase tracking-wide mb-2">
+                Exam preparation
+              </p>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                Goethe Exam Simulator
+              </h2>
+              <p className="text-gray-600">
+                Open a timed Goethe-style workspace with level-specific reading,
+                listening, writing, and speaking modules.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/exam')}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition"
+            >
+              Open Exam Simulator
+            </button>
+          </div>
+        </div>
+
         {/* Skill Selector Modal */}
         {showSkillSelector && selectedSkill && selectedLevel && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

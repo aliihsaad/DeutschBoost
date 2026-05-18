@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "DeutschBoost",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "identifier": "com.deutschboost.app",
   "build": {
     "frontendDist": "../dist",

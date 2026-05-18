@@ -128,6 +128,21 @@ describe('startBrowserPcmAudioCapture', () => {
     expect(audioContext.close).toHaveBeenCalled();
     expect(track.stop).toHaveBeenCalled();
   });
+
+  it('resumes a suspended audio context before streaming PCM chunks', async () => {
+    const track = { stop: vi.fn() };
+    const stream = { getTracks: () => [track] } as unknown as MediaStream;
+    const audioContext = new FakeAudioContext(16000);
+    audioContext.state = 'suspended';
+
+    await startBrowserPcmAudioCapture({
+      getUserMedia: vi.fn().mockResolvedValue(stream),
+      createAudioContext: () => audioContext,
+      onPcmChunk: vi.fn(),
+    });
+
+    expect(audioContext.resume).toHaveBeenCalled();
+  });
 });
 
 describe('recordAudioSample', () => {
@@ -187,6 +202,7 @@ class FakeMediaRecorder {
 }
 
 class FakeAudioContext {
+  state: AudioContextState = 'running';
   destination = {};
   source = {
     connect: vi.fn(),
@@ -200,6 +216,10 @@ class FakeAudioContext {
   createMediaStreamSource = vi.fn(() => this.source);
 
   createScriptProcessor = vi.fn(() => this.processor);
+
+  resume = vi.fn(async () => {
+    this.state = 'running';
+  });
 }
 
 class FakeScriptProcessorNode {

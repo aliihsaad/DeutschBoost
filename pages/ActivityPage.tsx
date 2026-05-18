@@ -44,6 +44,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
   const [showResults, setShowResults] = useState(false);
   const [evaluation, setEvaluation] = useState<any>(null);
   const [score, setScore] = useState(0);
+  const [completionStatus, setCompletionStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [startTime] = useState(Date.now());
   const [motherLanguage, setMotherLanguage] = useState('English');
 
@@ -98,6 +99,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
 
   const loadActivity = async () => {
     setLoading(true);
+    setCompletionStatus('idle');
     try {
       const generatedActivity = await generateActivity(
         activityType,
@@ -194,7 +196,18 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
   };
 
   const markActivityComplete = async (finalScore: number) => {
-    if (!itemId) return;
+    setScore(finalScore);
+
+    if (!itemId) {
+      setCompletionStatus('saved');
+      return;
+    }
+
+    if (completionStatus === 'saving' || completionStatus === 'saved') {
+      return;
+    }
+
+    setCompletionStatus('saving');
 
     const loadingToast = toast.loading('Saving your progress...');
 
@@ -215,6 +228,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
         console.error('Error marking item complete:', completionError);
         toast.dismiss(loadingToast);
         toast.error('Failed to mark activity complete. Please try again.');
+        setCompletionStatus('error');
         return;
       }
 
@@ -243,17 +257,56 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
       }
 
       toast.dismiss(loadingToast);
+      setCompletionStatus('saved');
       toast.success(`Activity completed! Score: ${finalScore}%`);
-
-      // Wait a moment for toast to show, then navigate
-      setTimeout(() => {
-        navigate('/learning-plan');
-      }, 1000);
     } catch (error) {
       console.error('Error marking activity complete:', error);
       toast.dismiss(loadingToast);
+      setCompletionStatus('error');
       toast.error('An error occurred. Please try again.');
     }
+  };
+
+  const handleContinueAfterResult = () => {
+    if (score < 70) {
+      navigate('/practice');
+      return;
+    }
+
+    navigate(itemId ? '/learning-plan' : '/practice');
+  };
+
+  const renderResultFooter = () => {
+    const passed = score >= 70;
+    const label = passed ? (itemId ? 'Continue to Plan' : 'Back to Practice') : 'Practice More';
+
+    return (
+      <div className="space-y-3">
+        {itemId && passed && (
+          <div className={`p-4 rounded-lg border ${
+            completionStatus === 'error'
+              ? 'bg-red-50 border-red-200 text-red-700'
+              : 'bg-green-50 border-green-200 text-green-700'
+          }`}>
+            {completionStatus === 'saving' && 'Saving this plan task locally...'}
+            {completionStatus === 'saved' && 'Plan task saved. Review the feedback, then continue when you are ready.'}
+            {completionStatus === 'error' && 'The score was good, but saving the plan task failed. Try again before leaving.'}
+            {completionStatus === 'idle' && 'This score is high enough to complete the plan task.'}
+          </div>
+        )}
+        {!passed && (
+          <div className="p-4 rounded-lg border bg-amber-50 border-amber-200 text-amber-700">
+            This score stays below the pass target. Practice this area again before marking the task complete.
+          </div>
+        )}
+        <button
+          onClick={handleContinueAfterResult}
+          className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg"
+        >
+          {label}
+        </button>
+      </div>
+    );
   };
 
   const renderGrammarActivity = () => {
@@ -292,12 +345,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
             ))}
           </div>
 
-          <button
-            onClick={() => navigate('/learning-plan')}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg"
-          >
-            Back to Learning Plan
-          </button>
+          {renderResultFooter()}
         </div>
       );
     }
@@ -466,24 +514,32 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
               Next Card
             </button>
           ) : (
-            <button
-              onClick={() => {
-                if (flippedCards.size === activity.cards.length) {
-                  markActivityComplete(100);
-                  // Navigation now handled inside markActivityComplete()
-                } else {
-                  toast.error(`Please flip all ${activity.cards.length} cards to complete the activity!`);
-                }
-              }}
-              disabled={flippedCards.size !== activity.cards.length}
-              className={`flex-1 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 shadow-lg ${
-                flippedCards.size === activity.cards.length
-                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              Complete ({flippedCards.size}/{activity.cards.length} flipped)
-            </button>
+            completionStatus === 'saved' ? (
+              <button
+                onClick={handleContinueAfterResult}
+                className="flex-1 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 shadow-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700"
+              >
+                Continue to Plan
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  if (flippedCards.size === activity.cards.length) {
+                    markActivityComplete(100);
+                  } else {
+                    toast.error(`Please flip all ${activity.cards.length} cards to complete the activity!`);
+                  }
+                }}
+                disabled={flippedCards.size !== activity.cards.length || completionStatus === 'saving'}
+                className={`flex-1 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 shadow-lg ${
+                  flippedCards.size === activity.cards.length
+                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {completionStatus === 'saving' ? 'Saving...' : `Complete (${flippedCards.size}/${activity.cards.length} flipped)`}
+              </button>
+            )
           )}
         </div>
       </div>
@@ -535,12 +591,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
             </Card>
           )}
 
-          <button
-            onClick={() => navigate('/learning-plan')}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg"
-          >
-            Back to Learning Plan
-          </button>
+          {renderResultFooter()}
         </div>
       );
     }
@@ -662,12 +713,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
             ))}
           </div>
 
-          <button
-            onClick={() => navigate('/learning-plan')}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg"
-          >
-            Back to Learning Plan
-          </button>
+          {renderResultFooter()}
         </div>
       );
     }
@@ -786,12 +832,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
             ))}
           </div>
 
-          <button
-            onClick={() => navigate('/learning-plan')}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg"
-          >
-            Back to Learning Plan
-          </button>
+          {renderResultFooter()}
         </div>
       );
     }

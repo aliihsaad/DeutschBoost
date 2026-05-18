@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CEFRLevel, type LearningPlan } from '../../types';
 
@@ -67,5 +67,44 @@ describe('LearningPlanPage local profile stats', () => {
     });
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('hours total (90 min)')).toBeInTheDocument();
+  });
+
+  it('shows a finished-plan recap and next actions when every item is complete', async () => {
+    const { default: LearningPlanPage } = await import('../../pages/LearningPlanPage');
+    const completedPlan: LearningPlan = {
+      ...learningPlan,
+      weeks: learningPlan.weeks.map(week => ({
+        ...week,
+        items: week.items.map(item => ({ ...item, completed: true })),
+      })),
+    };
+
+    render(
+      <MemoryRouter>
+        <LearningPlanPage learningPlan={completedPlan} loading={false} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: /Plan complete/i })).toBeInTheDocument();
+    expect(screen.getByText(/2 of 2 completed/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Recalibrate level/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Start next plan/i })).toBeInTheDocument();
+  });
+
+  it('navigates to placement when no plan exists and the learner chooses the placement test', async () => {
+    const { default: LearningPlanPage } = await import('../../pages/LearningPlanPage');
+
+    render(
+      <MemoryRouter initialEntries={['/plan']}>
+        <Routes>
+          <Route path="/plan" element={<LearningPlanPage learningPlan={null} loading={false} />} />
+          <Route path="/placement-test" element={<main>Placement route</main>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Take Placement Test/i }));
+
+    expect(screen.getByText('Placement route')).toBeInTheDocument();
   });
 });

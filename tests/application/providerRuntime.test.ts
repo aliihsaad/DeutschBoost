@@ -51,7 +51,7 @@ describe('providerRuntime', () => {
       live: {
         enabled: false,
         provider: 'gemini-live',
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Kore',
       },
     };
@@ -127,7 +127,7 @@ describe('providerRuntime', () => {
       live: {
         enabled: false,
         provider: 'gemini-live',
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Kore',
       },
     };

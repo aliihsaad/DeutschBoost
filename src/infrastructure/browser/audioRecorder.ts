@@ -35,6 +35,7 @@ interface BrowserStreamingAudioCaptureOptions {
 
 interface PcmAudioContextLike {
   sampleRate: number;
+  state?: string;
   destination: unknown;
   createMediaStreamSource(stream: MediaStream): PcmAudioSourceNodeLike;
   createScriptProcessor(
@@ -42,6 +43,7 @@ interface PcmAudioContextLike {
     numberOfInputChannels: number,
     numberOfOutputChannels: number
   ): PcmScriptProcessorNodeLike;
+  resume?: () => void | Promise<void>;
   close?: () => void | Promise<void>;
 }
 
@@ -231,6 +233,9 @@ export async function startBrowserPcmAudioCapture(
 
   try {
     const audioContext = createAudioContext();
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume?.();
+    }
     const source = audioContext.createMediaStreamSource(stream);
     const processor = audioContext.createScriptProcessor(options.bufferSize ?? 4096, 1, 1);
     const targetSampleRate = options.targetSampleRate ?? 16000;

@@ -143,4 +143,57 @@ describe('Gemini Live conversation controller', () => {
       })
     );
   });
+
+  it('starts microphone capture before async Gemini setup and only sends chunks after the live session is ready', async () => {
+    let resolveLiveSession: (session: LiveConversationSession) => void = () => undefined;
+    const session: LiveConversationSession = {
+      id: 'gemini-live-session',
+      sendAudioPcm16: vi.fn(),
+      sendAudioStreamEnd: vi.fn(),
+      interrupt: vi.fn(),
+      close: vi.fn(),
+      onEvent: vi.fn(() => () => undefined),
+    };
+    const provider: LiveConversationProvider = {
+      id: 'gemini-live',
+      displayName: 'Gemini Live',
+      startSession: vi.fn(
+        () =>
+          new Promise(resolve => {
+            resolveLiveSession = resolve;
+          })
+      ),
+    };
+    const conversationRepository = createConversationRepository();
+    let pushPcmChunk: (chunk: Uint8Array) => void = () => undefined;
+    const startAudioCapture = vi.fn(async ({ onPcmChunk }) => {
+      pushPcmChunk = onPcmChunk;
+      onPcmChunk(new Uint8Array([9, 9, 9]));
+      return { stop: vi.fn() };
+    });
+    const controller = createGeminiLiveConversationController({
+      liveProvider: provider,
+      conversationRepository,
+      learnerId: 'local-learner',
+      level: CEFRLevel.B1,
+      motherLanguage: 'English',
+      mode: ConversationMode.FREE_CONVERSATION,
+      startAudioCapture,
+      playTutorAudio: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const startPromise = controller.start();
+
+    await vi.waitFor(() => {
+      expect(startAudioCapture).toHaveBeenCalled();
+    });
+    expect(provider.startSession).toHaveBeenCalled();
+    expect(session.sendAudioPcm16).not.toHaveBeenCalled();
+
+    resolveLiveSession(session);
+    await startPromise;
+    pushPcmChunk(new Uint8Array([1, 2, 3]));
+
+    expect(session.sendAudioPcm16).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]));
+  });
 });

@@ -48,32 +48,37 @@ export default defineConfig(({ mode }) => {
         react(),
         isTauriBuild ? tauriDesktopServiceWorkerCleanupPlugin() : VitePWA({
           registerType: 'autoUpdate',
-          includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+          includeAssets: ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png', 'mask-icon.svg', 'app-icon.svg'],
           manifest: {
             name: 'DeutschBoost - Learn German with AI',
             short_name: 'DeutschBoost',
             description: 'AI-powered German language learning platform for A1-C2 levels and Goethe-Zertifikat preparation',
-            theme_color: '#2563eb',
-            background_color: '#ffffff',
+            theme_color: '#1d4ed8',
+            background_color: '#f8fbff',
             display: 'standalone',
             scope: '/',
             start_url: '/',
             icons: [
               {
-                src: '/pwa-192x192.svg',
+                src: '/pwa-192x192.png',
                 sizes: '192x192',
-                type: 'image/svg+xml'
+                type: 'image/png'
               },
               {
-                src: '/pwa-512x512.svg',
+                src: '/pwa-512x512.png',
                 sizes: '512x512',
-                type: 'image/svg+xml'
+                type: 'image/png'
               },
               {
-                src: '/pwa-512x512.svg',
+                src: '/pwa-512x512.png',
                 sizes: '512x512',
-                type: 'image/svg+xml',
+                type: 'image/png',
                 purpose: 'any maskable'
+              },
+              {
+                src: '/app-icon.svg',
+                sizes: 'any',
+                type: 'image/svg+xml'
               }
             ]
           },

@@ -118,7 +118,10 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
               <p className="text-gray-600 text-base sm:text-lg font-medium mb-4 sm:mb-6 px-4">
                 Please complete the placement test first to generate your personalized plan.
               </p>
-              <button className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-3.5 rounded-xl font-bold text-base sm:text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+              <button
+                onClick={() => navigate('/placement-test')}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-3.5 rounded-xl font-bold text-base sm:text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              >
                 Take Placement Test
               </button>
             </Card>
@@ -132,7 +135,8 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
   const completedItems = learningPlan.weeks.reduce((sum, week) =>
     sum + week.items.filter(item => item.completed).length, 0
   );
-  const progressPercentage = Math.round((completedItems / totalItems) * 100);
+  const progressPercentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+  const allPlanItemsComplete = totalItems > 0 && completedItems === totalItems;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
@@ -203,6 +207,53 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
             </div>
           </Card>
         </div>
+
+        {allPlanItemsComplete && (
+          <Card glass className="backdrop-blur-xl border-2 border-green-200/70 relative overflow-hidden">
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1.4fr_0.8fr] gap-6 items-center">
+              <div>
+                <span className="inline-block px-3 py-1 rounded-lg bg-green-100 text-green-700 text-xs font-bold uppercase tracking-wide mb-3">
+                  Local path finished
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-3">
+                  Plan complete
+                </h2>
+                <p className="text-gray-700 font-medium mb-4">
+                  You completed {completedItems} of {totalItems} tasks for this {learningPlan.level} plan.
+                  The next useful step is to recalibrate your level or start a fresh plan from the latest placement result.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => navigate('/placement-test')}
+                    className="px-5 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:from-green-700 hover:to-emerald-700 transition"
+                  >
+                    Recalibrate level
+                  </button>
+                  <button
+                    onClick={() => navigate('/placement-test')}
+                    className="px-5 py-3 bg-white text-gray-800 border-2 border-gray-200 rounded-xl font-bold hover:border-green-300 transition"
+                  >
+                    Start next plan
+                  </button>
+                  <button
+                    onClick={() => navigate('/practice')}
+                    className="px-5 py-3 bg-white text-gray-800 border-2 border-gray-200 rounded-xl font-bold hover:border-blue-300 transition"
+                  >
+                    Keep practicing
+                  </button>
+                </div>
+              </div>
+              <div className="bg-green-50 border-2 border-green-100 rounded-2xl p-5">
+                <h3 className="text-lg font-bold text-green-800 mb-3">What happens now?</h3>
+                <ul className="space-y-2 text-sm text-green-900">
+                  <li>Completed tasks stay saved locally.</li>
+                  <li>Daily practice remains available from Practice and Conversation.</li>
+                  <li>A new placement creates the next active plan.</li>
+                </ul>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Goals Section - Compact on Mobile */}
         <Card glass hover className="backdrop-blur-xl border-2 border-white/30 relative overflow-hidden">

@@ -1,4 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <rect width="32" height="32" fill="#2563eb"/>
-  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="18" font-family="Arial, sans-serif" font-weight="bold">D</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 1024 1024" role="img" aria-label="DeutschBoost">
+  <defs>
+    <linearGradient id="bg" x1="132" y1="84" x2="886" y2="932" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0f766e"/>
+      <stop offset="0.48" stop-color="#1d4ed8"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="236" fill="url(#bg)"/>
+  <path d="M253 220h518c75 0 136 61 136 136v227c0 75-61 136-136 136H587L446 832v-113H253c-75 0-136-61-136-136V356c0-75 61-136 136-136z" fill="#f8fbff"/>
+  <rect x="268" y="307" width="151" height="24" rx="12" fill="#111827"/>
+  <rect x="268" y="342" width="151" height="24" rx="12" fill="#dc2626"/>
+  <rect x="268" y="377" width="151" height="24" rx="12" fill="#facc15"/>
+  <text x="512" y="656" text-anchor="middle" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="377" font-weight="900" fill="#123c7c">ß</text>
 </svg>

@@ -9,7 +9,7 @@ type WebSocketLike = {
   onopen: (() => void) | null;
   onmessage: ((event: { data: string | ArrayBuffer | Blob }) => void) | null;
   onerror: ((event: unknown) => void) | null;
-  onclose: (() => void) | null;
+  onclose: ((event?: { code?: number; reason?: string }) => void) | null;
   readonly readyState?: number;
   send(data: unknown): void;
   close(): void;
@@ -26,6 +26,7 @@ interface GeminiLiveConversationProviderOptions {
   voiceName: string;
   WebSocketCtor?: GeminiLiveWebSocketCtor;
   endpoint?: string;
+  openTimeoutMs?: number;
 }
 
 interface GeminiLiveServerMessage {
@@ -53,6 +54,7 @@ const DEFAULT_ENDPOINT =
   'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
 const OPEN_WEBSOCKET_STATE = 1;
 const GEMINI_OUTPUT_SAMPLE_RATE = 24000;
+const DEFAULT_OPEN_TIMEOUT_MS = 15000;
 
 export function createGeminiLiveConversationProvider(
   options: GeminiLiveConversationProviderOptions
@@ -73,7 +75,8 @@ function openGeminiLiveSession(
   const socket = createSocket(options);
   const listeners = new Set<(event: LiveConversationEvent) => void>();
   const sessionId = `gemini-live-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`;
-  let setupResolved = false;
+  let setupComplete = false;
+  let startFailed = false;
 
   const emit = (event: LiveConversationEvent) => {
     listeners.forEach(listener => listener(event));
@@ -118,8 +121,51 @@ function openGeminiLiveSession(
   };
 
   return new Promise((resolve, reject) => {
+    let openTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const clearOpenTimeout = () => {
+      if (openTimeout) {
+        clearTimeout(openTimeout);
+        openTimeout = null;
+      }
+    };
+
+    const completeStart = () => {
+      if (setupComplete || startFailed) {
+        return;
+      }
+
+      setupComplete = true;
+      clearOpenTimeout();
+      resolve(session);
+    };
+
+    const failStart = (error: Error) => {
+      if (setupComplete) {
+        emit({ type: 'error', error });
+        return;
+      }
+
+      if (startFailed) {
+        return;
+      }
+
+      startFailed = true;
+      clearOpenTimeout();
+      reject(error);
+    };
+
+    openTimeout = setTimeout(() => {
+      failStart(new Error('Gemini Live connection timed out. Check your Gemini API key, network, and selected Live model.'));
+      socket.close();
+    }, Math.max(1, options.openTimeoutMs ?? DEFAULT_OPEN_TIMEOUT_MS));
+
     socket.onopen = () => {
-      socket.send(JSON.stringify(buildSetupMessage(options, input)));
+      try {
+        socket.send(JSON.stringify(buildSetupMessage(options, input)));
+      } catch (error) {
+        failStart(error instanceof Error ? error : new Error('Gemini Live setup message failed'));
+      }
     };
 
     socket.onmessage = event => {
@@ -132,17 +178,12 @@ function openGeminiLiveSession(
 
         if (message.error) {
           const error = new Error(message.error.message ?? 'Gemini Live returned an error');
-          if (!setupResolved) {
-            reject(error);
-          } else {
-            emit({ type: 'error', error });
-          }
+          failStart(error);
           return;
         }
 
-        if (message.setupComplete && !setupResolved) {
-          setupResolved = true;
-          resolve(session);
+        if (message.setupComplete) {
+          completeStart();
           return;
         }
 
@@ -151,32 +192,31 @@ function openGeminiLiveSession(
         }
       } catch (error) {
         const normalizedError = error instanceof Error ? error : new Error('Gemini Live message parse failed');
-        if (!setupResolved) {
-          reject(normalizedError);
-        } else {
-          emit({ type: 'error', error: normalizedError });
-        }
+        failStart(normalizedError);
       }
     };
 
     socket.onerror = () => {
-      const error = new Error('Gemini Live socket failed');
-      if (!setupResolved) {
-        reject(error);
-      } else {
-        emit({ type: 'error', error });
-      }
+      failStart(new Error('Gemini Live socket failed'));
     };
 
-    socket.onclose = () => {
-      if (!setupResolved) {
-        reject(new Error('Gemini Live socket closed before setup completed'));
+    socket.onclose = event => {
+      if (!setupComplete) {
+        failStart(new Error(`Gemini Live socket closed before the session opened${formatCloseDetail(event)}`));
         return;
       }
 
       emit({ type: 'closed' });
     };
   });
+}
+
+function formatCloseDetail(event?: { code?: number; reason?: string }): string {
+  if (!event?.code) {
+    return '';
+  }
+
+  return ` (code ${event.code}${event.reason ? `: ${event.reason}` : ''})`;
 }
 
 function createSocket(options: GeminiLiveConversationProviderOptions): WebSocketLike {
@@ -218,9 +258,6 @@ function buildSetupMessage(
       },
       inputAudioTranscription: {},
       outputAudioTranscription: {},
-      realtimeInputConfig: {
-        activityHandling: 'START_OF_ACTIVITY_INTERRUPTS',
-      },
     },
   };
 }
@@ -230,6 +267,10 @@ function formatModelName(model: string): string {
 }
 
 function buildGermanTutorInstruction(input: LiveConversationStartInput): string {
+  if (input.instructionOverride?.trim()) {
+    return input.instructionOverride.trim();
+  }
+
   return [
     'You are a helpful German conversation tutor inside DeutschBoost.',
     `The learner is CEFR ${input.level}.`,

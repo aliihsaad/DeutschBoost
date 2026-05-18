@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { createGeminiLiveConversationProvider } from '../../../src/domain/conversation/geminiLiveProvider';
 import type { LiveConversationEvent } from '../../../src/domain/conversation/liveConversationProvider';
 import { CEFRLevel, ConversationMode } from '../../../types';
@@ -10,7 +10,7 @@ class MockWebSocket {
   onopen: (() => void) | null = null;
   onmessage: ((event: { data: string | ArrayBuffer | Blob }) => void) | null = null;
   onerror: ((event: unknown) => void) | null = null;
-  onclose: (() => void) | null = null;
+  onclose: ((event?: { code?: number; reason?: string }) => void) | null = null;
 
   constructor(readonly url: string) {
     MockWebSocket.instances.push(this);
@@ -22,7 +22,7 @@ class MockWebSocket {
 
   close = vi.fn(() => {
     this.readyState = 3;
-    this.onclose?.();
+    this.onclose?.({ code: 1000, reason: '' });
   });
 
   open() {
@@ -36,10 +36,15 @@ class MockWebSocket {
 
 describe('Gemini Live conversation provider', () => {
   beforeEach(() => {
+    vi.useRealTimers();
     MockWebSocket.instances = [];
   });
 
-  it('opens the fixed Gemini Live WebSocket and sends a German tutor setup message', async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('opens the fixed Gemini Live WebSocket and waits for setupComplete before making the session usable', async () => {
     const provider = createGeminiLiveConversationProvider({
       apiKey: 'gemini-key',
       model: 'gemini-2.5-flash-native-audio-preview-12-2025',
@@ -84,9 +89,32 @@ describe('Gemini Live conversation provider', () => {
     );
     expect(JSON.parse(socket.sent[0] as string).setup.systemInstruction.parts[0].text).toContain('CEFR B1');
 
+    await expect(resolvesBeforeNextMacrotask(sessionPromise)).resolves.toBe('pending');
+
     socket.message({ setupComplete: {} });
 
     await expect(sessionPromise).resolves.toEqual(expect.objectContaining({ id: expect.any(String) }));
+  });
+
+  it('rejects with a useful error when the socket never opens', async () => {
+    vi.useFakeTimers();
+    const provider = createGeminiLiveConversationProvider({
+      apiKey: 'gemini-key',
+      model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+      voiceName: 'Kore',
+      WebSocketCtor: MockWebSocket,
+      openTimeoutMs: 100,
+    });
+
+    const sessionPromise = provider.startSession({
+      level: CEFRLevel.B1,
+      motherLanguage: 'English',
+      mode: ConversationMode.FREE_CONVERSATION,
+    });
+
+    const rejection = expect(sessionPromise).rejects.toThrow('Gemini Live connection timed out');
+    vi.advanceTimersByTime(100);
+    await rejection;
   });
 
   it('sends PCM16 audio chunks and emits typed server events', async () => {
@@ -158,3 +186,12 @@ describe('Gemini Live conversation provider', () => {
     ]);
   });
 });
+
+async function resolvesBeforeNextMacrotask<T>(promise: Promise<T>): Promise<'resolved' | 'pending'> {
+  return Promise.race([
+    promise.then(() => 'resolved' as const),
+    new Promise<'pending'>(resolve => {
+      setTimeout(() => resolve('pending'), 0);
+    }),
+  ]);
+}

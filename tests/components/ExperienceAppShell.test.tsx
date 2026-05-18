@@ -5,7 +5,7 @@ import ExperienceAppShell from '../../components/ExperienceAppShell';
 import { buildProviderSettingsSnapshots } from '../../src/domain/settings/providerSettings';
 
 describe('ExperienceAppShell', () => {
-  it('renders only ready desktop destinations in the primary left rail', () => {
+  it('renders core learning destinations including the exam workspace in the primary left rail', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <ExperienceAppShell>
@@ -20,12 +20,12 @@ describe('ExperienceAppShell', () => {
     expect(within(navigation).getByRole('link', { name: /Plan/i })).toHaveAttribute('href', '/plan');
     expect(within(navigation).getByRole('link', { name: /Practice/i })).toHaveAttribute('href', '/practice');
     expect(within(navigation).getByRole('link', { name: /Conversation/i })).toHaveAttribute('href', '/conversation');
+    expect(within(navigation).getByRole('link', { name: /Exam/i })).toHaveAttribute('href', '/exam');
     expect(within(navigation).getByRole('link', { name: /Profile/i })).toHaveAttribute('href', '/profile');
     expect(within(navigation).getByRole('link', { name: /Settings/i })).toHaveAttribute('href', '/settings');
     expect(within(navigation).queryByRole('link', { name: /Review/i })).not.toBeInTheDocument();
     expect(within(navigation).queryByRole('link', { name: /Writing/i })).not.toBeInTheDocument();
     expect(within(navigation).queryByRole('link', { name: /Mistakes/i })).not.toBeInTheDocument();
-    expect(within(navigation).queryByRole('link', { name: /Exam/i })).not.toBeInTheDocument();
     expect(within(navigation).queryByRole('link', { name: /Library/i })).not.toBeInTheDocument();
   });
 
@@ -76,7 +76,7 @@ describe('ExperienceAppShell', () => {
         enabled: true,
         provider: 'gemini-live',
         apiKey: 'gemini-key',
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Kore',
       },
     });

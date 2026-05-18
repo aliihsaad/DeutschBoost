@@ -50,7 +50,7 @@
 - [ ] **Step 1: Write failing settings tests**
 
 Add tests that assert:
-- defaults include disabled `live` settings with provider `gemini-live`, model `gemini-3.1-flash-live-preview`, and voice `Kore`;
+- defaults include disabled `live` settings with provider `gemini-live`, model `gemini-2.5-flash-native-audio-preview-12-2025`, and voice `Kore`;
 - `GEMINI_LIVE_MODEL_OPTIONS` and `GEMINI_LIVE_VOICE_OPTIONS` are dropdown lists;
 - saved `live.apiKey` is stored in secret storage, not public JSON;
 - reset removes `live.apiKey`.

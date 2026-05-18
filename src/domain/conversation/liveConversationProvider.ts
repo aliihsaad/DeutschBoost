@@ -8,6 +8,7 @@ export interface LiveConversationStartInput {
   mode: ConversationMode;
   topic?: string;
   description?: string;
+  instructionOverride?: string;
 }
 
 export type LiveConversationEvent =

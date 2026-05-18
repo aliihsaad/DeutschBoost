@@ -56,6 +56,7 @@ jobs:
             DeutschBoost desktop pre-release.
 
             Download the Windows setup executable from the assets below.
+            See CHANGELOG.md in this tag for build-specific notes and known follow-ups.
             This build is unsigned, so Windows may show an unknown publisher warning until code signing is configured.
           releaseDraft: false
           prerelease: true

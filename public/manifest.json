@@ -2,8 +2,8 @@
   "name": "DeutschBoost - Learn German with AI",
   "short_name": "DeutschBoost",
   "description": "AI-powered German language learning platform for A1-C2 levels and Goethe-Zertifikat preparation",
-  "theme_color": "#2563eb",
-  "background_color": "#ffffff",
+  "theme_color": "#1d4ed8",
+  "background_color": "#f8fbff",
   "display": "standalone",
   "scope": "/",
   "start_url": "/",
@@ -23,6 +23,11 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
     }
   ]
 }

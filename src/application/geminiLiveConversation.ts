@@ -43,6 +43,8 @@ export type PlayGeminiLiveAudio = (
   sampleRate: number
 ) => Promise<void>;
 
+const MAX_PENDING_PCM_CHUNKS = 96;
+
 export interface GeminiLiveConversationController {
   start(): Promise<void>;
   interrupt(): void;
@@ -62,6 +64,7 @@ interface GeminiLiveConversationInput {
   playTutorAudio: PlayGeminiLiveAudio;
   topic?: string;
   description?: string;
+  liveInstruction?: string;
   now?: () => string;
 }
 
@@ -76,6 +79,7 @@ export function createGeminiLiveConversationController(
   let liveSession: LiveConversationSession | null = null;
   let audioCapture: ActiveGeminiLiveAudioCapture | null = null;
   let unsubscribeLiveEvents: (() => void) | null = null;
+  let pendingPcmChunks: Uint8Array[] = [];
 
   const setState = (patch: Partial<GeminiLiveConversationState>) => {
     state = { ...state, ...patch };
@@ -162,6 +166,28 @@ export function createGeminiLiveConversationController(
     }
   };
 
+  const queueOrSendPcmChunk = (chunk: Uint8Array) => {
+    if (liveSession) {
+      liveSession.sendAudioPcm16(chunk);
+      return;
+    }
+
+    pendingPcmChunks.push(chunk);
+    if (pendingPcmChunks.length > MAX_PENDING_PCM_CHUNKS) {
+      pendingPcmChunks = pendingPcmChunks.slice(-MAX_PENDING_PCM_CHUNKS);
+    }
+  };
+
+  const flushPendingPcmChunks = () => {
+    if (!liveSession || pendingPcmChunks.length === 0) {
+      return;
+    }
+
+    const chunks = pendingPcmChunks;
+    pendingPcmChunks = [];
+    chunks.forEach(chunk => liveSession?.sendAudioPcm16(chunk));
+  };
+
   return {
     async start() {
       setState({
@@ -179,24 +205,37 @@ export function createGeminiLiveConversationController(
           mode: input.mode,
           startedAt,
         });
-        liveSession = await input.liveProvider.startSession({
+        const liveSessionPromise = input.liveProvider.startSession({
           level: input.level,
           motherLanguage: input.motherLanguage,
           mode: input.mode,
           topic: input.topic,
           description: input.description,
+          instructionOverride: input.liveInstruction,
         });
-        unsubscribeLiveEvents = liveSession.onEvent(handleEvent);
-        audioCapture = await input.startAudioCapture({
+        const audioCapturePromise = input.startAudioCapture({
           onPcmChunk(chunk) {
-            liveSession?.sendAudioPcm16(chunk);
+            queueOrSendPcmChunk(chunk);
           },
           onError(error) {
             setState({ status: 'error', errorMessage: error.message });
           },
         });
+
+        const [nextLiveSession, nextAudioCapture] = await Promise.all([
+          liveSessionPromise,
+          audioCapturePromise,
+        ]);
+
+        liveSession = nextLiveSession;
+        audioCapture = nextAudioCapture;
+        unsubscribeLiveEvents = liveSession.onEvent(handleEvent);
+        flushPendingPcmChunks();
         setState({ status: 'listening' });
       } catch (error) {
+        await stopAudio();
+        liveSession?.close();
+        pendingPcmChunks = [];
         setState({
           status: 'error',
           errorMessage: error instanceof Error ? error.message : 'Gemini Live conversation failed to start',
@@ -211,6 +250,7 @@ export function createGeminiLiveConversationController(
       setState({ status: 'ending' });
       liveSession?.sendAudioStreamEnd();
       await stopAudio();
+      pendingPcmChunks = [];
       unsubscribeLiveEvents?.();
       unsubscribeLiveEvents = null;
       liveSession?.close();

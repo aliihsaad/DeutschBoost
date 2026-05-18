@@ -110,6 +110,7 @@ const LocalDashboardPage: React.FC<LocalDashboardPageProps> = ({
     <main className="db-dashboard" aria-label="DeutschBoost dashboard">
       <header className="db-dashboard-header">
         <div>
+          <span className="db-dashboard-kicker">Heute</span>
           <h1>Guten Morgen!</h1>
           <p>Hier ist dein lokales Lerncockpit fuer heute.</p>
         </div>
@@ -123,6 +124,25 @@ const LocalDashboardPage: React.FC<LocalDashboardPageProps> = ({
           </div>
         </div>
       </header>
+
+      <nav className="db-dashboard-actions" aria-label="Quick study actions">
+        <Link to="/conversation">
+          <i className="fa-solid fa-comments" aria-hidden="true" />
+          <span>Sprechen</span>
+        </Link>
+        <Link to="/practice">
+          <i className="fa-solid fa-dumbbell" aria-hidden="true" />
+          <span>Ueben</span>
+        </Link>
+        <Link to="/plan">
+          <i className="fa-solid fa-calendar-days" aria-hidden="true" />
+          <span>Plan</span>
+        </Link>
+        <Link to="/settings">
+          <i className="fa-solid fa-gear" aria-hidden="true" />
+          <span>Provider</span>
+        </Link>
+      </nav>
 
       {loadState === 'error' ? (
         <section className="db-panel db-empty-workspace" role="alert">
@@ -146,6 +166,7 @@ const LocalDashboardPage: React.FC<LocalDashboardPageProps> = ({
               </div>
             </div>
             <Link to={primaryAction.route} className="db-primary-button" role="button">
+              <i className="fa-solid fa-play" aria-hidden="true" />
               Starten
             </Link>
           </div>
@@ -257,15 +278,17 @@ interface QueueRowProps {
 
 const QueueRow: React.FC<QueueRowProps> = ({ item }) => (
   <li className="db-queue-row">
-    <span className={`db-source-marker db-source-${item.source}`} aria-hidden="true">
-      {getSourceInitial(item)}
-    </span>
-    <div>
-      <strong>{formatQueueSource(item)}</strong>
-      <span>{formatQueueTitle(item)}</span>
-    </div>
-    <span>{item.estimatedMinutes} min</span>
-    <b>{formatQueueTag(item)}</b>
+    <Link to={item.route} aria-label={`${formatQueueTitle(item)}, ${item.estimatedMinutes} minutes`}>
+      <span className={`db-source-marker db-source-${item.source}`} aria-hidden="true">
+        {getSourceInitial(item)}
+      </span>
+      <div>
+        <strong>{formatQueueSource(item)}</strong>
+        <span>{formatQueueTitle(item)}</span>
+      </div>
+      <span>{item.estimatedMinutes} min</span>
+      <b>{formatQueueTag(item)}</b>
+    </Link>
   </li>
 );
 

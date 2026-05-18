@@ -33,7 +33,7 @@ describe('providerSettings', () => {
     expect(settings.live).toMatchObject({
       enabled: false,
       provider: 'gemini-live',
-      model: 'gemini-3.1-flash-live-preview',
+      model: 'gemini-2.5-flash-native-audio-preview-12-2025',
       voiceName: 'Kore',
     });
     expect(snapshots.ai).toMatchObject({
@@ -56,7 +56,7 @@ describe('providerSettings', () => {
       providerName: 'Gemini Live',
       enabled: false,
       configured: false,
-      model: 'gemini-3.1-flash-live-preview',
+      model: 'gemini-2.5-flash-native-audio-preview-12-2025',
     });
   });
 
@@ -68,7 +68,6 @@ describe('providerSettings', () => {
     expect(DEEPGRAM_TTS_MODEL_OPTIONS.map(option => option.value)).toContain('aura-2-julius-de');
     expect(DEEPGRAM_LANGUAGE_OPTIONS.map(option => option.value)).toContain('de');
     expect(GEMINI_LIVE_MODEL_OPTIONS.map(option => option.value)).toEqual([
-      'gemini-3.1-flash-live-preview',
       'gemini-2.5-flash-native-audio-preview-12-2025',
     ]);
     expect(GEMINI_LIVE_VOICE_OPTIONS.map(option => option.value)).toContain('Kore');

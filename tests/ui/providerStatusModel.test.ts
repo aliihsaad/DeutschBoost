@@ -43,7 +43,7 @@ describe('providerStatusModel', () => {
       providerName: 'Gemini Live',
       enabled: true,
       configured: true,
-      model: 'gemini-3.1-flash-live-preview',
+      model: 'gemini-2.5-flash-native-audio-preview-12-2025',
     });
 
     expect(status.state).toBe('configured');

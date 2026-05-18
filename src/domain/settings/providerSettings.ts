@@ -68,7 +68,7 @@ const DEFAULT_OPENROUTER_MODEL = 'openrouter/auto';
 const DEFAULT_DEEPGRAM_MODEL = 'nova-3';
 const DEFAULT_DEEPGRAM_TTS_MODEL = 'aura-2-viktoria-de';
 const DEFAULT_DEEPGRAM_LANGUAGE = 'de';
-const DEFAULT_GEMINI_LIVE_MODEL = 'gemini-3.1-flash-live-preview';
+const DEFAULT_GEMINI_LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 const DEFAULT_GEMINI_LIVE_VOICE = 'Kore';
 const FIXED_OPENROUTER_APP_TITLE = 'DeutschBoost';
 const FIXED_OPENROUTER_SITE_URL = 'app://deutschboost';
@@ -96,7 +96,6 @@ export const DEEPGRAM_LANGUAGE_OPTIONS: ProviderModelOption[] = [
 ];
 
 export const GEMINI_LIVE_MODEL_OPTIONS: ProviderModelOption[] = [
-  { value: 'gemini-3.1-flash-live-preview', label: 'Gemini 3.1 Flash Live' },
   {
     value: 'gemini-2.5-flash-native-audio-preview-12-2025',
     label: 'Gemini 2.5 Flash Native Audio',

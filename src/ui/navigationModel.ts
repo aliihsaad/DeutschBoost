@@ -112,7 +112,7 @@ export const appDestinations: AppDestination[] = [
     group: 'practice',
     description: 'Goethe-style timed practice and local reports.',
     legacyRoutes: ['/exam-simulator'],
-    availability: 'planned',
+    availability: 'ready',
   },
   {
     id: 'library',

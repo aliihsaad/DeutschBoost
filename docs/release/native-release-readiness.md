@@ -63,15 +63,35 @@ The Windows desktop installer is built by `.github/workflows/desktop-release.yml
 Release commands:
 
 ```bash
-git tag -a v0.0.4 -m "DeutschBoost v0.0.4 desktop pre-release"
+git tag -a v0.0.7 -m "DeutschBoost v0.0.7 desktop pre-release"
 git push origin master
-git push origin v0.0.4
+git push origin v0.0.7
 ```
 
 Known release note: `v0.0.1` was the first desktop pre-release and exposed a blank-window startup bug caused by eager Gemini API key initialization. Use `v0.0.2` or newer for desktop testing.
 Known release note: `v0.0.2` fixed startup and Deepgram desktop bridge issues, but placement question generation still used a legacy Gemini-only path. Use `v0.0.3` or newer for placement-test desktop testing.
 Known release note: `v0.0.3` routes placement question generation through the configured AI provider and routes Settings, listening, vocabulary, and tutor reply playback through Deepgram TTS when Deepgram is enabled. Browser/system TTS remains only a no-provider fallback.
 Known release note: `v0.0.4` fixes the placement evaluation crash caused by AI JSON missing `strengths` or `weaknesses`, normalizes learning-plan JSON before rendering/saving, and keeps the desktop app from showing the ErrorBoundary after placement submission.
+Known release note: `v0.0.7` is a stability and workflow release. It fixes Gemini Live startup/audio readiness, adds a real timed Goethe-style Exam simulator with Deepgram TTS Hoeren playback, Gemini Live oral-exam support, final score sheets, and saved local history, keeps passing activity results visible until the learner continues, adds a completed-plan recap, and includes the new branded desktop/PWA icon set. Android/APK packaging, exam report export/printing, and broader UI redesign remain follow-up work.
+
+## v0.0.7 Packaged Smoke Checklist
+
+Run this before pushing the `v0.0.7` tag:
+
+- App launch is not blank.
+- Settings shows saved OpenRouter, Deepgram, and Gemini provider configuration from native storage/Stronghold.
+- Placement creates a learning plan.
+- A plan activity can be submitted with a passing result and the result remains visible until `Continue to Plan`.
+- A completed plan shows the `Plan complete` recap and next actions.
+- Exam opens from the sidebar and the Practice hub.
+- Exam can generate/start a timed simulator, move through modules, submit, show final result, and persist attempt history.
+- Exam Hoeren hides listening transcripts and plays each listening prompt through Deepgram TTS before answers are selectable.
+- Exam result shows raw part points, converted module score, deductions, and productive rubric bands.
+- Exam Sprechen can start and end a Gemini Live oral examiner session.
+- Conversation starts with Gemini Live when a valid Gemini key is configured.
+- Conversation reaches Listening only after Gemini setup completes and microphone PCM is flowing.
+- Deepgram key test and sample playback still work.
+- Listening/vocabulary audio uses provider-backed Deepgram playback when Deepgram is enabled.
 
 ## Conversation V2 Release Gate
 

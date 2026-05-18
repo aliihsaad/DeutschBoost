@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { PracticePage } from '../../pages/PracticePage';
 
 describe('PracticePage', () => {
-  it('does not expose the unfinished mock exam simulator as a ready feature', () => {
+  it('exposes the Goethe exam simulator from the practice hub', () => {
     render(
       <MemoryRouter>
         <PracticePage />
@@ -12,7 +12,7 @@ describe('PracticePage', () => {
     );
 
     expect(screen.getByRole('heading', { name: /Practice Hub/i })).toBeInTheDocument();
-    expect(screen.queryByText(/Goethe Mock Exam Simulator/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Start Mock Exam/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/Goethe Exam Simulator/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Open Exam Simulator/i })).toBeInTheDocument();
   });
 });

@@ -171,8 +171,26 @@ const MainApp: React.FC = () => {
           <Route path="/plan" element={<LearningPlanPage learningPlan={learningPlan} loading={loadingPlan} />} />
           <Route path="/learning-plan" element={<LearningPlanPage learningPlan={learningPlan} loading={loadingPlan} />} />
           <Route path="/practice" element={<PracticePage />} />
-          <Route path="/exam" element={<ExamSimulatorPage />} />
-          <Route path="/exam-simulator" element={<ExamSimulatorPage />} />
+          <Route
+            path="/exam"
+            element={
+              <ExamSimulatorPage
+                aiProvider={runtimeAiProvider}
+                speechProvider={runtimeSpeechProvider}
+                liveConversationProvider={runtimeLiveConversationProvider}
+              />
+            }
+          />
+          <Route
+            path="/exam-simulator"
+            element={
+              <ExamSimulatorPage
+                aiProvider={runtimeAiProvider}
+                speechProvider={runtimeSpeechProvider}
+                liveConversationProvider={runtimeLiveConversationProvider}
+              />
+            }
+          />
           <Route
             path="/activity"
             element={

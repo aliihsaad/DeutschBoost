@@ -38,7 +38,7 @@ describe('LocalSettingsPage', () => {
     expect(screen.getByRole('combobox', { name: 'Deepgram TTS voice' })).toHaveValue('aura-2-viktoria-de');
     expect(screen.getByRole('combobox', { name: 'Deepgram language' })).toHaveValue('de');
     expect(screen.getByRole('combobox', { name: 'Gemini Live model' })).toHaveValue(
-      'gemini-3.1-flash-live-preview'
+      'gemini-2.5-flash-native-audio-preview-12-2025'
     );
     expect(screen.getByRole('combobox', { name: 'Gemini Live voice' })).toHaveValue('Kore');
     expect(screen.queryByRole('textbox', { name: 'Deepgram language' })).not.toBeInTheDocument();
@@ -129,7 +129,7 @@ describe('LocalSettingsPage', () => {
             enabled: true,
             provider: 'gemini-live',
             apiKey: 'saved-gemini-key',
-            model: 'gemini-3.1-flash-live-preview',
+            model: 'gemini-2.5-flash-native-audio-preview-12-2025',
             voiceName: 'Kore',
           },
         }),
@@ -380,7 +380,7 @@ describe('LocalSettingsPage', () => {
         }),
         live: expect.objectContaining({
           enabled: false,
-          model: 'gemini-3.1-flash-live-preview',
+          model: 'gemini-2.5-flash-native-audio-preview-12-2025',
           voiceName: 'Kore',
         }),
       });

@@ -21,6 +21,14 @@ const speakingPageProps = vi.hoisted(() => ({
   },
 }));
 
+const examPageProps = vi.hoisted(() => ({
+  latest: null as null | {
+    aiProvider?: { id: string };
+    speechProvider?: { id: string };
+    liveConversationProvider?: { id: string };
+  },
+}));
+
 const providerSettingsRepository = vi.hoisted(() => ({
   load: vi.fn(),
 }));
@@ -140,7 +148,14 @@ vi.mock('../pages/PracticePage', () => ({
 }));
 
 vi.mock('../pages/ExamSimulatorPage', () => ({
-  ExamSimulatorPage: () => <main>Exam</main>,
+  ExamSimulatorPage: (props: {
+    aiProvider?: { id: string };
+    speechProvider?: { id: string };
+    liveConversationProvider?: { id: string };
+  }) => {
+    examPageProps.latest = props;
+    return <main>Exam</main>;
+  },
 }));
 
 vi.mock('../pages/ActivityPage', () => ({
@@ -154,6 +169,7 @@ describe('MainApp provider runtime', () => {
   beforeEach(() => {
     activityPageProps.latest = null;
     speakingPageProps.latest = null;
+    examPageProps.latest = null;
     placementPageProps.latest = null;
     vi.clearAllMocks();
     providerSettingsRepository.load.mockResolvedValue({
@@ -172,7 +188,7 @@ describe('MainApp provider runtime', () => {
       live: {
         enabled: false,
         provider: 'gemini-live',
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Kore',
       },
     });
@@ -350,7 +366,7 @@ describe('MainApp provider runtime', () => {
         enabled: true,
         provider: 'gemini-live',
         apiKey: 'gemini-key',
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         voiceName: 'Kore',
       },
     });
@@ -396,6 +412,44 @@ describe('MainApp provider runtime', () => {
     await waitFor(() => {
       expect(activityPageProps.latest?.speechProvider?.id).toBe('deepgram');
       expect(activityPageProps.latest?.providerRuntimeReady).toBe(true);
+    });
+  });
+
+  it('passes Deepgram TTS and Gemini Live into exam routes', async () => {
+    providerSettingsRepository.load.mockResolvedValue({
+      ai: {
+        enabled: false,
+        provider: 'openrouter',
+        model: 'openrouter/auto',
+      },
+      speech: {
+        enabled: true,
+        provider: 'deepgram',
+        apiKey: 'deepgram-key',
+        model: 'nova-3',
+        ttsModel: 'aura-2-viktoria-de',
+        language: 'de',
+      },
+      live: {
+        enabled: true,
+        provider: 'gemini-live',
+        apiKey: 'gemini-key',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+        voiceName: 'Kore',
+      },
+    });
+
+    const { default: MainApp } = await import('../MainApp');
+
+    render(
+      <MemoryRouter initialEntries={['/exam']}>
+        <MainApp />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(examPageProps.latest?.speechProvider?.id).toBe('deepgram');
+      expect(examPageProps.latest?.liveConversationProvider?.id).toBe('gemini-live');
     });
   });
 
