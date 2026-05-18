@@ -13,6 +13,64 @@ import type {
 import type { SpeechProvider } from '../../src/domain/speech/speechProvider';
 import { ConversationMode } from '../../types';
 import { CEFRLevel } from '../../types';
+import { createExamBlueprint } from '../../src/domain/exam/examTemplates';
+
+// Deterministic, schema-valid content for one module, built from the blueprint
+// so counts match validateObjectiveModule's expectations. Tokens are stable so
+// tests can assert against them without depending on the deleted skeleton.
+function validExamModuleResponse(level: CEFRLevel, moduleId: string) {
+  const module = createExamBlueprint({ level }).modules.find(m => m.id === moduleId)!;
+  if (moduleId === 'listening' || moduleId === 'reading') {
+    return {
+      objectiveQuestions: module.templateParts.flatMap(part =>
+        Array.from({ length: Math.max(1, part.questionCount ?? part.maxPoints ?? 1) }, (_, i) => ({
+          id: `${moduleId}-${part.id}-${i}`,
+          partId: part.id,
+          passage: `Durchsage ${moduleId} ${part.id} Nr ${i}: Der Termin ist am ${i + 1}. Mai um ${9 + i} Uhr im Raum ${part.id}.`,
+          prompt: `${part.id} Frage ${i}: Wann ist der Termin in ${part.id} Nr ${i}?`,
+          options: [`am ${i + 1}. Mai ${part.id}${i}`, `niemals ${part.id}${i}`, `gestern ${part.id}${i}`],
+          correctOptionIndex: 0,
+          points: 1,
+          explanation: 'Steht im Text.',
+        }))
+      ),
+    };
+  }
+  return {
+    productiveTasks: module.templateParts.map((part, i) => ({
+      id: `${moduleId}-${i + 1}`,
+      partId: part.id,
+      moduleId: moduleId === 'speaking' ? 'speaking' : 'writing',
+      prompt: `${moduleId} ${part.id}: Bearbeiten Sie Aufgabe ${i + 1} klar und vollstaendig.`,
+      points: part.maxPoints ?? 20,
+      rubric: ['Inhalt', 'Sprache'],
+    })),
+  };
+}
+
+function moduleIdFromMessages(messages: { content: string }[]): string {
+  return (
+    ['listening', 'reading', 'writing', 'speaking'].find(id =>
+      messages.some(m => m.content.includes(`module only: "${id}"`))
+    ) ?? 'reading'
+  );
+}
+
+function mockExamAiProvider(level: CEFRLevel = CEFRLevel.B1) {
+  return {
+    id: 'openrouter',
+    displayName: 'OpenRouter',
+    generateText: vi.fn(),
+    generateJson: vi.fn(async (request: { messages: { content: string }[] }) =>
+      validExamModuleResponse(level, moduleIdFromMessages(request.messages))
+    ),
+  };
+}
+
+function answerFirstOption(index: number): void {
+  const radios = within(getQuestion(index)).getAllByRole('radio');
+  fireEvent.click(radios[0] as HTMLElement);
+}
 
 const profileRepository = vi.hoisted(() => ({
   loadProfile: vi.fn(),
@@ -38,6 +96,7 @@ describe('ExamSimulatorPage', () => {
     render(
       <MemoryRouter>
         <ExamSimulatorPage
+          aiProvider={mockExamAiProvider()}
           examRepository={repository}
           speechProvider={speechProvider}
           playExamAudio={playExamAudio}
@@ -51,7 +110,7 @@ describe('ExamSimulatorPage', () => {
 
     expect(await screen.findByRole('heading', { name: /Goethe Exam Simulator/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /B1/i })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText(/local fallback ready/i)).toBeInTheDocument();
+    expect(screen.getByText(/AI generation enabled/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Generate and start exam/i }));
 
@@ -62,15 +121,15 @@ describe('ExamSimulatorPage', () => {
     expect(screen.getByText(/40:00/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Play listening audio for question 1' }));
     await waitFor(() => expect(speechProvider.synthesize).toHaveBeenCalledTimes(1));
-    answerQuestion(0, 'Richtig');
+    answerFirstOption(0);
     fireEvent.click(screen.getByRole('button', { name: 'Play listening audio for question 2' }));
     await waitFor(() => expect(speechProvider.synthesize).toHaveBeenCalledTimes(2));
-    answerQuestion(1, 'Falsch');
+    answerFirstOption(1);
     fireEvent.click(screen.getByRole('button', { name: /Next module/i }));
 
     expect(await screen.findByRole('heading', { name: /Lesen - Reading/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText('Im Raum 204'));
-    fireEvent.click(screen.getByLabelText('Um 10 Uhr'));
+    answerFirstOption(0);
+    answerFirstOption(1);
     fireEvent.click(screen.getByRole('button', { name: /Next module/i }));
 
     expect(await screen.findByRole('heading', { name: /Schreiben - Writing/i })).toBeInTheDocument();
@@ -104,6 +163,7 @@ describe('ExamSimulatorPage', () => {
     render(
       <MemoryRouter>
         <ExamSimulatorPage
+          aiProvider={mockExamAiProvider()}
           examRepository={createMemoryExamRepository()}
           speechProvider={speechProvider}
           playExamAudio={playExamAudio}
@@ -114,26 +174,22 @@ describe('ExamSimulatorPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Generate and start exam/i }));
 
     expect(await screen.findByRole('heading', { name: /Hoeren - Listening/i })).toBeInTheDocument();
-    expect(screen.queryByText(/Audio Teil 1\.1/i)).not.toBeInTheDocument();
-    expect(within(getQuestion(0)).getByLabelText('Richtig')).toBeDisabled();
+    // The hidden audio script must never be shown to the learner.
+    expect(screen.queryByText(/Durchsage listening teil-1 Nr 0/i)).not.toBeInTheDocument();
+    expect(within(getQuestion(0)).getAllByRole('radio')[0]).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Play listening audio for question 1' }));
 
     await waitFor(() => {
       expect(speechProvider.synthesize).toHaveBeenCalledWith({
         feature: 'goethe-exam-listening',
-        text: expect.stringContaining('Sprachschule Berger'),
+        text: expect.stringContaining('Durchsage listening teil-1 Nr 0'),
         options: { language: 'de' },
       });
       expect(playExamAudio).toHaveBeenCalledWith(expect.any(ArrayBuffer), 'audio/mpeg');
     });
-    expect(screen.queryByText(/Guten Tag, hier ist die Sprachschule Berger/i)).not.toBeInTheDocument();
-    expect(speechProvider.synthesize).toHaveBeenCalledWith({
-      feature: 'goethe-exam-listening',
-      text: expect.stringContaining('Sprachschule Berger'),
-      options: { language: 'de' },
-    });
-    expect(within(getQuestion(0)).getByLabelText('Richtig')).not.toBeDisabled();
+    expect(screen.queryByText(/Durchsage listening teil-1 Nr 0/i)).not.toBeInTheDocument();
+    expect(within(getQuestion(0)).getAllByRole('radio')[0]).not.toBeDisabled();
     expect(screen.getByRole('button', { name: 'Play listening audio for question 1' })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Play listening audio for question 1' }));
@@ -141,16 +197,8 @@ describe('ExamSimulatorPage', () => {
     expect(speechProvider.synthesize).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the configured AI provider to generate original exam content', async () => {
-    const aiProvider = {
-      id: 'openrouter',
-      displayName: 'OpenRouter',
-      generateText: vi.fn(),
-      generateJson: vi.fn().mockResolvedValue({
-        title: 'Generated B1 Exam',
-        modules: [],
-      }),
-    };
+  it('generates original exam content per module via the AI provider', async () => {
+    const aiProvider = mockExamAiProvider();
 
     render(
       <MemoryRouter>
@@ -165,23 +213,23 @@ describe('ExamSimulatorPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Generate and start exam/i }));
 
     expect(await screen.findByRole('heading', { name: /Hoeren - Listening/i })).toBeInTheDocument();
-    expect(aiProvider.generateJson).toHaveBeenCalledWith(
-      expect.objectContaining({
-        feature: 'goethe-exam-simulator-generation',
-      })
-    );
+    for (const moduleId of ['listening', 'reading', 'writing', 'speaking']) {
+      expect(aiProvider.generateJson).toHaveBeenCalledWith(
+        expect.objectContaining({ feature: `goethe-exam-${moduleId}` })
+      );
+    }
   });
 
   it('shows an active progress indicator while AI exam generation is still running', async () => {
-    let resolveGeneration: (value: unknown) => void = () => {};
+    const pending: Array<{ moduleId: string; resolve: (value: unknown) => void }> = [];
     const aiProvider = {
       id: 'openrouter',
       displayName: 'OpenRouter',
       generateText: vi.fn(),
       generateJson: vi.fn(
-        () =>
+        (request: { messages: { content: string }[] }) =>
           new Promise(resolve => {
-            resolveGeneration = resolve;
+            pending.push({ moduleId: moduleIdFromMessages(request.messages), resolve });
           })
       ),
     };
@@ -201,7 +249,12 @@ describe('ExamSimulatorPage', () => {
     expect(await screen.findByRole('progressbar', { name: /Generating exam/i })).toBeInTheDocument();
     expect(screen.getByText(/Creating listening, reading, writing, and speaking tasks/i)).toBeInTheDocument();
 
-    resolveGeneration({ title: 'Generated B1 Exam', modules: [] });
+    await waitFor(() => expect(pending.length).toBe(4));
+    await act(async () => {
+      pending.forEach(({ moduleId, resolve }) =>
+        resolve(validExamModuleResponse(CEFRLevel.B1, moduleId))
+      );
+    });
 
     await waitFor(() => {
       expect(screen.queryByRole('progressbar', { name: /Generating exam/i })).not.toBeInTheDocument();
@@ -223,6 +276,7 @@ describe('ExamSimulatorPage', () => {
     render(
       <MemoryRouter>
         <ExamSimulatorPage
+          aiProvider={mockExamAiProvider()}
           examRepository={repository}
           speechProvider={speechProvider}
           playExamAudio={vi.fn().mockResolvedValue(undefined)}
@@ -238,14 +292,15 @@ describe('ExamSimulatorPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play listening audio for question 1' }));
     await waitFor(() => expect(speechProvider.synthesize).toHaveBeenCalledTimes(1));
-    answerQuestion(0, 'Richtig');
+    answerFirstOption(0);
     fireEvent.click(screen.getByRole('button', { name: 'Play listening audio for question 2' }));
     await waitFor(() => expect(speechProvider.synthesize).toHaveBeenCalledTimes(2));
-    answerQuestion(1, 'Falsch');
+    answerFirstOption(1);
     fireEvent.click(screen.getByRole('button', { name: /Next module/i }));
 
-    fireEvent.click(await screen.findByLabelText('Im Raum 204'));
-    fireEvent.click(screen.getByLabelText('Um 10 Uhr'));
+    expect(await screen.findByRole('heading', { name: /Lesen - Reading/i })).toBeInTheDocument();
+    answerFirstOption(0);
+    answerFirstOption(1);
     fireEvent.click(screen.getByRole('button', { name: /Next module/i }));
 
     (await screen.findAllByPlaceholderText('Write your exam answer here...')).forEach(textarea => {
@@ -290,7 +345,7 @@ describe('ExamSimulatorPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Submit exam and show result/i }));
 
     await screen.findByText('Exam result');
-    expect(repository.savedAttempts[0].answers.productive['B1-speaking-1']).toContain(
+    expect(repository.savedAttempts[0].answers.productive['speaking-1']).toContain(
       'Ich moechte einen Ausflug nach Berlin planen.'
     );
   }, 10000);
@@ -312,6 +367,31 @@ describe('ExamSimulatorPage', () => {
     expect(within(history).getByText('48%')).toBeInTheDocument();
     expect(within(history).getByText('Passed')).toBeInTheDocument();
     expect(within(history).getByText('Needs work')).toBeInTheDocument();
+  });
+
+  it('shows an error and a retry button instead of a fake exam when generation fails', async () => {
+    const failingProvider = {
+      id: 'openrouter',
+      displayName: 'OpenRouter',
+      generateText: vi.fn(),
+      generateJson: vi.fn().mockResolvedValue({ objectiveQuestions: [], productiveTasks: [] }),
+    };
+
+    render(
+      <MemoryRouter>
+        <ExamSimulatorPage
+          aiProvider={failingProvider}
+          examRepository={createMemoryExamRepository()}
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Generate and start exam/i }));
+
+    expect(await screen.findByText(/Exam generation failed/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Generate and start exam/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Option [abc] aus dem Text/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Hoeren - Listening/i })).not.toBeInTheDocument();
   });
 });
 

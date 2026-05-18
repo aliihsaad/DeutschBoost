@@ -491,11 +491,11 @@ const ExamSetup: React.FC<{
       and Sprechen modules, then scores the attempt at the end.
     </p>
     <div className="db-exam-source-box">
-      <strong>{aiReady ? 'AI generation enabled' : 'Local fallback ready'}</strong>
+      <strong>{aiReady ? 'AI generation enabled' : 'AI provider required'}</strong>
       <span>
         {aiReady
-          ? 'OpenRouter will generate fresh exam tasks with the model selected in Settings.'
-          : 'No AI provider is configured, so a local original model exam will be used.'}
+          ? 'OpenRouter generates fresh, original exam content per module. If a module cannot be generated you will see an error and can retry.'
+          : 'Open Settings and enable an AI provider. The exam only runs with AI-generated content — no offline practice exam is shown.'}
       </span>
     </div>
     {errorMessage ? <p className="db-conversation-message db-conversation-message-error">{errorMessage}</p> : null}
