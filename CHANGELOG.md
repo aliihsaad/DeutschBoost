@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.0.9 - 2026-05-19
+
+Desktop pre-release fixing the two v0.0.8 smoke blockers: Gemini Live conversation and exam content quality.
+
+- Fixed Gemini Live "Listening but no response": the provider only handled string WebSocket frames, but Gemini's `BidiGenerateContent` delivers JSON over binary frames (Blob/ArrayBuffer in the desktop WebView), so `setupComplete`, transcripts, audio, and errors were silently dropped. The socket now requests ArrayBuffer frames and decodes string/ArrayBuffer/Blob with realm-safe structural checks and ordered Blob handling.
+- Rebuilt exam generation as the app backbone: removed the developer skeleton that leaked prompt-instruction text as passages, `Option a aus dem Text` placeholder options, and duplicated Hoeren/Schreiben items.
+- Exam content is now generated per module (Lesen, Hoeren, Schreiben, Sprechen) with strict per-module validation that rejects placeholder/skeleton text and intra-module duplicate passages, prompts, options, and tasks.
+- Each module generation retries up to three times with a repair pass on invalid JSON; if a module still cannot be produced the exam fails loudly with a clear error and a retry action instead of showing a fake exam.
+- Preserved the timed runner, Goethe-style scoring, Deepgram Hoeren playback gating, and the Gemini Live oral examiner for Sprechen.
+
+Release validation target:
+
+- Full Vitest suite passes (297 tests).
+- Production Vite build passes.
+- User smoke test on the installed build: Gemini Live conversation and a full AI-generated exam with real, unique content.
+
 ## v0.0.8 - 2026-05-18
 
 Desktop hotfix for the installed v0.0.7 exam and live-audio smoke findings.
