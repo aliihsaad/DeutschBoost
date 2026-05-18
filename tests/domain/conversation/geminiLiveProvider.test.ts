@@ -1,3 +1,4 @@
+import { Blob as NodeBlob } from 'node:buffer';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { createGeminiLiveConversationProvider } from '../../../src/domain/conversation/geminiLiveProvider';
 import type { LiveConversationEvent } from '../../../src/domain/conversation/liveConversationProvider';
@@ -31,6 +32,19 @@ class MockWebSocket {
 
   message(data: unknown) {
     this.onmessage?.({ data: typeof data === 'string' ? data : JSON.stringify(data) });
+  }
+
+  // Real Gemini Live server delivers JSON over binary frames, not text frames.
+  messageArrayBuffer(data: unknown) {
+    const json = typeof data === 'string' ? data : JSON.stringify(data);
+    this.onmessage?.({ data: new TextEncoder().encode(json).buffer });
+  }
+
+  messageBlob(data: unknown) {
+    const json = typeof data === 'string' ? data : JSON.stringify(data);
+    // node:buffer Blob faithfully implements the browser .text()/.arrayBuffer()
+    // contract that Chromium/Tauri webviews deliver (jsdom's Blob is a stub).
+    this.onmessage?.({ data: new NodeBlob([json]) });
   }
 }
 
@@ -182,6 +196,48 @@ describe('Gemini Live conversation provider', () => {
         sampleRate: 24000,
       },
       { type: 'interrupted' },
+      { type: 'turn-complete' },
+    ]);
+  });
+  it('decodes binary server frames (ArrayBuffer and Blob) so setupComplete and serverContent are handled', async () => {
+    const provider = createGeminiLiveConversationProvider({
+      apiKey: 'gemini-key',
+      model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+      voiceName: 'Kore',
+      WebSocketCtor: MockWebSocket,
+    });
+
+    const sessionPromise = provider.startSession({
+      level: CEFRLevel.B1,
+      motherLanguage: 'English',
+      mode: ConversationMode.FREE_CONVERSATION,
+    });
+
+    const socket = MockWebSocket.instances[0]!;
+    socket.open();
+
+    // Gemini delivers setupComplete as a binary frame -> ArrayBuffer in the renderer.
+    socket.messageArrayBuffer({ setupComplete: {} });
+
+    const session = await sessionPromise;
+    const events: LiveConversationEvent[] = [];
+    session.onEvent(event => events.push(event));
+
+    // Subsequent serverContent arrives as a Blob (default WebSocket binaryType).
+    socket.messageBlob({
+      serverContent: {
+        inputTranscription: { text: 'Hallo, ich moechte Kaffee.' },
+        outputTranscription: { text: 'Sehr gut!' },
+        turnComplete: true,
+      },
+    });
+
+    // Blob decoding is async; allow the microtask/promise chain to flush.
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(events).toEqual([
+      { type: 'input-transcript', text: 'Hallo, ich moechte Kaffee.' },
+      { type: 'output-transcript', text: 'Sehr gut!' },
       { type: 'turn-complete' },
     ]);
   });

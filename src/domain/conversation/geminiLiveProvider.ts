@@ -11,6 +11,7 @@ type WebSocketLike = {
   onerror: ((event: unknown) => void) | null;
   onclose: ((event?: { code?: number; reason?: string }) => void) | null;
   readonly readyState?: number;
+  binaryType?: string;
   send(data: unknown): void;
   close(): void;
 };
@@ -168,13 +169,9 @@ function openGeminiLiveSession(
       }
     };
 
-    socket.onmessage = event => {
-      if (typeof event.data !== 'string') {
-        return;
-      }
-
+    const handleServerText = (raw: string) => {
       try {
-        const message = JSON.parse(event.data) as GeminiLiveServerMessage;
+        const message = JSON.parse(raw) as GeminiLiveServerMessage;
 
         if (message.error) {
           const error = new Error(message.error.message ?? 'Gemini Live returned an error');
@@ -193,6 +190,42 @@ function openGeminiLiveSession(
       } catch (error) {
         const normalizedError = error instanceof Error ? error : new Error('Gemini Live message parse failed');
         failStart(normalizedError);
+      }
+    };
+
+    // Gemini Live delivers JSON over binary WebSocket frames. In a browser/Tauri
+    // renderer these arrive as Blob (default binaryType) or ArrayBuffer, not text,
+    // so they must be decoded before parsing. A serialized queue keeps the async
+    // Blob path in original message order.
+    let decodeChain: Promise<void> = Promise.resolve();
+
+    // Structural checks (not instanceof) so this works across realms/webviews
+    // where Gemini's binary frame may not share the module's ArrayBuffer/Blob.
+    socket.onmessage = event => {
+      const data = event.data as unknown;
+
+      if (typeof data === 'string') {
+        handleServerText(data);
+        return;
+      }
+
+      const blobLike = data as { text?: () => Promise<string>; arrayBuffer?: () => Promise<ArrayBuffer> };
+      if (data && (typeof blobLike.text === 'function' || typeof blobLike.arrayBuffer === 'function')) {
+        decodeChain = decodeChain
+          .then(() =>
+            typeof blobLike.text === 'function'
+              ? blobLike.text()
+              : blobLike.arrayBuffer!().then(buffer => new TextDecoder().decode(buffer))
+          )
+          .then(handleServerText)
+          .catch(error => {
+            failStart(error instanceof Error ? error : new Error('Gemini Live message decode failed'));
+          });
+        return;
+      }
+
+      if (data) {
+        handleServerText(new TextDecoder().decode(data as BufferSource));
       }
     };
 
@@ -228,7 +261,17 @@ function createSocket(options: GeminiLiveConversationProviderOptions): WebSocket
 
   const url = new URL(options.endpoint ?? DEFAULT_ENDPOINT);
   url.searchParams.set('key', options.apiKey);
-  return new SocketCtor(url.toString());
+  const socket = new SocketCtor(url.toString());
+
+  // Prefer ArrayBuffer frames so Gemini's binary JSON decodes synchronously and
+  // in order. Falls back to the Blob path in onmessage if unsupported.
+  try {
+    socket.binaryType = 'arraybuffer';
+  } catch {
+    // Some WebSocket-like implementations expose binaryType as read-only.
+  }
+
+  return socket;
 }
 
 function buildSetupMessage(
