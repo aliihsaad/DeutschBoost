@@ -2,23 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { experienceDesignTokens } from '../../src/ui/designTokens';
 
 describe('experienceDesignTokens', () => {
-  it('uses a clean local-app palette without the old gradient theme', () => {
-    expect(experienceDesignTokens.color.background).toBe('#f6f7f8');
+  it('exposes the unified learner-friendly palette', () => {
+    expect(experienceDesignTokens.color.brand).toBe('#f2b705');
+    expect(experienceDesignTokens.color.brandStrong).toBe('#b77900');
+    expect(experienceDesignTokens.color.brandSoft).toBe('#fff4bf');
+    expect(experienceDesignTokens.color.bg).toBe('#f6f7f8');
     expect(experienceDesignTokens.color.surface).toBe('#ffffff');
     expect(experienceDesignTokens.color.text).toBe('#18181b');
-    expect(experienceDesignTokens.color.accent).toBe('#f2b705');
     expect(experienceDesignTokens.color.danger).toBe('#d92d20');
+    expect(experienceDesignTokens.color.success).toBe('#16833a');
   });
 
-  it('keeps compact desktop app geometry', () => {
-    expect(experienceDesignTokens.radius.panel).toBe('8px');
-    expect(experienceDesignTokens.radius.control).toBe('6px');
-    expect(experienceDesignTokens.layout.sidebarWidth).toBe('148px');
+  it('uses friendly geometry and readable type', () => {
+    expect(experienceDesignTokens.radius.card).toBe('12px');
+    expect(experienceDesignTokens.radius.control).toBe('8px');
+    expect(experienceDesignTokens.type.title).toBe('24px');
+    expect(experienceDesignTokens.type.body).toBe('14px');
   });
 
-  it('defines typography for dense app chrome and content', () => {
-    expect(experienceDesignTokens.typography.family).toContain('Plus Jakarta Sans');
-    expect(experienceDesignTokens.typography.chromeSize).toBe('12px');
-    expect(experienceDesignTokens.typography.titleSize).toBe('20px');
+  it('defines a fixed accent per learning skill', () => {
+    expect(Object.keys(experienceDesignTokens.skill)).toEqual([
+      'grammar', 'vocabulary', 'listening', 'reading', 'writing', 'speaking',
+    ]);
   });
 });

@@ -1,23 +1,54 @@
 @import "tailwindcss";
 
+@theme {
+  --color-bg: #f6f7f8;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f8fafc;
+  --color-border: #dfe3e8;
+  --color-border-strong: #c5cad3;
+  --color-text: #18181b;
+  --color-text-muted: #666f7b;
+  --color-brand: #f2b705;
+  --color-brand-strong: #b77900;
+  --color-brand-soft: #fff4bf;
+  --color-danger: #d92d20;
+  --color-danger-soft: #fff1ef;
+  --color-success: #16833a;
+  --color-success-soft: #e8f7ee;
+  --color-info: #1d4ed8;
+  --color-info-soft: #eaf0ff;
+  --color-skill-grammar: #1d4ed8;
+  --color-skill-vocabulary: #16833a;
+  --color-skill-listening: #7c3aed;
+  --color-skill-reading: #0f766e;
+  --color-skill-writing: #b45309;
+  --color-skill-speaking: #be123c;
+  --radius-card: 12px;
+  --radius-control: 8px;
+  --radius-pill: 999px;
+  --shadow-soft: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.06);
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+/* Legacy aliases kept until every .db-* block is removed (final task). */
 :root {
-  --db-bg: #f3f5f7;
-  --db-surface: #ffffff;
-  --db-surface-soft: #f8fafc;
+  --db-bg: var(--color-bg);
+  --db-surface: var(--color-surface);
+  --db-surface-soft: var(--color-surface-soft);
   --db-surface-muted: #eef2f5;
-  --db-text: #111827;
+  --db-text: var(--color-text);
   --db-text-soft: #374151;
-  --db-muted: #667085;
-  --db-border: #d8dee6;
+  --db-muted: var(--color-text-muted);
+  --db-border: var(--color-border);
   --db-border-soft: #e7ebf0;
-  --db-accent: #f2b705;
-  --db-accent-strong: #b77900;
-  --db-blue: #1d4ed8;
-  --db-green: #16833a;
-  --db-red: #d92d20;
+  --db-accent: var(--color-brand);
+  --db-accent-strong: var(--color-brand-strong);
+  --db-blue: var(--color-info);
+  --db-green: var(--color-success);
+  --db-red: var(--color-danger);
   --db-sidebar-width: 216px;
-  --db-radius: 8px;
-  --db-shadow: 0 10px 30px rgb(15 23 42 / 0.07);
+  --db-radius: 12px;
+  --db-shadow: var(--shadow-soft);
 }
 
 /* Custom fonts */
