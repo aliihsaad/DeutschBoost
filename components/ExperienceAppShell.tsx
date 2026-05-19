@@ -12,6 +12,7 @@ import {
   type AppDestination,
 } from '../src/ui/navigationModel';
 import { describeProviderStatus, type ProviderSettingsSnapshot } from '../src/ui/providerStatusModel';
+import { cn } from './ui/cn';
 
 const iconClassByName: Record<string, string> = {
   'layout-dashboard': 'fa-table-columns',
@@ -37,6 +38,22 @@ const mobileMarkByDestinationId: Record<string, string> = {
   settings: 'St',
 };
 
+type Tone = 'success' | 'accent' | 'muted' | 'danger';
+
+const DOT_TONE: Record<Tone, string> = {
+  success: 'bg-success',
+  accent: 'bg-brand',
+  muted: 'bg-border-strong',
+  danger: 'bg-danger',
+};
+
+const PILL_TONE: Record<Tone, string> = {
+  success: 'bg-success-soft text-success',
+  accent: 'bg-brand-soft text-brand-strong',
+  muted: 'bg-surface-soft text-text-muted',
+  danger: 'bg-danger-soft text-danger',
+};
+
 interface ExperienceAppShellProps {
   children: React.ReactNode;
   providerSettings?: ProviderSettingsSnapshots;
@@ -53,17 +70,20 @@ const ExperienceAppShell: React.FC<ExperienceAppShellProps> = ({
   const activeDestination = getDestinationByRoute(route);
 
   return (
-    <div className="db-shell">
-      <aside className="db-sidebar" aria-label="DeutschBoost workspace">
-        <Link to="/" className="db-brand" aria-label="DeutschBoost home">
-          <img src="/app-icon.svg" alt="" className="db-brand-mark" aria-hidden="true" />
-          <span>
-            DeutschBoost
-            <small>Local German studio</small>
+    <div className="flex h-screen min-w-[320px] overflow-hidden bg-bg text-text">
+      <aside
+        className="flex w-[216px] flex-none flex-col gap-4 border-r border-border bg-surface p-4 max-[860px]:hidden"
+        aria-label="DeutschBoost workspace"
+      >
+        <Link to="/" className="flex items-center gap-2 text-text" aria-label="DeutschBoost home">
+          <img src="/app-icon.svg" alt="" className="h-8 w-8" aria-hidden="true" />
+          <span className="flex flex-col leading-tight">
+            <span className="text-[15px] font-bold">DeutschBoost</span>
+            <small className="text-[11px] text-text-muted">Local German studio</small>
           </span>
         </Link>
 
-        <nav className="db-nav" aria-label="Primary">
+        <nav className="flex flex-1 flex-col gap-1" aria-label="Primary">
           {primaryAppDestinations.map(destination => (
             <ShellLink
               key={destination.id}
@@ -73,7 +93,7 @@ const ExperienceAppShell: React.FC<ExperienceAppShellProps> = ({
           ))}
         </nav>
 
-        <div className="db-sidebar-status" aria-label="Workspace status">
+        <div className="flex flex-col gap-2" aria-label="Workspace status">
           <StatusDot label="Local files" tone="success" />
           <StatusDot
             label={formatSidebarProviderLabel(providerSettings.ai)}
@@ -90,13 +110,17 @@ const ExperienceAppShell: React.FC<ExperienceAppShellProps> = ({
         </div>
       </aside>
 
-      <div className="db-main-frame">
-        <div className="db-window-bar">
-          <div className="db-page-context" aria-label="Current workspace">
-            <span>{activeDestination.label}</span>
-            <strong>Device-only learning workspace</strong>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center justify-between gap-4 border-b border-border bg-surface px-6 py-3">
+          <div className="flex flex-col leading-tight" aria-label="Current workspace">
+            <span className="text-[12px] uppercase tracking-wide text-text-muted">
+              {activeDestination.label}
+            </span>
+            <strong className="text-[14px] font-semibold text-text">
+              Device-only learning workspace
+            </strong>
           </div>
-          <div className="db-window-status" aria-label="Local runtime status">
+          <div className="flex items-center gap-2" aria-label="Local runtime status">
             <StatusPill label="Files" tone="success" />
             <StatusPill
               label={formatTopbarProviderLabel(providerSettings.ai)}
@@ -108,7 +132,7 @@ const ExperienceAppShell: React.FC<ExperienceAppShellProps> = ({
             />
           </div>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-auto px-6 py-6">{children}</div>
       </div>
     </div>
   );
@@ -122,33 +146,39 @@ interface ShellLinkProps {
 const ShellLink: React.FC<ShellLinkProps> = ({ destination, active }) => (
   <Link
     to={destination.route}
-    className={`db-nav-link${active ? ' is-active' : ''}`}
+    className={cn(
+      'flex items-center gap-2.5 rounded-control px-3 py-2 text-[13px] font-medium transition-colors',
+      active ? 'bg-brand-soft text-brand-strong' : 'text-text-muted hover:bg-surface-soft hover:text-text',
+    )}
     aria-current={active ? 'page' : undefined}
     title={destination.description}
->
-  <i className={`fa-solid ${iconClassByName[destination.icon] ?? 'fa-circle'} db-nav-icon`} aria-hidden="true" />
-  <span className="db-nav-fallback" aria-hidden="true">
-    {mobileMarkByDestinationId[destination.id] ?? destination.shortLabel.slice(0, 2)}
-  </span>
-  <span className="db-nav-label">{destination.label}</span>
-</Link>
+  >
+    <i
+      className={`fa-solid ${iconClassByName[destination.icon] ?? 'fa-circle'} w-4 text-center`}
+      aria-hidden="true"
+    />
+    <span className="hidden" aria-hidden="true">
+      {mobileMarkByDestinationId[destination.id] ?? destination.shortLabel.slice(0, 2)}
+    </span>
+    <span>{destination.label}</span>
+  </Link>
 );
 
-interface StatusDotProps {
-  label: string;
-  tone: 'success' | 'accent' | 'muted' | 'danger';
-}
-
-const StatusDot: React.FC<StatusDotProps> = ({ label, tone }) => (
-  <div className="db-status-dot-row">
-    <span className={`db-status-dot db-status-dot-${tone}`} aria-hidden="true" />
+const StatusDot: React.FC<{ label: string; tone: Tone }> = ({ label, tone }) => (
+  <div className="flex items-center gap-2 text-[12px] text-text-muted">
+    <span className={cn('h-2 w-2 rounded-pill', DOT_TONE[tone])} aria-hidden="true" />
     <span>{label}</span>
   </div>
 );
 
-const StatusPill: React.FC<StatusDotProps> = ({ label, tone }) => (
-  <span className={`db-status-pill db-status-pill-${tone}`}>
-    <span className={`db-status-dot db-status-dot-${tone}`} aria-hidden="true" />
+const StatusPill: React.FC<{ label: string; tone: Tone }> = ({ label, tone }) => (
+  <span
+    className={cn(
+      'inline-flex items-center gap-1.5 rounded-pill px-2.5 py-0.5 text-[12px] font-medium',
+      PILL_TONE[tone],
+    )}
+  >
+    <span className={cn('h-1.5 w-1.5 rounded-pill', DOT_TONE[tone])} aria-hidden="true" />
     {label}
   </span>
 );
@@ -187,7 +217,7 @@ function formatTopbarProviderLabel(snapshot: ProviderSettingsSnapshot): string {
   return `${providerLabel} off`;
 }
 
-function getSidebarProviderTone(snapshot: ProviderSettingsSnapshot): StatusDotProps['tone'] {
+function getSidebarProviderTone(snapshot: ProviderSettingsSnapshot): Tone {
   const status = describeProviderStatus(snapshot);
 
   if (status.state === 'configured') {
