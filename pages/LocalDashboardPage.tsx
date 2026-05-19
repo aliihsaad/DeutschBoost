@@ -14,6 +14,7 @@ import type {
 import { browserProfileRepository } from '../src/infrastructure/browser/profileStorage';
 import { browserConversationRepository } from '../src/infrastructure/browser/conversationStorage';
 import { buildDailyLearningQueue, type DailyLearningQueueItem } from '../src/ui/learningWorkflowModel';
+import { PageHeader, Card, Stat, Ring, Badge, ProgressBar } from '../components/ui';
 
 const LOCAL_LEARNER_ID = 'local-learner';
 
@@ -107,127 +108,164 @@ const LocalDashboardPage: React.FC<LocalDashboardPageProps> = ({
   const lastSession = recentSessions[0] ?? null;
 
   return (
-    <main className="db-dashboard" aria-label="DeutschBoost dashboard">
-      <header className="db-dashboard-header">
-        <div>
-          <span className="db-dashboard-kicker">Heute</span>
-          <h1>Guten Morgen!</h1>
-          <p>Hier ist dein lokales Lerncockpit fuer heute.</p>
-        </div>
-        <div className="db-level-meter" aria-label="Current learning target">
-          <div>
-            <strong>{profile.currentLevel} -&gt; {profile.targetLevel}</strong>
-            <span>Dein aktuelles Ziel</span>
+    <main aria-label="DeutschBoost dashboard">
+      <PageHeader
+        title="Guten Morgen!"
+        subtitle="Hier ist dein lokales Lerncockpit fuer heute."
+        actions={
+          <div
+            className="flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-2"
+            aria-label="Current learning target"
+          >
+            <div className="flex flex-col leading-tight">
+              <strong className="text-[14px] font-bold text-text">
+                {profile.currentLevel} -&gt; {profile.targetLevel}
+              </strong>
+              <span className="text-[12px] text-text-muted">Dein aktuelles Ziel</span>
+            </div>
+            <Ring value={planProgress.percent} label="Plan" />
           </div>
-          <div className="db-ring" aria-label={`${planProgress.percent} percent complete`}>
-            {planProgress.percent}%
-          </div>
-        </div>
-      </header>
+        }
+      />
 
-      <nav className="db-dashboard-actions" aria-label="Quick study actions">
-        <Link to="/conversation">
-          <i className="fa-solid fa-comments" aria-hidden="true" />
-          <span>Sprechen</span>
-        </Link>
-        <Link to="/practice">
-          <i className="fa-solid fa-dumbbell" aria-hidden="true" />
-          <span>Ueben</span>
-        </Link>
-        <Link to="/plan">
-          <i className="fa-solid fa-calendar-days" aria-hidden="true" />
-          <span>Plan</span>
-        </Link>
-        <Link to="/settings">
-          <i className="fa-solid fa-gear" aria-hidden="true" />
-          <span>Provider</span>
-        </Link>
+      <nav
+        className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4"
+        aria-label="Quick study actions"
+      >
+        {[
+          { to: '/conversation', icon: 'fa-comments', label: 'Sprechen' },
+          { to: '/practice', icon: 'fa-dumbbell', label: 'Ueben' },
+          { to: '/plan', icon: 'fa-calendar-days', label: 'Plan' },
+          { to: '/settings', icon: 'fa-gear', label: 'Provider' },
+        ].map(action => (
+          <Link
+            key={action.to}
+            to={action.to}
+            className="flex items-center gap-2 rounded-card border border-border bg-surface px-4 py-3 text-[14px] font-medium text-text transition-colors hover:border-brand"
+          >
+            <i className={`fa-solid ${action.icon} text-text-muted`} aria-hidden="true" />
+            <span>{action.label}</span>
+          </Link>
+        ))}
       </nav>
 
       {loadState === 'error' ? (
-        <section className="db-panel db-empty-workspace" role="alert">
-          <span className="db-section-label">Local dashboard</span>
-          <h2>Dashboard could not load</h2>
-          <p>{errorMessage ?? 'Local dashboard data could not be read.'}</p>
-        </section>
+        <div role="alert" className="mb-6">
+          <Card title="Dashboard could not load">
+            <p className="text-[13px] text-text-muted">
+              {errorMessage ?? 'Local dashboard data could not be read.'}
+            </p>
+          </Card>
+        </div>
       ) : null}
 
-      <section className="db-dashboard-grid">
-        <section className="db-panel db-next-action" aria-labelledby="next-action-heading">
-          <span className="db-section-label">Naechste Aktion</span>
-          <div className="db-next-action-row">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <Card className="lg:col-span-2" aria-labelledby="next-action-heading">
+          <span className="text-[12px] font-medium uppercase tracking-wide text-text-muted">
+            Naechste Aktion
+          </span>
+          <div className="mt-2 flex items-center justify-between gap-4">
             <div>
-              <h2 id="next-action-heading">{primaryAction.title}</h2>
-              <div className="db-meta-row">
+              <h2 id="next-action-heading" className="text-[18px] font-bold text-text">
+                {primaryAction.title}
+              </h2>
+              <div className="mt-1 flex flex-wrap gap-3 text-[13px] text-text-muted">
                 <span>
-                  <i className="fa-regular fa-clock" aria-hidden="true" /> {primaryAction.estimatedMinutes} min
+                  <i className="fa-regular fa-clock" aria-hidden="true" />{' '}
+                  {primaryAction.estimatedMinutes} min
                 </span>
                 <span>{primaryAction.reason}</span>
               </div>
             </div>
-            <Link to={primaryAction.route} className="db-primary-button" role="button">
+            <Link
+              to={primaryAction.route}
+              role="button"
+              className="inline-flex items-center gap-2 rounded-control bg-brand px-4 py-2 text-[14px] font-medium text-text transition-colors hover:bg-brand-strong hover:text-white"
+            >
               <i className="fa-solid fa-play" aria-hidden="true" />
               Starten
             </Link>
           </div>
-        </section>
+        </Card>
 
-        <section className="db-panel db-queue-panel" aria-labelledby="queue-heading">
-          <div className="db-panel-heading">
-            <h2 id="queue-heading">Heutige Queue</h2>
-            <span>{queue.length} Aufgaben</span>
+        <Card aria-labelledby="queue-heading">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 id="queue-heading" className="text-[16px] font-semibold text-text">
+              Heutige Queue
+            </h2>
+            <Badge>{queue.length} Aufgaben</Badge>
           </div>
           {queue.length > 0 ? (
-            <ul className="db-queue-list" aria-label="Today queue">
+            <ul className="flex flex-col gap-2" aria-label="Today queue">
               {queue.map(item => (
                 <QueueRow key={item.id} item={item} />
               ))}
             </ul>
           ) : (
-            <p>No local queue yet. Create a plan to generate the first study path.</p>
+            <p className="text-[13px] text-text-muted">
+              No local queue yet. Create a plan to generate the first study path.
+            </p>
           )}
-        </section>
+        </Card>
 
-        <aside className="db-panel db-review-panel" aria-labelledby="reviews-heading">
-          <h2 id="reviews-heading">Faellige Reviews</h2>
-          <strong>0</strong>
-          <span>No review cards yet</span>
-          <p>Review cards will appear after corrections are saved locally.</p>
-        </aside>
+        <Card aria-labelledby="reviews-heading">
+          <h2 id="reviews-heading" className="text-[16px] font-semibold text-text">
+            Faellige Reviews
+          </h2>
+          <strong className="mt-2 block text-[28px] font-bold text-text">0</strong>
+          <span className="text-[13px] text-text-muted">No review cards yet</span>
+          <p className="mt-2 text-[12px] text-text-muted">
+            Review cards will appear after corrections are saved locally.
+          </p>
+        </Card>
 
-        <aside className="db-panel db-weak-panel" aria-labelledby="focus-heading">
-          <h2 id="focus-heading">Aktueller Fokus</h2>
-          <div className="db-weak-list">
+        <Card aria-labelledby="focus-heading">
+          <h2 id="focus-heading" className="mb-3 text-[16px] font-semibold text-text">
+            Aktueller Fokus
+          </h2>
+          <div className="flex flex-col gap-2">
             {activePlanItems.slice(0, 3).map(item => (
-              <div className="db-weak-row" key={item.id ?? item.topic}>
-                <span>{item.topic}</span>
-                <span>{item.skill}</span>
-                <b className={item.completed ? 'db-tone-mid' : 'db-tone-high'}>
+              <div
+                className="flex items-center justify-between gap-2 text-[13px]"
+                key={item.id ?? item.topic}
+              >
+                <span className="text-text">{item.topic}</span>
+                <span className="text-text-muted">{item.skill}</span>
+                <Badge tone={item.completed ? 'neutral' : 'brand'}>
                   {item.completed ? 'Done' : 'Next'}
-                </b>
+                </Badge>
               </div>
             ))}
             {activePlanItems.length === 0 ? (
-              <div className="db-weak-row">
-                <span>No plan focus yet</span>
-                <span>{profile.currentLevel}</span>
-                <b className="db-tone-mid">Local</b>
+              <div className="flex items-center justify-between gap-2 text-[13px]">
+                <span className="text-text">No plan focus yet</span>
+                <span className="text-text-muted">{profile.currentLevel}</span>
+                <Badge>Local</Badge>
               </div>
             ) : null}
           </div>
-        </aside>
+        </Card>
 
-        <section className="db-panel db-weekly-panel" aria-labelledby="progress-heading">
-          <div className="db-panel-heading">
-            <h2 id="progress-heading">Lokaler Fortschritt</h2>
-            <span>{loadState === 'loading' ? 'Loading' : 'Device only'}</span>
+        <Card className="lg:col-span-2" aria-labelledby="progress-heading">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 id="progress-heading" className="text-[16px] font-semibold text-text">
+              Lokaler Fortschritt
+            </h2>
+            <Badge>{loadState === 'loading' ? 'Loading' : 'Device only'}</Badge>
           </div>
-          <div className="db-stat-grid">
-            <ProgressStat label="Study streak" value={`${profile.studyStreak} days`} percent={profile.studyStreak > 0 ? 100 : 0} />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <ProgressStat
+              label="Study streak"
+              value={`${profile.studyStreak} days`}
+              percent={profile.studyStreak > 0 ? 100 : 0}
+            />
             <ProgressStat
               label="Total study time"
               value={formatStudyTime(profile.totalStudyTimeMinutes)}
-              percent={Math.min(100, Math.round((profile.totalStudyTimeMinutes / Math.max(profile.dailyGoalMinutes, 1)) * 100))}
+              percent={Math.min(
+                100,
+                Math.round((profile.totalStudyTimeMinutes / Math.max(profile.dailyGoalMinutes, 1)) * 100)
+              )}
             />
             <ProgressStat
               label="Plan progress"
@@ -235,39 +273,47 @@ const LocalDashboardPage: React.FC<LocalDashboardPageProps> = ({
               percent={planProgress.percent}
             />
           </div>
-        </section>
+        </Card>
 
-        <aside className="db-panel db-session-panel" aria-labelledby="session-heading">
-          <h2 id="session-heading">Letzte Session</h2>
+        <Card aria-labelledby="session-heading">
+          <h2 id="session-heading" className="mb-2 text-[16px] font-semibold text-text">
+            Letzte Session
+          </h2>
           {lastSession ? (
             <>
-              <span>{formatSessionDuration(lastSession)}</span>
-              <dl>
-                <div>
-                  <dt>Transcript</dt>
-                  <dd>{lastSession.transcript.length} transcript turns</dd>
+              <span className="text-[13px] text-text-muted">
+                {formatSessionDuration(lastSession)}
+              </span>
+              <dl className="mt-3 flex flex-col gap-2 text-[13px]">
+                <div className="flex justify-between">
+                  <dt className="text-text-muted">Transcript</dt>
+                  <dd className="text-text">{lastSession.transcript.length} transcript turns</dd>
                 </div>
-                <div>
-                  <dt>Mode</dt>
-                  <dd>{formatMode(lastSession.mode)}</dd>
+                <div className="flex justify-between">
+                  <dt className="text-text-muted">Mode</dt>
+                  <dd className="text-text">{formatMode(lastSession.mode)}</dd>
                 </div>
-                <div>
-                  <dt>Saved</dt>
-                  <dd>{formatDate(lastSession.endedAt ?? lastSession.startedAt)}</dd>
+                <div className="flex justify-between">
+                  <dt className="text-text-muted">Saved</dt>
+                  <dd className="text-text">
+                    {formatDate(lastSession.endedAt ?? lastSession.startedAt)}
+                  </dd>
                 </div>
               </dl>
             </>
           ) : (
             <>
-              <span>No saved local sessions yet</span>
-              <p>Conversation history will appear here after your first local speaking session.</p>
+              <span className="text-[13px] text-text-muted">No saved local sessions yet</span>
+              <p className="mt-2 text-[12px] text-text-muted">
+                Conversation history will appear here after your first local speaking session.
+              </p>
             </>
           )}
-          <p className="db-local-save">
+          <p className="mt-3 flex items-center gap-1.5 text-[12px] text-success">
             <i className="fa-solid fa-check" aria-hidden="true" /> Device-only storage active
           </p>
-        </aside>
-      </section>
+        </Card>
+      </div>
     </main>
   );
 };
@@ -277,17 +323,28 @@ interface QueueRowProps {
 }
 
 const QueueRow: React.FC<QueueRowProps> = ({ item }) => (
-  <li className="db-queue-row">
-    <Link to={item.route} aria-label={`${formatQueueTitle(item)}, ${item.estimatedMinutes} minutes`}>
-      <span className={`db-source-marker db-source-${item.source}`} aria-hidden="true">
+  <li>
+    <Link
+      to={item.route}
+      aria-label={`${formatQueueTitle(item)}, ${item.estimatedMinutes} minutes`}
+      className="flex items-center gap-3 rounded-control border border-border bg-surface px-3 py-2 transition-colors hover:border-brand"
+    >
+      <span
+        className="grid h-7 w-7 flex-none place-items-center rounded-pill bg-surface-soft text-[12px] font-bold text-text-muted"
+        aria-hidden="true"
+      >
         {getSourceInitial(item)}
       </span>
-      <div>
-        <strong>{formatQueueSource(item)}</strong>
-        <span>{formatQueueTitle(item)}</span>
+      <div className="min-w-0 flex-1">
+        <strong className="block text-[13px] font-semibold text-text">
+          {formatQueueSource(item)}
+        </strong>
+        <span className="block truncate text-[12px] text-text-muted">
+          {formatQueueTitle(item)}
+        </span>
       </div>
-      <span>{item.estimatedMinutes} min</span>
-      <b>{formatQueueTag(item)}</b>
+      <span className="text-[12px] text-text-muted">{item.estimatedMinutes} min</span>
+      <b className="text-[12px] font-medium text-brand-strong">{formatQueueTag(item)}</b>
     </Link>
   </li>
 );
@@ -297,11 +354,11 @@ const ProgressStat: React.FC<{ label: string; value: string; percent: number }> 
   value,
   percent,
 }) => (
-  <div className="db-stat">
-    <span>{label}</span>
-    <strong>{value}</strong>
-    <div className="db-progress-track" aria-hidden="true">
-      <div style={{ width: `${percent}%` }} />
+  <div className="rounded-card border border-border bg-surface p-4">
+    <span className="text-[12px] font-medium uppercase tracking-wide text-text-muted">{label}</span>
+    <strong className="mt-1 block text-[18px] font-bold text-text">{value}</strong>
+    <div className="mt-2">
+      <ProgressBar value={percent} label={label} />
     </div>
   </div>
 );
