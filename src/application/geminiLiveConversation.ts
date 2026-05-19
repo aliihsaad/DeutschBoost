@@ -4,7 +4,12 @@ import type {
   LiveConversationSession,
 } from '../domain/conversation/liveConversationProvider';
 import type { ConversationRepository } from '../domain/conversation/conversationRepository';
-import { createTranscriptTurn, type TranscriptTurn } from '../domain/speech/transcriptTypes';
+import {
+  createTranscriptTurn,
+  normalizeTranscriptText,
+  type TranscriptSpeaker,
+  type TranscriptTurn,
+} from '../domain/speech/transcriptTypes';
 import type { CEFRLevel, ConversationMode } from '../../types';
 
 export type GeminiLiveConversationStatus =
@@ -62,6 +67,7 @@ interface GeminiLiveConversationInput {
   mode: ConversationMode;
   startAudioCapture: StartGeminiLiveAudioCapture;
   playTutorAudio: PlayGeminiLiveAudio;
+  resetTutorAudio?: () => void;
   topic?: string;
   description?: string;
   liveInstruction?: string;
@@ -86,43 +92,67 @@ export function createGeminiLiveConversationController(
     listeners.forEach(listener => listener(state));
   };
 
-  const appendTurn = (turn: TranscriptTurn) => {
-    setState({ turns: [...state.turns, turn] });
+  // Gemini streams transcription as many small deltas. Accumulate consecutive
+  // same-speaker deltas into a single in-progress turn so the transcript reads
+  // as sentences (not one word per line), and only persist a turn once it is
+  // finalized at a turn boundary.
+  let streamingSpeaker: TranscriptSpeaker | null = null;
+  let streamingRaw = '';
+
+  const buildStreamingTurn = (): TranscriptTurn =>
+    createTranscriptTurn({
+      speaker: streamingSpeaker as TranscriptSpeaker,
+      text: streamingRaw,
+      occurredAt: now(),
+      provider: input.liveProvider.id,
+    });
+
+  const finalizeStreamingTurn = () => {
+    if (!streamingSpeaker || !streamingRaw.trim()) {
+      streamingSpeaker = null;
+      streamingRaw = '';
+      return;
+    }
+
+    const finalTurn = buildStreamingTurn();
+    setState({ turns: [...state.turns.slice(0, -1), finalTurn] });
     if (sessionId) {
-      void input.conversationRepository.appendTranscript(sessionId, turn);
+      void input.conversationRepository.appendTranscript(sessionId, finalTurn);
+    }
+    streamingSpeaker = null;
+    streamingRaw = '';
+  };
+
+  const ingestTranscriptDelta = (speaker: TranscriptSpeaker, rawDelta: string) => {
+    if (!rawDelta.trim()) {
+      return;
+    }
+
+    if (streamingSpeaker !== speaker) {
+      finalizeStreamingTurn();
+      streamingSpeaker = speaker;
+      streamingRaw = rawDelta;
+      setState({ turns: [...state.turns, buildStreamingTurn()] });
+    } else {
+      streamingRaw += rawDelta;
+      setState({ turns: [...state.turns.slice(0, -1), buildStreamingTurn()] });
     }
   };
 
   const handleEvent = (event: LiveConversationEvent) => {
     if (event.type === 'input-transcript') {
-      const text = event.text.trim();
-      if (!text) {
-        return;
+      ingestTranscriptDelta('learner', event.text);
+      if (streamingSpeaker === 'learner') {
+        setState({ latestLearnerText: normalizeTranscriptText(streamingRaw), status: 'listening' });
       }
-
-      appendTurn(createTranscriptTurn({
-        speaker: 'learner',
-        text,
-        occurredAt: now(),
-        provider: input.liveProvider.id,
-      }));
-      setState({ latestLearnerText: text, status: 'listening' });
       return;
     }
 
     if (event.type === 'output-transcript') {
-      const text = event.text.trim();
-      if (!text) {
-        return;
+      ingestTranscriptDelta('tutor', event.text);
+      if (streamingSpeaker === 'tutor') {
+        setState({ latestTutorText: normalizeTranscriptText(streamingRaw), status: 'speaking' });
       }
-
-      appendTurn(createTranscriptTurn({
-        speaker: 'tutor',
-        text,
-        occurredAt: now(),
-        provider: input.liveProvider.id,
-      }));
-      setState({ latestTutorText: text, status: 'speaking' });
       return;
     }
 
@@ -144,16 +174,22 @@ export function createGeminiLiveConversationController(
     }
 
     if (event.type === 'interrupted' || event.type === 'turn-complete') {
+      if (event.type === 'interrupted') {
+        input.resetTutorAudio?.();
+      }
+      finalizeStreamingTurn();
       setState({ status: 'listening' });
       return;
     }
 
     if (event.type === 'error') {
+      finalizeStreamingTurn();
       setState({ status: 'error', errorMessage: event.error.message });
       return;
     }
 
     if (event.type === 'closed' && state.status !== 'ending' && state.status !== 'ended') {
+      finalizeStreamingTurn();
       setState({ status: 'ended' });
     }
   };
@@ -190,6 +226,9 @@ export function createGeminiLiveConversationController(
 
   return {
     async start() {
+      streamingSpeaker = null;
+      streamingRaw = '';
+      input.resetTutorAudio?.();
       setState({
         status: 'connecting',
         turns: [],
@@ -243,11 +282,15 @@ export function createGeminiLiveConversationController(
       }
     },
     interrupt() {
+      input.resetTutorAudio?.();
+      finalizeStreamingTurn();
       liveSession?.interrupt();
       setState({ status: 'listening' });
     },
     async end() {
       setState({ status: 'ending' });
+      input.resetTutorAudio?.();
+      finalizeStreamingTurn();
       liveSession?.sendAudioStreamEnd();
       await stopAudio();
       pendingPcmChunks = [];

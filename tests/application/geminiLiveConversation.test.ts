@@ -91,14 +91,19 @@ describe('Gemini Live conversation controller', () => {
     expect(live.session.sendAudioPcm16).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]));
     expect(controller.getState().status).toBe('listening');
 
-    live.emit({ type: 'input-transcript', text: 'Ich moechte Kaffee.' });
-    live.emit({ type: 'output-transcript', text: 'Gern. Ich moechte einen Kaffee.' });
+    // Gemini streams transcription as deltas; a turn is finalized/persisted at
+    // a turn boundary (speaker switch or turn-complete), not per delta.
+    live.emit({ type: 'input-transcript', text: 'Ich moechte ' });
+    live.emit({ type: 'input-transcript', text: 'Kaffee.' });
+    live.emit({ type: 'output-transcript', text: 'Gern. ' });
+    live.emit({ type: 'output-transcript', text: 'Ich moechte einen Kaffee.' });
     live.emit({
       type: 'audio',
       audio: new Uint8Array([4, 5, 6]).buffer,
       mimeType: 'audio/pcm;rate=24000',
       sampleRate: 24000,
     });
+    live.emit({ type: 'turn-complete' });
 
     expect(conversationRepository.appendTranscript).toHaveBeenCalledWith(
       'live-session-1',
@@ -142,6 +147,49 @@ describe('Gemini Live conversation controller', () => {
         ]),
       })
     );
+  });
+
+  it('accumulates streaming transcript deltas into one turn and resets tutor audio on interrupt', async () => {
+    const live = createLiveProvider();
+    const conversationRepository = createConversationRepository();
+    const resetTutorAudio = vi.fn();
+    const controller = createGeminiLiveConversationController({
+      liveProvider: live.provider,
+      conversationRepository,
+      learnerId: 'local-learner',
+      level: CEFRLevel.B1,
+      motherLanguage: 'English',
+      mode: ConversationMode.FREE_CONVERSATION,
+      startAudioCapture: vi.fn(async () => ({ stop: vi.fn() })),
+      playTutorAudio: vi.fn().mockResolvedValue(undefined),
+      resetTutorAudio,
+      now: () => '2026-05-16T17:00:00.000Z',
+    });
+
+    await controller.start();
+
+    live.emit({ type: 'output-transcript', text: 'Hallo. ' });
+    live.emit({ type: 'output-transcript', text: 'Wie ' });
+    live.emit({ type: 'output-transcript', text: 'geht es dir?' });
+
+    // Mid-stream there is exactly one growing tutor turn, not one per delta.
+    expect(controller.getState().turns).toHaveLength(1);
+    expect(controller.getState().turns[0]).toMatchObject({
+      speaker: 'tutor',
+      text: 'Hallo. Wie geht es dir?',
+    });
+    expect(conversationRepository.appendTranscript).not.toHaveBeenCalled();
+
+    live.emit({ type: 'turn-complete' });
+
+    expect(conversationRepository.appendTranscript).toHaveBeenCalledTimes(1);
+    expect(conversationRepository.appendTranscript).toHaveBeenCalledWith(
+      'live-session-1',
+      expect.objectContaining({ speaker: 'tutor', text: 'Hallo. Wie geht es dir?' })
+    );
+
+    controller.interrupt();
+    expect(resetTutorAudio).toHaveBeenCalled();
   });
 
   it('starts microphone capture before async Gemini setup and only sends chunks after the live session is ready', async () => {

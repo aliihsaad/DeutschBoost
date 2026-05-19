@@ -26,7 +26,7 @@ import type { ExamAttemptRepository } from '../src/domain/exam/examAttemptReposi
 import { browserConversationRepository } from '../src/infrastructure/browser/conversationStorage';
 import { browserExamAttemptRepository } from '../src/infrastructure/browser/examAttemptStorage';
 import { startBrowserPcmAudioCapture } from '../src/infrastructure/browser/audioRecorder';
-import { playGeminiPcmAudio } from '../src/infrastructure/browser/geminiAudioPlayback';
+import { playGeminiPcmAudio, resetGeminiPcmAudioStream } from '../src/infrastructure/browser/geminiAudioPlayback';
 import { browserProfileRepository } from '../src/infrastructure/browser/profileStorage';
 import { CEFRLevel, ConversationMode } from '../types';
 
@@ -251,6 +251,7 @@ export const ExamSimulatorPage: React.FC<ExamSimulatorPageProps> = ({
       liveInstruction: buildOralExamInstruction(exam, module),
       startAudioCapture: startGeminiLiveAudioCapture,
       playTutorAudio: playGeminiLiveAudio,
+      resetTutorAudio: resetGeminiPcmAudioStream,
       now,
     });
 

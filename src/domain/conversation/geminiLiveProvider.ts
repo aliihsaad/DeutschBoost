@@ -333,13 +333,15 @@ function emitServerContent(
   content: NonNullable<GeminiLiveServerMessage['serverContent']>,
   emit: (event: LiveConversationEvent) => void
 ): void {
-  const inputText = content.inputTranscription?.text?.trim();
-  if (inputText) {
+  // Gemini streams transcription in small deltas; keep the original spacing so
+  // the controller can concatenate fragments into a readable sentence.
+  const inputText = content.inputTranscription?.text;
+  if (inputText && inputText.trim()) {
     emit({ type: 'input-transcript', text: inputText });
   }
 
-  const outputText = content.outputTranscription?.text?.trim();
-  if (outputText) {
+  const outputText = content.outputTranscription?.text;
+  if (outputText && outputText.trim()) {
     emit({ type: 'output-transcript', text: outputText });
   }
 

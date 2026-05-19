@@ -18,7 +18,7 @@ import {
 import {
   startBrowserPcmAudioCapture,
 } from '../src/infrastructure/browser/audioRecorder';
-import { playGeminiPcmAudio } from '../src/infrastructure/browser/geminiAudioPlayback';
+import { playGeminiPcmAudio, resetGeminiPcmAudioStream } from '../src/infrastructure/browser/geminiAudioPlayback';
 import { MOTHER_LANGUAGE_OPTIONS } from '../src/domain/profile/profileRepository';
 import { browserProfileRepository } from '../src/infrastructure/browser/profileStorage';
 import { CEFRLevel, ConversationMode } from '../types';
@@ -183,6 +183,7 @@ const SpeakingActivityPage: React.FC<SpeakingActivityPageProps> = ({
       description: activityDescription || selectedModeOption.detail,
       startAudioCapture: startGeminiLiveAudioCapture,
       playTutorAudio: playGeminiLiveAudio,
+      resetTutorAudio: resetGeminiPcmAudioStream,
     });
     geminiLiveControllerRef.current = controller;
     geminiLiveUnsubscribeRef.current = controller.onStateChange(nextState => {

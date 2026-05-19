@@ -210,6 +210,7 @@ describe('SpeakingActivityPage Gemini Live conversation flow', () => {
         mimeType: 'audio/pcm;rate=24000',
         sampleRate: 24000,
       });
+      liveConversation.emit({ type: 'turn-complete' });
     });
 
     expect(

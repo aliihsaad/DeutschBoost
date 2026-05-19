@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.0.10 - 2026-05-19
+
+Desktop pre-release fixing Gemini Live audio quality and the live transcript, found in the v0.0.9 smoke test.
+
+- Fixed choppy/garbled tutor audio: Gemini streams speech as many small PCM chunks, and each was wrapped in its own WAV blob and played through a separate `Audio` element, so chunks overlapped and had gaps. Audio now plays through a single Web Audio timeline that schedules consecutive chunks back-to-back for one continuous, gap-free voice.
+- Fixed the transcript showing one word per line: Gemini streams transcription as small deltas. The provider no longer strips the spacing between deltas, and the controller now accumulates consecutive same-speaker deltas into a single growing turn, finalizing and saving it only at a turn boundary (speaker change, turn complete, or session end).
+- Tutor audio is now stopped on barge-in/interrupt and reset at the start of each session, so a new turn no longer plays over leftover queued audio.
+
+Release validation target:
+
+- Full Vitest suite passes (301 tests).
+- Production Vite build passes.
+- User smoke test: Gemini Live tutor audio is continuous and clear, and the transcript reads as sentences.
+
 ## v0.0.9 - 2026-05-19
 
 Desktop pre-release fixing the two v0.0.8 smoke blockers: Gemini Live conversation and exam content quality.
