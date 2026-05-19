@@ -29,6 +29,7 @@ import { startBrowserPcmAudioCapture } from '../src/infrastructure/browser/audio
 import { playGeminiPcmAudio, resetGeminiPcmAudioStream } from '../src/infrastructure/browser/geminiAudioPlayback';
 import { browserProfileRepository } from '../src/infrastructure/browser/profileStorage';
 import { CEFRLevel, ConversationMode } from '../types';
+import { PageHeader, Card, Button, Badge, Notice, cn } from '../components/ui';
 
 type ExamStatus = 'setup' | 'generating' | 'running' | 'results' | 'error';
 
@@ -354,45 +355,60 @@ export const ExamSimulatorPage: React.FC<ExamSimulatorPageProps> = ({
   }
 
   return (
-    <main className="db-dashboard db-exam-workspace" aria-label="Exam workspace">
-      <header className="db-dashboard-header">
-        <div>
-          <span className="db-dashboard-kicker">Pruefung</span>
-          <h1>Goethe Exam Simulator</h1>
-          <p>Generate a timed exam, complete every module, and save the final result locally.</p>
-        </div>
-        <div className="db-level-meter" aria-label="Selected exam level">
-          <div>
-            <strong>{exam?.level ?? selectedLevel}</strong>
-            <span>{exam ? `${exam.totalMinutes} minutes total` : 'Real timed simulator'}</span>
+    <main aria-label="Exam workspace">
+      <PageHeader
+        title="Goethe Exam Simulator"
+        subtitle="Generate a timed exam, complete every module, and save the final result locally."
+        actions={
+          <div
+            className="flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-2"
+            aria-label="Selected exam level"
+          >
+            <div className="flex flex-col leading-tight">
+              <strong className="text-[14px] font-bold text-text">
+                {exam?.level ?? selectedLevel}
+              </strong>
+              <span className="text-[12px] text-text-muted">
+                {exam ? `${exam.totalMinutes} minutes total` : 'Real timed simulator'}
+              </span>
+            </div>
+            <Badge tone="brand" aria-label="60 percent pass target">
+              60%
+            </Badge>
           </div>
-          <div className="db-ring" aria-label="60 percent pass target">60%</div>
-        </div>
-      </header>
+        }
+      />
 
-      <section className="db-panel db-exam-levels" aria-labelledby="exam-level-heading">
-        <div className="db-panel-heading">
-          <h2 id="exam-level-heading">Exam level</h2>
-          <span>Official-style 60% module target</span>
+      <Card className="mb-5" aria-labelledby="exam-level-heading">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 id="exam-level-heading" className="text-[16px] font-semibold text-text">
+            Exam level
+          </h2>
+          <span className="text-[12px] text-text-muted">Official-style 60% module target</span>
         </div>
-        <div className="db-level-button-grid">
+        <div className="flex flex-wrap gap-2">
           {LEVELS.map(level => (
             <button
               key={level}
               type="button"
               onClick={() => setSelectedLevel(level)}
               aria-pressed={selectedLevel === level}
-              className={selectedLevel === level ? 'is-selected' : ''}
               disabled={status === 'running' || status === 'generating'}
+              className={cn(
+                'rounded-control border px-4 py-2 text-[14px] font-medium transition-colors disabled:opacity-50',
+                selectedLevel === level
+                  ? 'border-brand bg-brand text-text'
+                  : 'border-border bg-surface text-text-muted hover:border-brand'
+              )}
             >
               {level}
             </button>
           ))}
         </div>
-      </section>
+      </Card>
 
-      <section className="db-dashboard-grid db-exam-grid">
-        <section className="db-panel db-exam-runner-panel" aria-labelledby="exam-runner-heading">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <Card className="lg:col-span-2" aria-labelledby="exam-runner-heading">
           {status === 'setup' || status === 'error' ? (
             <ExamSetup
               aiReady={Boolean(aiProvider)}
@@ -402,16 +418,28 @@ export const ExamSimulatorPage: React.FC<ExamSimulatorPageProps> = ({
           ) : null}
 
           {status === 'generating' ? (
-            <div className="db-exam-empty-state db-exam-generating-state" role="status" aria-live="polite">
-              <div className="db-exam-generation-loader" role="progressbar" aria-label="Generating exam">
+            <div
+              className="flex flex-col items-center gap-3 py-12 text-center"
+              role="status"
+              aria-live="polite"
+            >
+              <div
+                className="h-10 w-10 animate-spin rounded-pill border-2 border-border border-t-brand"
+                role="progressbar"
+                aria-label="Generating exam"
+              >
                 <span />
               </div>
-              <span className="db-section-label">Generating</span>
-              <h2 id="exam-runner-heading">Creating your {selectedLevel} exam</h2>
-              <p>
+              <span className="text-[12px] font-medium uppercase tracking-wide text-text-muted">
+                Generating
+              </span>
+              <h2 id="exam-runner-heading" className="text-[18px] font-bold text-text">
+                Creating your {selectedLevel} exam
+              </h2>
+              <p className="max-w-md text-[13px] text-text-muted">
                 Creating listening, reading, writing, and speaking tasks from the public exam structure.
               </p>
-              <div className="db-exam-generation-steps" aria-hidden="true">
+              <div className="flex gap-2 text-[12px] text-text-muted" aria-hidden="true">
                 <span>Structure</span>
                 <span>Tasks</span>
                 <span>Scoring</span>
@@ -448,33 +476,49 @@ export const ExamSimulatorPage: React.FC<ExamSimulatorPageProps> = ({
           {status === 'results' && latestAttempt ? (
             <ExamResultView attempt={latestAttempt} onRestart={resetExam} />
           ) : null}
-        </section>
+        </Card>
 
-        <aside className="db-panel db-exam-history-panel" aria-label="Exam history">
-          <div className="db-panel-heading">
-            <h2>Exam history</h2>
-            <span>{attemptHistory.length} attempts</span>
+        <Card aria-label="Exam history">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-[16px] font-semibold text-text">Exam history</h2>
+            <Badge>{attemptHistory.length} attempts</Badge>
           </div>
           {attemptHistory.length === 0 ? (
-            <p className="db-muted-copy">Completed exam attempts and results will appear here.</p>
+            <p className="text-[13px] text-text-muted">
+              Completed exam attempts and results will appear here.
+            </p>
           ) : (
-            <div className="db-exam-history-list">
+            <div className="flex flex-col gap-2">
               {attemptHistory.map(attempt => (
-                <article key={attempt.id}>
-                  <div>
-                    <strong>{attempt.level} simulated exam</strong>
-                    <span>{formatDate(attempt.completedAt)}</span>
+                <article
+                  key={attempt.id}
+                  className="flex items-center justify-between gap-2 rounded-control border border-border bg-surface px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <strong className="block text-[13px] font-semibold text-text">
+                      {attempt.level} simulated exam
+                    </strong>
+                    <span className="text-[12px] text-text-muted">
+                      {formatDate(attempt.completedAt)}
+                    </span>
                   </div>
-                  <b className={attempt.result.passed ? 'is-pass' : 'is-fail'}>
+                  <b
+                    className={cn(
+                      'text-[15px] font-bold',
+                      attempt.result.passed ? 'text-success' : 'text-danger'
+                    )}
+                  >
                     {attempt.result.percentage}%
                   </b>
-                  <small>{attempt.result.passed ? 'Passed' : 'Needs work'}</small>
+                  <small className="text-[12px] text-text-muted">
+                    {attempt.result.passed ? 'Passed' : 'Needs work'}
+                  </small>
                 </article>
               ))}
             </div>
           )}
-        </aside>
-      </section>
+        </Card>
+      </div>
     </main>
   );
 };
@@ -484,26 +528,31 @@ const ExamSetup: React.FC<{
   errorMessage: string | null;
   onStart: () => void;
 }> = ({ aiReady, errorMessage, onStart }) => (
-  <div className="db-exam-empty-state">
-    <span className="db-section-label">Real test mode</span>
-    <h2 id="exam-runner-heading">Generate a full timed exam</h2>
-    <p>
-      The simulator creates an original Goethe-style exam with Hoeren, Lesen, Schreiben,
-      and Sprechen modules, then scores the attempt at the end.
+  <div className="flex flex-col items-start gap-4 py-6">
+    <span className="text-[12px] font-medium uppercase tracking-wide text-text-muted">
+      Real test mode
+    </span>
+    <h2 id="exam-runner-heading" className="text-[20px] font-bold text-text">
+      Generate a full timed exam
+    </h2>
+    <p className="text-[14px] text-text-muted">
+      The simulator creates an original Goethe-style exam with Hoeren, Lesen, Schreiben, and Sprechen
+      modules, then scores the attempt at the end.
     </p>
-    <div className="db-exam-source-box">
-      <strong>{aiReady ? 'AI generation enabled' : 'AI provider required'}</strong>
-      <span>
+    <div className="w-full rounded-control bg-surface-soft p-4">
+      <strong className="block text-[14px] font-semibold text-text">
+        {aiReady ? 'AI generation enabled' : 'AI provider required'}
+      </strong>
+      <span className="text-[13px] text-text-muted">
         {aiReady
           ? 'OpenRouter generates fresh, original exam content per module. If a module cannot be generated you will see an error and can retry.'
           : 'Open Settings and enable an AI provider. The exam only runs with AI-generated content — no offline practice exam is shown.'}
       </span>
     </div>
-    {errorMessage ? <p className="db-conversation-message db-conversation-message-error">{errorMessage}</p> : null}
-    <button type="button" className="db-primary-button" onClick={onStart}>
-      <i className="fa-solid fa-play" aria-hidden="true" />
+    {errorMessage ? <Notice tone="error">{errorMessage}</Notice> : null}
+    <Button onClick={onStart} icon={<i className="fa-solid fa-play" aria-hidden="true" />}>
       Generate and start exam
-    </button>
+    </Button>
   </div>
 );
 
@@ -550,36 +599,48 @@ const ExamRunner: React.FC<{
   onStartOralExam,
   onEndOralExam,
 }) => (
-  <>
-    <div className="db-panel-heading">
-      <h2 id="exam-runner-heading">
+  <div className="flex flex-col gap-5">
+    <div className="flex items-center justify-between">
+      <h2 id="exam-runner-heading" className="text-[18px] font-bold text-text">
         {module.germanLabel} - {module.englishLabel}
       </h2>
-      <span>
+      <Badge>
         Module {moduleIndex + 1} / {moduleCount}
-      </span>
+      </Badge>
     </div>
 
-    <div className="db-exam-runner-meta">
-      <div className="db-exam-timer" aria-live="polite">
-        <strong>{formatTime(remainingSeconds)}</strong>
-        <span>{remainingSeconds === 0 ? 'Time is up' : 'Time remaining'}</span>
+    <div className="flex flex-wrap items-center gap-4">
+      <div
+        className="rounded-control bg-text px-4 py-2 text-surface"
+        aria-live="polite"
+      >
+        <strong className="text-[20px] font-bold">{formatTime(remainingSeconds)}</strong>
+        <span className="ml-2 text-[12px] opacity-80">
+          {remainingSeconds === 0 ? 'Time is up' : 'Time remaining'}
+        </span>
       </div>
       <div>
-        <span className="db-section-label">Pass target</span>
-        <strong>{exam.passThreshold}% per module</strong>
+        <span className="block text-[12px] font-medium uppercase tracking-wide text-text-muted">
+          Pass target
+        </span>
+        <strong className="text-[14px] text-text">{exam.passThreshold}% per module</strong>
       </div>
     </div>
 
-    <div className="db-exam-template-box" aria-label="Exam template profile">
+    <div
+      className="flex flex-col gap-3 rounded-control border border-border bg-surface-soft p-4"
+      aria-label="Exam template profile"
+    >
       <div>
-        <span className="db-section-label">Public template profile</span>
-        <strong>{exam.templateName}</strong>
-        <small>
+        <span className="block text-[12px] font-medium uppercase tracking-wide text-text-muted">
+          Public template profile
+        </span>
+        <strong className="text-[14px] text-text">{exam.templateName}</strong>
+        <small className="block text-[12px] text-text-muted">
           {module.germanLabel} follows {module.templateParts.length} real model-test parts.
         </small>
       </div>
-      <ul>
+      <ul className="flex flex-col gap-1 text-[13px] text-text">
         {module.templateParts.map(part => (
           <li key={part.id}>
             <b>{part.title}:</b> {part.taskFamily}
@@ -588,61 +649,85 @@ const ExamRunner: React.FC<{
       </ul>
     </div>
 
-    <p className="db-exam-instructions">{module.instructions}</p>
+    <p className="text-[14px] text-text-muted">{module.instructions}</p>
 
     {module.id === 'speaking' ? (
-      <div className="db-exam-oral-box" aria-label="Gemini Live oral exam controls">
+      <div
+        className="flex flex-col gap-3 rounded-control border border-success-soft bg-success-soft/40 p-4"
+        aria-label="Gemini Live oral exam controls"
+      >
         <div>
-          <span className="db-section-label">Gemini Live oral examiner</span>
-          <strong>{formatGeminiLiveStatus(oralState.status)}</strong>
-          <small>
-            The live examiner runs the speaking tasks aloud. Learner transcript is saved into the exam attempt.
+          <span className="block text-[12px] font-medium uppercase tracking-wide text-text-muted">
+            Gemini Live oral examiner
+          </span>
+          <strong className="text-[14px] text-text">
+            {formatGeminiLiveStatus(oralState.status)}
+          </strong>
+          <small className="block text-[12px] text-text-muted">
+            The live examiner runs the speaking tasks aloud. Learner transcript is saved into the exam
+            attempt.
           </small>
         </div>
-        <div className="db-exam-oral-actions">
-          {oralState.status === 'idle' || oralState.status === 'ended' || oralState.status === 'error' ? (
-            <button
-              type="button"
-              className="db-secondary-button"
+        <div className="flex items-center gap-2">
+          {oralState.status === 'idle' ||
+          oralState.status === 'ended' ||
+          oralState.status === 'error' ? (
+            <Button
+              variant="secondary"
               onClick={() => onStartOralExam(module)}
               disabled={!oralExamReady}
             >
               Start oral exam
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
-              className="db-secondary-button"
-              onClick={onEndOralExam}
-            >
+            <Button variant="secondary" onClick={onEndOralExam}>
               End oral exam
-            </button>
+            </Button>
           )}
-          <span>{oralExamReady ? formatGeminiLiveStatus(oralState.status) : 'Gemini Live required'}</span>
+          <span className="text-[13px] text-text-muted">
+            {oralExamReady ? formatGeminiLiveStatus(oralState.status) : 'Gemini Live required'}
+          </span>
         </div>
-        {oralState.latestTutorText ? <p>{oralState.latestTutorText}</p> : null}
-        {oralState.latestLearnerText ? <p>{oralState.latestLearnerText}</p> : null}
+        {oralState.latestTutorText ? (
+          <p className="rounded-control bg-brand-soft px-3 py-2 text-[13px] text-text">
+            {oralState.latestTutorText}
+          </p>
+        ) : null}
+        {oralState.latestLearnerText ? (
+          <p className="rounded-control bg-surface px-3 py-2 text-[13px] text-text">
+            {oralState.latestLearnerText}
+          </p>
+        ) : null}
       </div>
     ) : null}
 
-    <div className="db-exam-question-list">
+    <div className="flex flex-col gap-4">
       {module.objectiveQuestions.map((question, index) => (
-        <fieldset key={question.id} className="db-exam-question">
-          <legend>
+        <fieldset
+          key={question.id}
+          className="rounded-control border border-border bg-surface p-4"
+        >
+          <legend className="px-1 text-[14px] font-semibold text-text">
             {index + 1}. {question.prompt}
           </legend>
           {module.id === 'listening' ? (
-            <div className="db-exam-listening-audio">
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-control bg-info-soft p-3">
               <div>
-                <span className="db-section-label">Deepgram TTS audio</span>
-                <strong>
-                  {playedListeningQuestionIds.has(question.id) ? 'Audio played' : 'Listen before answering'}
+                <span className="block text-[12px] font-medium uppercase tracking-wide text-text-muted">
+                  Deepgram TTS audio
+                </span>
+                <strong className="text-[13px] text-text">
+                  {playedListeningQuestionIds.has(question.id)
+                    ? 'Audio played'
+                    : 'Listen before answering'}
                 </strong>
-                <small>The transcript is hidden in Hoeren mode.</small>
+                <small className="block text-[12px] text-text-muted">
+                  The transcript is hidden in Hoeren mode.
+                </small>
               </div>
-              <button
-                type="button"
-                className="db-secondary-button"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => onPlayListeningAudio(question)}
                 disabled={
                   !listeningAudioReady ||
@@ -650,32 +735,47 @@ const ExamRunner: React.FC<{
                   playedListeningQuestionIds.has(question.id)
                 }
                 aria-label={`Play listening audio for question ${index + 1}`}
+                icon={
+                  <i
+                    className={`fa-solid ${
+                      loadingListeningQuestionId === question.id
+                        ? 'fa-spinner fa-spin'
+                        : 'fa-circle-play'
+                    }`}
+                    aria-hidden="true"
+                  />
+                }
               >
-                <i
-                  className={`fa-solid ${
-                    loadingListeningQuestionId === question.id ? 'fa-spinner fa-spin' : 'fa-circle-play'
-                  }`}
-                  aria-hidden="true"
-                />
                 {loadingListeningQuestionId === question.id
                   ? 'Loading audio'
                   : playedListeningQuestionIds.has(question.id)
                     ? 'Audio played'
                     : 'Play audio'}
-              </button>
+              </Button>
             </div>
-          ) : question.passage ? <p>{question.passage}</p> : null}
-          {module.id === 'listening' && listeningAudioError ? (
-            <p className="db-conversation-message db-conversation-message-error">{listeningAudioError}</p>
+          ) : question.passage ? (
+            <p className="mb-3 rounded-control bg-surface-soft p-3 text-[14px] text-text">
+              {question.passage}
+            </p>
           ) : null}
-          <div className="db-exam-options">
+          {module.id === 'listening' && listeningAudioError ? (
+            <div className="mb-3">
+              <Notice tone="error">{listeningAudioError}</Notice>
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-2">
             {question.options.map((option, optionIndex) => (
-              <label key={`${question.id}-${option}`}>
+              <label
+                key={`${question.id}-${option}`}
+                className="flex items-center gap-2 rounded-control border border-border bg-surface px-3 py-2 text-[14px] text-text"
+              >
                 <input
                   type="radio"
                   name={question.id}
                   checked={answers.objective[question.id] === optionIndex}
-                  disabled={module.id === 'listening' && !playedListeningQuestionIds.has(question.id)}
+                  disabled={
+                    module.id === 'listening' && !playedListeningQuestionIds.has(question.id)
+                  }
                   onChange={() => onObjectiveAnswer(question, optionIndex)}
                 />
                 <span>{option}</span>
@@ -686,89 +786,104 @@ const ExamRunner: React.FC<{
       ))}
 
       {module.productiveTasks.map(task => (
-        <label key={task.id} className="db-exam-productive-task">
-          <span>{task.prompt}</span>
+        <label key={task.id} className="flex flex-col gap-2">
+          <span className="text-[14px] font-semibold text-text">{task.prompt}</span>
           <textarea
             value={answers.productive[task.id] ?? ''}
             onChange={event => onProductiveAnswer(task, event.target.value)}
             rows={7}
-            placeholder={module.id === 'speaking' ? 'Write your spoken answer or transcript here...' : 'Write your exam answer here...'}
+            placeholder={
+              module.id === 'speaking'
+                ? 'Write your spoken answer or transcript here...'
+                : 'Write your exam answer here...'
+            }
+            className="w-full rounded-control border border-border bg-surface p-3 text-[14px] text-text outline-none focus:border-brand"
           />
-          <small>
+          <small className="text-[12px] text-text-muted">
             Minimum guide: {task.minWords ?? 60} words. Rubric: {task.rubric.join(', ')}.
           </small>
         </label>
       ))}
     </div>
 
-    <div className="db-exam-actions">
+    <div>
       {isLastModule ? (
-        <button type="button" className="db-primary-button" onClick={onSubmit}>
-          Submit exam and show result
-        </button>
+        <Button onClick={onSubmit}>Submit exam and show result</Button>
       ) : (
-        <button type="button" className="db-primary-button" onClick={onNext}>
-          Next module
-        </button>
+        <Button onClick={onNext}>Next module</Button>
       )}
     </div>
-  </>
+  </div>
 );
 
 const ExamResultView: React.FC<{
   attempt: ExamAttempt;
   onRestart: () => void;
 }> = ({ attempt, onRestart }) => (
-  <div className="db-exam-result-view">
-    <span className="db-section-label">Exam result</span>
-    <h2>{attempt.result.passed ? 'Passed' : 'Needs more work'}</h2>
-    <div className="db-exam-score-hero">
-      <strong>{attempt.result.percentage}%</strong>
-      <span>
+  <div className="flex flex-col gap-5">
+    <span className="text-[12px] font-medium uppercase tracking-wide text-text-muted">
+      Exam result
+    </span>
+    <h2 className="text-[22px] font-bold text-text">
+      {attempt.result.passed ? 'Passed' : 'Needs more work'}
+    </h2>
+    <div className="rounded-card bg-text px-6 py-5 text-surface">
+      <strong className="text-[40px] font-bold">{attempt.result.percentage}%</strong>
+      <span className="ml-3 text-[14px] opacity-80">
         {attempt.result.totalEarnedPoints} / {attempt.result.totalPossiblePoints} points
       </span>
     </div>
-    <p>{attempt.result.summary}</p>
+    <p className="text-[14px] text-text-muted">{attempt.result.summary}</p>
 
-    <div className="db-exam-result-grid">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {attempt.result.moduleResults.map(result => (
-        <article key={result.moduleId}>
-          <span>{result.germanLabel}</span>
-          <strong>{result.percentage}%</strong>
-          <small>{result.earnedPoints} / {result.possiblePoints} certificate points - {result.rating}</small>
+        <article key={result.moduleId} className="rounded-control border border-border bg-surface p-3">
+          <span className="block text-[12px] text-text-muted">{result.germanLabel}</span>
+          <strong className="text-[18px] font-bold text-text">{result.percentage}%</strong>
+          <small className="block text-[11px] text-text-muted">
+            {result.earnedPoints} / {result.possiblePoints} certificate points - {result.rating}
+          </small>
         </article>
       ))}
     </div>
 
-    <div className="db-exam-score-sheet" aria-label="Detailed exam score sheet">
+    <div className="flex flex-col gap-4" aria-label="Detailed exam score sheet">
       {attempt.result.moduleResults.map(moduleResult => (
-        <section key={moduleResult.moduleId}>
-          <header>
+        <section
+          key={moduleResult.moduleId}
+          className="rounded-control border border-border bg-surface p-4"
+        >
+          <header className="mb-3 flex items-center justify-between">
             <div>
-              <span className="db-section-label">{moduleResult.germanLabel}</span>
-              <h3>{moduleResult.englishLabel}</h3>
+              <span className="block text-[12px] font-medium uppercase tracking-wide text-text-muted">
+                {moduleResult.germanLabel}
+              </span>
+              <h3 className="text-[15px] font-semibold text-text">{moduleResult.englishLabel}</h3>
             </div>
-            <strong>
+            <strong className="text-[15px] text-text">
               {moduleResult.earnedPoints} / {moduleResult.possiblePoints}
             </strong>
           </header>
-          <div className="db-exam-part-score-list">
+          <div className="flex flex-col gap-3">
             {moduleResult.partResults.map(part => (
-              <article key={part.partId}>
+              <article key={part.partId} className="border-t border-border pt-2 text-[13px]">
                 <div>
-                  <b>{part.title}</b>
-                  <span>
+                  <b className="text-text">{part.title}</b>
+                  <span className="ml-2 text-text-muted">
                     {formatPoints(part.earnedPoints)} / {formatPoints(part.possiblePoints)} raw points
                     {part.lostPoints > 0 ? ` - ${formatPoints(part.lostPoints)} deducted` : ''}
                   </span>
                 </div>
-                <small>{part.scoringNote}</small>
+                <small className="block text-[12px] text-text-muted">{part.scoringNote}</small>
                 {part.criteria?.length ? (
-                  <ul>
+                  <ul className="mt-1 list-inside list-disc text-[12px] text-text-muted">
                     {part.criteria.map(criterion => (
                       <li key={criterion.criterionId}>
-                        {criterion.label}: band {criterion.band}, {formatPoints(criterion.earnedPoints)} / {formatPoints(criterion.possiblePoints)}
-                        {criterion.lostPoints > 0 ? ` (${formatPoints(criterion.lostPoints)} deducted)` : ''}
+                        {criterion.label}: band {criterion.band},{' '}
+                        {formatPoints(criterion.earnedPoints)} / {formatPoints(criterion.possiblePoints)}
+                        {criterion.lostPoints > 0
+                          ? ` (${formatPoints(criterion.lostPoints)} deducted)`
+                          : ''}
                       </li>
                     ))}
                   </ul>
@@ -780,9 +895,9 @@ const ExamResultView: React.FC<{
       ))}
     </div>
 
-    <button type="button" className="db-secondary-button" onClick={onRestart}>
+    <Button variant="secondary" onClick={onRestart}>
       Start another exam
-    </button>
+    </Button>
   </div>
 );
 
