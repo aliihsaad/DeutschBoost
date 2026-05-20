@@ -379,6 +379,11 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
               }
             />
           </div>
+          <ProviderHelpLink
+            href="https://openrouter.ai/keys"
+            label="Get an OpenRouter API key"
+            hint="Sign in at openrouter.ai, open Keys → Create key, then paste it above."
+          />
         </Card>
 
         <Card title="Realtime Conversation">
@@ -438,6 +443,11 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
               }
             />
           </div>
+          <ProviderHelpLink
+            href="https://aistudio.google.com/app/apikey"
+            label="Get a Gemini API key in AI Studio"
+            hint="Open Google AI Studio → API keys → Create key, then paste it above."
+          />
         </Card>
 
         <Card title="Speech Provider" className="md:col-span-2">
@@ -500,6 +510,11 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
               }
             />
           </div>
+          <ProviderHelpLink
+            href="https://console.deepgram.com/signup"
+            label="Get a Deepgram API key"
+            hint="Sign up at console.deepgram.com, open API Keys → Create a key, then paste it above. New accounts include free credits."
+          />
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <Button
@@ -582,6 +597,26 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
     </main>
   );
 };
+
+interface ProviderHelpLinkProps {
+  href: string;
+  label: string;
+  hint: string;
+}
+
+const ProviderHelpLink: React.FC<ProviderHelpLinkProps> = ({ href, label, hint }) => (
+  <p className="mt-3 text-[12px] leading-relaxed text-text-muted">
+    {hint}{' '}
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="font-semibold text-brand-strong underline-offset-2 hover:underline"
+    >
+      {label} →
+    </a>
+  </p>
+);
 
 interface ToggleRowProps {
   label: string;
