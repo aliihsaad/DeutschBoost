@@ -10,6 +10,7 @@ import ProfilePage from './pages/ProfilePage';
 import ActivityPage from './pages/ActivityPage';
 import { PracticePage } from './pages/PracticePage';
 import { ExamSimulatorPage } from './pages/ExamSimulatorPage';
+import { EmptyState, PageHeader } from './components/ui';
 import { TestResult, LearningPlan } from './types';
 import { generateLearningPlan } from './services/geminiService';
 import {
@@ -237,12 +238,13 @@ const MainApp: React.FC = () => {
 };
 
 const LocalWorkspacePlaceholderPage: React.FC<{ title: string; description: string }> = ({ title, description }) => (
-  <main className="db-dashboard" aria-label={`${title} workspace`}>
-    <section className="db-panel db-empty-workspace">
-      <span className="db-section-label">Lokaler Arbeitsbereich</span>
-      <h1>{title}</h1>
-      <p>{description}</p>
-    </section>
+  <main className="mx-auto w-full max-w-4xl px-6 py-8" aria-label={`${title} workspace`}>
+    <PageHeader title={title} />
+    <EmptyState
+      title="Coming soon"
+      description={description}
+      icon={<i className="fa-solid fa-tools text-3xl text-text-muted" aria-hidden />}
+    />
   </main>
 );
 
