@@ -1,34 +1,16 @@
-/**
- * PracticePage Component
- * Main hub for practice activities - Goethe exam preparation focused
- */
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CEFRLevel, SkillType } from '../types';
 import { browserProfileRepository } from '../src/infrastructure/browser/profileStorage';
-
-interface SkillCardProps {
-  icon: string;
-  title: SkillType;
-  description: string;
-  color: string;
-  onClick: () => void;
-}
-
-const SkillCard: React.FC<SkillCardProps> = ({ icon, title, description, color, onClick }) => {
-  return (
-    <button
-      onClick={onClick}
-      className={`${color} p-6 rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-1 text-left w-full`}
-    >
-      <div className="text-4xl mb-3">{icon}</div>
-      <h3 className="text-xl font-bold text-gray-800 mb-2">{title}</h3>
-      <p className="text-sm text-gray-700 mb-4">{description}</p>
-      <span className="text-sm font-medium text-indigo-600">Start Practice →</span>
-    </button>
-  );
-};
+import {
+  Badge,
+  Button,
+  Card,
+  Field,
+  OptionCard,
+  PageHeader,
+  SegmentedControl,
+} from '../components/ui';
 
 const TOPIC_OPTIONS = [
   'Daily routines',
@@ -43,11 +25,28 @@ const TOPIC_OPTIONS = [
   'General conversation',
 ];
 
+const SKILLS: Array<{ title: SkillType; icon: string; description: string }> = [
+  { title: 'Grammar', icon: '📝', description: 'Practice German grammar rules and sentence structures.' },
+  { title: 'Vocabulary', icon: '📚', description: 'Build your German vocabulary with themed word sets.' },
+  { title: 'Listening', icon: '👂', description: 'Improve comprehension with audio exercises.' },
+  { title: 'Writing', icon: '✍️', description: 'Practice writing essays and formal/informal texts.' },
+  { title: 'Speaking', icon: '🗣️', description: 'Have conversations with AI and get pronunciation feedback.' },
+  { title: 'Reading', icon: '📖', description: 'Read German texts and answer comprehension questions.' },
+];
+
+const LEVELS: CEFRLevel[] = [
+  CEFRLevel.A1,
+  CEFRLevel.A2,
+  CEFRLevel.B1,
+  CEFRLevel.B2,
+  CEFRLevel.C1,
+  CEFRLevel.C2,
+];
+
 function createLocalSessionId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
-
   return `local-practice-${Date.now()}`;
 }
 
@@ -59,54 +58,12 @@ export const PracticePage: React.FC = () => {
   const [profileLevel, setProfileLevel] = useState<CEFRLevel>(CEFRLevel.A1);
   const [selectedTopic, setSelectedTopic] = useState(TOPIC_OPTIONS[0]);
 
-  const skills = [
-    {
-      title: 'Grammar' as SkillType,
-      icon: '📝',
-      description: 'Practice German grammar rules and sentence structures',
-      color: 'bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200'
-    },
-    {
-      title: 'Vocabulary' as SkillType,
-      icon: '📚',
-      description: 'Build your German vocabulary with themed word sets',
-      color: 'bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200'
-    },
-    {
-      title: 'Listening' as SkillType,
-      icon: '👂',
-      description: 'Improve comprehension with audio exercises',
-      color: 'bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200'
-    },
-    {
-      title: 'Writing' as SkillType,
-      icon: '✍️',
-      description: 'Practice writing essays and formal/informal texts',
-      color: 'bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200'
-    },
-    {
-      title: 'Speaking' as SkillType,
-      icon: '🗣️',
-      description: 'Have conversations with AI and get pronunciation feedback',
-      color: 'bg-gradient-to-br from-pink-50 to-pink-100 border-2 border-pink-200'
-    },
-    {
-      title: 'Reading' as SkillType,
-      icon: '📖',
-      description: 'Read German texts and answer comprehension questions',
-      color: 'bg-gradient-to-br from-indigo-50 to-indigo-100 border-2 border-indigo-200'
-    }
-  ];
-
-  const levels: CEFRLevel[] = [CEFRLevel.A1, CEFRLevel.A2, CEFRLevel.B1, CEFRLevel.B2, CEFRLevel.C1, CEFRLevel.C2];
-
   useEffect(() => {
     let cancelled = false;
 
     async function loadLocalProfile() {
       try {
         const profile = await browserProfileRepository.loadProfile();
-
         if (!cancelled) {
           setProfileLevel(profile.currentLevel);
         }
@@ -133,109 +90,74 @@ export const PracticePage: React.FC = () => {
     const sessionId = createLocalSessionId();
 
     if (skill === 'Speaking') {
-      navigate(`/speaking-activity?practiceMode=true&sessionId=${sessionId}&topic=${encodeURIComponent(topic)}&level=${level}`);
+      navigate(
+        `/speaking-activity?practiceMode=true&sessionId=${sessionId}&topic=${encodeURIComponent(topic)}&level=${level}`,
+      );
     } else {
-      navigate(`/activity?practiceMode=true&sessionId=${sessionId}&type=${skill.toLowerCase()}&topic=${encodeURIComponent(topic)}&level=${level}`);
+      navigate(
+        `/activity?practiceMode=true&sessionId=${sessionId}&type=${skill.toLowerCase()}&topic=${encodeURIComponent(topic)}&level=${level}`,
+      );
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
-            🎯 Practice Hub
-          </h1>
-          <p className="text-lg text-gray-600">
-            Goethe-Zertifikat focused practice with AI-powered feedback
-          </p>
+    <main className="mx-auto w-full max-w-6xl px-6 py-8" aria-label="Practice hub">
+      <PageHeader
+        title="🎯 Practice Hub"
+        subtitle="Goethe-Zertifikat focused practice with AI-powered feedback."
+      />
+
+      <Card title="⚡ Quick Practice">
+        <p className="mb-4 text-[13px] text-text-muted">Choose a skill to practice right now.</p>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {SKILLS.map(skill => (
+            <OptionCard
+              key={skill.title}
+              label={`${skill.icon}  ${skill.title}`}
+              description={skill.description}
+              onSelect={() => handleSkillClick(skill.title)}
+            />
+          ))}
         </div>
+      </Card>
 
-        {/* Quick Practice Skills */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            ⚡ Quick Practice
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Choose a skill to practice right now
-          </p>
+      <Card className="mt-4">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <Badge tone="brand">Exam preparation</Badge>
+            <h2 className="mt-2 text-[20px] font-bold text-text">Goethe Exam Simulator</h2>
+            <p className="mt-1 text-[14px] text-text-muted">
+              Open a timed Goethe-style workspace with level-specific reading, listening, writing, and speaking
+              modules.
+            </p>
+          </div>
+          <Button onClick={() => navigate('/exam')}>Open Exam Simulator</Button>
+        </div>
+      </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {skills.map((skill) => (
-              <SkillCard
-                key={skill.title}
-                icon={skill.icon}
-                title={skill.title}
-                description={skill.description}
-                color={skill.color}
-                onClick={() => handleSkillClick(skill.title)}
+      {showSkillSelector && selectedSkill && selectedLevel && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${selectedSkill} practice options`}
+        >
+          <Card className="w-full max-w-md" title={`${selectedSkill} Practice`}>
+            <Field label="Level" htmlFor="practice-level">
+              <SegmentedControl
+                ariaLabel="Level"
+                value={selectedLevel}
+                options={LEVELS.map(level => ({ value: level, label: level }))}
+                onChange={value => setSelectedLevel(value as CEFRLevel)}
               />
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <p className="text-sm font-bold text-indigo-600 uppercase tracking-wide mb-2">
-                Exam preparation
-              </p>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                Goethe Exam Simulator
-              </h2>
-              <p className="text-gray-600">
-                Open a timed Goethe-style workspace with level-specific reading,
-                listening, writing, and speaking modules.
-              </p>
-            </div>
-            <button
-              onClick={() => navigate('/exam')}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition"
-            >
-              Open Exam Simulator
-            </button>
-          </div>
-        </div>
-
-        {/* Skill Selector Modal */}
-        {showSkillSelector && selectedSkill && selectedLevel && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">
-                {selectedSkill} Practice
-              </h3>
-
-              {/* Level Selector */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Level
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {levels.map((level) => (
-                    <button
-                      key={level}
-                      onClick={() => setSelectedLevel(level)}
-                      className={`px-4 py-2 rounded-lg font-medium transition ${
-                        selectedLevel === level
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {level}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Topic Selector */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Topic
-                </label>
+            </Field>
+            <div className="mt-4">
+              <Field label="Topic" htmlFor="practice-topic">
                 <select
+                  id="practice-topic"
                   value={selectedTopic}
-                  onChange={(e) => setSelectedTopic(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
+                  onChange={event => setSelectedTopic(event.target.value)}
+                  className="w-full rounded-control border border-border bg-surface px-3 py-2 text-[13px] text-text focus:border-brand focus:outline-none"
                 >
                   {TOPIC_OPTIONS.map(topic => (
                     <option key={topic} value={topic}>
@@ -243,33 +165,32 @@ export const PracticePage: React.FC = () => {
                     </option>
                   ))}
                 </select>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowSkillSelector(false);
-                    setSelectedSkill(null);
-                  }}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    handleStartPractice(selectedSkill, selectedLevel, selectedTopic);
-                    setShowSkillSelector(false);
-                  }}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-                >
-                  Start Practice
-                </button>
-              </div>
+              </Field>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
+            <div className="mt-6 flex gap-2">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => {
+                  setShowSkillSelector(false);
+                  setSelectedSkill(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  handleStartPractice(selectedSkill, selectedLevel, selectedTopic);
+                  setShowSkillSelector(false);
+                }}
+              >
+                Start Practice
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+    </main>
   );
 };

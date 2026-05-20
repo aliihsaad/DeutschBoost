@@ -1,30 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LearningPlan } from '../types';
-import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { browserProfileRepository } from '../src/infrastructure/browser/profileStorage';
+import { Badge, Button, Card, EmptyState, PageHeader, ProgressBar, Stat, cn } from '../components/ui';
 
 interface LearningPlanPageProps {
   learningPlan: LearningPlan | null;
   loading: boolean;
 }
 
-const getIconForSkill = (skill: string) => {
-    switch (skill.toLowerCase()) {
-        case 'grammar': return 'fa-solid fa-spell-check text-blue-500';
-        case 'vocabulary': return 'fa-solid fa-book text-green-500';
-        case 'listening': return 'fa-solid fa-headphones text-purple-500';
-        case 'writing': return 'fa-solid fa-pencil-alt text-orange-500';
-        case 'speaking': return 'fa-solid fa-comments text-red-500';
-        case 'reading': return 'fa-solid fa-book-open text-teal-500';
-        default: return 'fa-solid fa-star text-yellow-500';
-    }
-}
+const SKILL_ICON: Record<string, string> = {
+  grammar: 'fa-solid fa-spell-check',
+  vocabulary: 'fa-solid fa-book',
+  listening: 'fa-solid fa-headphones',
+  writing: 'fa-solid fa-pencil-alt',
+  speaking: 'fa-solid fa-comments',
+  reading: 'fa-solid fa-book-open',
+};
+
+const SKILL_BADGE_TONE: Record<string, 'brand' | 'info' | 'success' | 'danger' | 'neutral'> = {
+  grammar: 'info',
+  vocabulary: 'success',
+  listening: 'brand',
+  writing: 'brand',
+  speaking: 'danger',
+  reading: 'info',
+};
+
+const skillIcon = (skill: string) => SKILL_ICON[skill.toLowerCase()] ?? 'fa-solid fa-star';
+const skillTone = (skill: string) => SKILL_BADGE_TONE[skill.toLowerCase()] ?? 'neutral';
 
 const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loading }) => {
   const navigate = useNavigate();
-  const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([1])); // First week expanded by default
+  const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([1]));
   const [studyStreak, setStudyStreak] = useState<number>(0);
   const [totalStudyTime, setTotalStudyTime] = useState<number>(0);
 
@@ -37,50 +46,34 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
   ) => {
     const activityType = skill.toLowerCase();
 
-    // Special handling for speaking - redirect to speaking activity page
     if (activityType === 'speaking') {
-      const params = new URLSearchParams({
-        itemId,
-        topic,
-        description,
-        level,
-      });
+      const params = new URLSearchParams({ itemId, topic, description, level });
       navigate(`/speaking-activity?${params.toString()}`);
       return;
     }
 
-    // Navigate to activity page with params
-    const params = new URLSearchParams({
-      type: activityType,
-      topic,
-      description,
-      level,
-      itemId,
-    });
-
+    const params = new URLSearchParams({ type: activityType, topic, description, level, itemId });
     navigate(`/activity?${params.toString()}`);
   };
 
   const toggleWeek = (weekNumber: number) => {
     setExpandedWeeks(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(weekNumber)) {
-        newSet.delete(weekNumber);
+      const next = new Set(prev);
+      if (next.has(weekNumber)) {
+        next.delete(weekNumber);
       } else {
-        newSet.add(weekNumber);
+        next.add(weekNumber);
       }
-      return newSet;
+      return next;
     });
   };
 
-  // Load local profile data for study streak and total time.
   useEffect(() => {
     let cancelled = false;
 
-    const loadUserProfile = async () => {
+    async function loadUserProfile() {
       try {
         const profile = await browserProfileRepository.loadProfile();
-
         if (!cancelled) {
           setStudyStreak(profile.studyStreak);
           setTotalStudyTime(profile.totalStudyTimeMinutes);
@@ -88,7 +81,7 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
       } catch (err) {
         console.error('Error loading local profile:', err);
       }
-    };
+    }
 
     loadUserProfile();
 
@@ -99,7 +92,7 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex flex-col items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center px-6">
         <LoadingSpinner text="Generating your personalized learning plan..." />
       </div>
     );
@@ -107,291 +100,190 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
 
   if (!learningPlan) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-        <div className="container mx-auto p-4 sm:p-6 md:p-8">
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <Card glass className="max-w-2xl text-center backdrop-blur-xl border-2 border-white/30">
-              <div className="text-5xl sm:text-6xl mb-4 sm:mb-6">📚</div>
-              <h1 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                No Learning Plan Found
-              </h1>
-              <p className="text-gray-600 text-base sm:text-lg font-medium mb-4 sm:mb-6 px-4">
-                Please complete the placement test first to generate your personalized plan.
-              </p>
-              <button
-                onClick={() => navigate('/placement-test')}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-3.5 rounded-xl font-bold text-base sm:text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-              >
-                Take Placement Test
-              </button>
-            </Card>
-          </div>
-        </div>
-      </div>
+      <main className="mx-auto w-full max-w-3xl px-6 py-12" aria-label="No learning plan">
+        <EmptyState
+          title="No Learning Plan Found"
+          description="Please complete the placement test first to generate your personalized plan."
+          icon={<i className="fa-solid fa-book-open text-4xl text-text-muted" aria-hidden />}
+          actionLabel="Take Placement Test"
+          onAction={() => navigate('/placement-test')}
+        />
+      </main>
     );
   }
 
   const totalItems = learningPlan.weeks.reduce((sum, week) => sum + week.items.length, 0);
-  const completedItems = learningPlan.weeks.reduce((sum, week) =>
-    sum + week.items.filter(item => item.completed).length, 0
+  const completedItems = learningPlan.weeks.reduce(
+    (sum, week) => sum + week.items.filter(item => item.completed).length,
+    0,
   );
   const progressPercentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
   const allPlanItemsComplete = totalItems > 0 && completedItems === totalItems;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <div className="container mx-auto p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 md:space-y-8">
-        {/* Header Section - Mobile Optimized */}
-        <Card glass hover className="backdrop-blur-xl border-2 border-white/30 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 sm:w-64 h-48 sm:h-64 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-          <div className="relative z-10">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-gray-800 via-gray-700 to-gray-600 bg-clip-text text-transparent mb-2 sm:mb-3">
-              Your Learning Plan
-            </h1>
-            <p className="text-gray-600 text-base sm:text-lg font-medium">
-              Target Level:{' '}
-              <span className="font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent text-lg sm:text-xl">
-                {learningPlan.level}
-              </span>
-            </p>
-          </div>
-        </Card>
+    <main className="mx-auto w-full max-w-6xl px-6 py-8" aria-label="Learning plan">
+      <PageHeader
+        title="Your Learning Plan"
+        subtitle={`Target level: ${learningPlan.level}`}
+        actions={<Badge tone="brand">{learningPlan.level}</Badge>}
+      />
 
-        {/* Progress Overview - Responsive Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
-          <Card hover className="relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-emerald-600 opacity-100 group-hover:opacity-90 transition-opacity"></div>
-            <div className="relative z-10 flex flex-col items-center justify-center text-white py-6 sm:py-8">
-              <span className="text-base sm:text-lg font-bold mb-2">Overall Progress</span>
-              <span className="text-5xl sm:text-6xl md:text-7xl font-bold mb-2">{progressPercentage}%</span>
-              <span className="text-xs sm:text-sm opacity-90 font-medium">{completedItems} of {totalItems} completed</span>
-            </div>
-          </Card>
-
-          <Card hover className="relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-red-600 opacity-100 group-hover:opacity-90 transition-opacity"></div>
-            <div className="relative z-10 flex flex-col items-center justify-center text-white py-6 sm:py-8">
-              <span className="text-base sm:text-lg font-bold mb-2">Study Streak</span>
-              <div className="flex items-center gap-2 mb-2">
-                <i className="fa-solid fa-fire text-5xl sm:text-6xl md:text-7xl"></i>
-                <span className="text-5xl sm:text-6xl md:text-7xl font-bold">{studyStreak}</span>
-              </div>
-              <span className="text-xs sm:text-sm opacity-90 font-medium">{studyStreak === 1 ? 'day' : 'days'} in a row</span>
-            </div>
-          </Card>
-
-          <Card hover className="relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-blue-600 opacity-100 group-hover:opacity-90 transition-opacity"></div>
-            <div className="relative z-10 flex flex-col items-center justify-center text-white py-6 sm:py-8">
-              <span className="text-base sm:text-lg font-bold mb-2">Study Time</span>
-              <span className="text-5xl sm:text-6xl md:text-7xl font-bold mb-2">{Math.round(totalStudyTime / 60)}</span>
-              <span className="text-xs sm:text-sm opacity-90 font-medium">hours total ({totalStudyTime} min)</span>
-            </div>
-          </Card>
-
-          <Card hover className="relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 opacity-100 group-hover:opacity-90 transition-opacity"></div>
-            <div className="relative z-10 flex flex-col items-center justify-center text-white py-6 sm:py-8">
-              <span className="text-base sm:text-lg font-bold mb-2">Total Weeks</span>
-              <span className="text-5xl sm:text-6xl md:text-7xl font-bold mb-2">{learningPlan.weeks.length}</span>
-              <span className="text-xs sm:text-sm opacity-90 font-medium">Structured learning path</span>
-            </div>
-          </Card>
-
-          <Card hover className="relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-pink-600 opacity-100 group-hover:opacity-90 transition-opacity"></div>
-            <div className="relative z-10 flex flex-col items-center justify-center text-white py-6 sm:py-8">
-              <span className="text-base sm:text-lg font-bold mb-2">Activities</span>
-              <span className="text-5xl sm:text-6xl md:text-7xl font-bold mb-2">{totalItems}</span>
-              <span className="text-xs sm:text-sm opacity-90 font-medium">Learning activities</span>
-            </div>
-          </Card>
-        </div>
-
-        {allPlanItemsComplete && (
-          <Card glass className="backdrop-blur-xl border-2 border-green-200/70 relative overflow-hidden">
-            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1.4fr_0.8fr] gap-6 items-center">
-              <div>
-                <span className="inline-block px-3 py-1 rounded-lg bg-green-100 text-green-700 text-xs font-bold uppercase tracking-wide mb-3">
-                  Local path finished
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-3">
-                  Plan complete
-                </h2>
-                <p className="text-gray-700 font-medium mb-4">
-                  You completed {completedItems} of {totalItems} tasks for this {learningPlan.level} plan.
-                  The next useful step is to recalibrate your level or start a fresh plan from the latest placement result.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={() => navigate('/placement-test')}
-                    className="px-5 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:from-green-700 hover:to-emerald-700 transition"
-                  >
-                    Recalibrate level
-                  </button>
-                  <button
-                    onClick={() => navigate('/placement-test')}
-                    className="px-5 py-3 bg-white text-gray-800 border-2 border-gray-200 rounded-xl font-bold hover:border-green-300 transition"
-                  >
-                    Start next plan
-                  </button>
-                  <button
-                    onClick={() => navigate('/practice')}
-                    className="px-5 py-3 bg-white text-gray-800 border-2 border-gray-200 rounded-xl font-bold hover:border-blue-300 transition"
-                  >
-                    Keep practicing
-                  </button>
-                </div>
-              </div>
-              <div className="bg-green-50 border-2 border-green-100 rounded-2xl p-5">
-                <h3 className="text-lg font-bold text-green-800 mb-3">What happens now?</h3>
-                <ul className="space-y-2 text-sm text-green-900">
-                  <li>Completed tasks stay saved locally.</li>
-                  <li>Daily practice remains available from Practice and Conversation.</li>
-                  <li>A new placement creates the next active plan.</li>
-                </ul>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Goals Section - Compact on Mobile */}
-        <Card glass hover className="backdrop-blur-xl border-2 border-white/30 relative overflow-hidden">
-          <div className="absolute bottom-0 left-0 w-32 sm:w-48 h-32 sm:h-48 bg-gradient-to-br from-blue-400/20 to-indigo-400/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 hidden sm:block"></div>
-          <div className="relative z-10">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-3 sm:mb-4 bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-              Your Goals 🎯
-            </h2>
-            <ul className="space-y-2 sm:space-y-3">
-              {learningPlan.goals.map((goal, index) => (
-                <li key={index} className="flex items-start space-x-2 sm:space-x-3">
-                  <div className="flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-xs sm:text-sm mt-0.5">
-                    {index + 1}
-                  </div>
-                  <span className="text-gray-700 font-medium text-sm sm:text-base md:text-lg leading-tight sm:leading-normal">{goal}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </Card>
-
-        {/* Weekly Plan - Collapsible on Mobile */}
-        <div className="space-y-4 sm:space-y-6">
-          {learningPlan.weeks.map((week, weekIndex) => {
-            const weekCompleted = week.items.filter(i => i.completed).length;
-            const weekTotal = week.items.length;
-            const weekProgress = Math.round((weekCompleted / weekTotal) * 100);
-            const isExpanded = expandedWeeks.has(week.week);
-
-            return (
-              <Card key={week.week} glass className="backdrop-blur-xl border-2 border-white/30">
-                {/* Week Header - Always Visible, Clickable on Mobile */}
-                <button
-                  onClick={() => toggleWeek(week.week)}
-                  className="w-full text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg -m-2 p-2"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 pb-3 sm:pb-4 border-b-2 border-gray-200/50">
-                    <div className="flex items-center justify-between sm:block">
-                      <div>
-                        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                          Week {week.week}
-                        </h2>
-                        <p className="text-sm sm:text-base md:text-lg font-bold text-blue-600 mt-0.5 sm:mt-1">{week.focus}</p>
-                      </div>
-                      {/* Mobile Expand/Collapse Icon */}
-                      <div className="sm:hidden ml-3">
-                        <i className={`fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-gray-500 text-lg`}></i>
-                      </div>
-                    </div>
-                    <div className="mt-3 sm:mt-0">
-                      <div className="flex items-center space-x-2 sm:space-x-3">
-                        <div className="flex-1 sm:flex-none sm:w-32 h-2.5 sm:h-3 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-500"
-                            style={{ width: `${weekProgress}%` }}
-                          ></div>
-                        </div>
-                        <span className="font-bold text-gray-700 text-sm sm:text-base whitespace-nowrap">{weekProgress}%</span>
-                      </div>
-                      <p className="text-xs sm:text-sm text-gray-600 font-medium mt-1 text-right">{weekCompleted}/{weekTotal} completed</p>
-                    </div>
-                  </div>
-                </button>
-
-                {/* Week Items - Collapsible */}
-                {isExpanded && (
-                  <div className="space-y-3 mt-4">
-                    {week.items.map((item, itemIndex) => (
-                      <div
-                        key={itemIndex}
-                        className={`flex flex-col sm:flex-row sm:items-center p-4 sm:p-5 rounded-xl transition-all duration-300 border-2 ${
-                          item.completed
-                            ? 'bg-green-50/80 border-green-200/50 opacity-90'
-                            : 'bg-white/60 border-white/40 hover:bg-white/80 hover:border-blue-200/50 hover:shadow-md'
-                        }`}
-                      >
-                        {/* Icon and Content */}
-                        <div className="flex items-start sm:items-center flex-1 min-w-0">
-                          <div className={`flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shadow-md ${
-                            item.completed ? 'bg-green-500' : 'bg-gradient-to-br from-blue-500 to-indigo-500'
-                          } transition-transform`}>
-                            <i className={`${getIconForSkill(item.skill)} text-white text-lg sm:text-xl`}></i>
-                          </div>
-
-                          <div className="flex-1 ml-3 sm:ml-4 min-w-0">
-                            <h3 className={`font-bold text-base sm:text-lg ${item.completed ? 'line-through text-gray-500' : 'text-gray-800'} break-words`}>
-                              {item.topic}
-                            </h3>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className={`inline-block px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg text-xs font-bold whitespace-nowrap ${
-                                item.skill.toLowerCase() === 'grammar' ? 'bg-blue-100 text-blue-700' :
-                                item.skill.toLowerCase() === 'vocabulary' ? 'bg-green-100 text-green-700' :
-                                item.skill.toLowerCase() === 'listening' ? 'bg-purple-100 text-purple-700' :
-                                item.skill.toLowerCase() === 'writing' ? 'bg-orange-100 text-orange-700' :
-                                item.skill.toLowerCase() === 'speaking' ? 'bg-red-100 text-red-700' :
-                                item.skill.toLowerCase() === 'reading' ? 'bg-teal-100 text-teal-700' :
-                                'bg-yellow-100 text-yellow-700'
-                              }`}>
-                                {item.skill}
-                              </span>
-                            </div>
-                            <p className={`text-xs sm:text-sm mt-2 ${item.completed ? 'line-through text-gray-500' : 'text-gray-600'} font-medium break-words`}>
-                              {item.description}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Action Buttons - Stack on Mobile */}
-                        <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 mt-3 sm:mt-0 sm:ml-4">
-                          {!item.completed && item.id && (
-                            <button
-                              onClick={() => handleStartActivity(item.skill, item.topic, item.description, learningPlan.level, item.id!)}
-                              className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-bold text-xs sm:text-sm hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
-                            >
-                              Start Activity
-                            </button>
-                          )}
-
-                          {/* Completion Indicator (Read-only) */}
-                          {item.completed && (
-                            <div className="flex items-center gap-2">
-                              <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 border-2 border-green-400 flex items-center justify-center shadow-lg">
-                                <i className="fa-solid fa-check text-white text-base sm:text-lg"></i>
-                              </div>
-                              <span className="text-xs sm:text-sm font-bold text-green-600 whitespace-nowrap">Completed!</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Stat label="Overall Progress" value={`${progressPercentage}%`} hint={`${completedItems} of ${totalItems} completed`} />
+        <Stat label="Study Streak" value={String(studyStreak)} hint={`${studyStreak === 1 ? 'day' : 'days'} in a row`} />
+        <Stat label="Study Time" value={String(Math.round(totalStudyTime / 60))} hint={`hours total (${totalStudyTime} min)`} />
+        <Stat label="Total Weeks" value={String(learningPlan.weeks.length)} hint="Structured learning path" />
+        <Stat label="Activities" value={String(totalItems)} hint="Learning activities" />
       </div>
-    </div>
+
+      {allPlanItemsComplete && (
+        <Card className="mt-6" title="Plan complete">
+          <div className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
+            <div>
+              <Badge tone="success">Local path finished</Badge>
+              <p className="mt-3 text-[14px] leading-relaxed text-text">
+                You completed {completedItems} of {totalItems} tasks for this {learningPlan.level} plan.
+                The next useful step is to recalibrate your level or start a fresh plan from the latest placement result.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button onClick={() => navigate('/placement-test')}>Recalibrate level</Button>
+                <Button variant="secondary" onClick={() => navigate('/placement-test')}>Start next plan</Button>
+                <Button variant="secondary" onClick={() => navigate('/practice')}>Keep practicing</Button>
+              </div>
+            </div>
+            <div className="rounded-card border border-success-soft bg-success-soft p-4">
+              <h3 className="text-[14px] font-semibold text-success">What happens now?</h3>
+              <ul className="mt-2 space-y-1 text-[13px] text-text">
+                <li>Completed tasks stay saved locally.</li>
+                <li>Daily practice remains available from Practice and Conversation.</li>
+                <li>A new placement creates the next active plan.</li>
+              </ul>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <Card className="mt-6" title="Your Goals">
+        <ul className="space-y-2">
+          {learningPlan.goals.map((goal, index) => (
+            <li key={index} className="flex items-start gap-3">
+              <span className="mt-0.5 inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-pill bg-brand text-[12px] font-bold text-text">
+                {index + 1}
+              </span>
+              <span className="text-[14px] text-text">{goal}</span>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      <div className="mt-6 space-y-4">
+        {learningPlan.weeks.map(week => {
+          const weekCompleted = week.items.filter(i => i.completed).length;
+          const weekTotal = week.items.length;
+          const weekProgress = weekTotal > 0 ? Math.round((weekCompleted / weekTotal) * 100) : 0;
+          const isExpanded = expandedWeeks.has(week.week);
+
+          return (
+            <Card key={week.week}>
+              <button
+                type="button"
+                onClick={() => toggleWeek(week.week)}
+                className="-m-2 w-full rounded-control p-2 text-left focus:outline-none focus:ring-2 focus:ring-brand"
+                aria-expanded={isExpanded}
+              >
+                <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-[20px] font-bold text-text">Week {week.week}</h2>
+                    <p className="mt-1 text-[14px] font-semibold text-brand-strong">{week.focus}</p>
+                  </div>
+                  <div className="w-full sm:w-56">
+                    <ProgressBar value={weekProgress} label={`Week ${week.week} progress`} />
+                    <p className="mt-1 text-right text-[12px] font-medium text-text-muted">
+                      {weekCompleted}/{weekTotal} completed · {weekProgress}%
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              {isExpanded && (
+                <div className="mt-4 space-y-3">
+                  {week.items.map((item, itemIndex) => (
+                    <div
+                      key={itemIndex}
+                      className={cn(
+                        'flex flex-col gap-3 rounded-card border p-4 sm:flex-row sm:items-center',
+                        item.completed
+                          ? 'border-success-soft bg-success-soft'
+                          : 'border-border bg-surface hover:border-brand',
+                      )}
+                    >
+                      <div className="flex flex-1 items-start gap-3">
+                        <div
+                          className={cn(
+                            'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-card',
+                            item.completed ? 'bg-success text-white' : 'bg-brand-soft text-brand-strong',
+                          )}
+                        >
+                          <i className={`${skillIcon(item.skill)} text-[18px]`} aria-hidden />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3
+                            className={cn(
+                              'break-words text-[15px] font-semibold',
+                              item.completed ? 'text-text-muted line-through' : 'text-text',
+                            )}
+                          >
+                            {item.topic}
+                          </h3>
+                          <div className="mt-1">
+                            <Badge tone={skillTone(item.skill)}>{item.skill}</Badge>
+                          </div>
+                          <p
+                            className={cn(
+                              'mt-2 break-words text-[13px]',
+                              item.completed ? 'text-text-muted line-through' : 'text-text-muted',
+                            )}
+                          >
+                            {item.description}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 sm:ml-4">
+                        {!item.completed && item.id && (
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              handleStartActivity(
+                                item.skill,
+                                item.topic,
+                                item.description,
+                                learningPlan.level,
+                                item.id!,
+                              )
+                            }
+                          >
+                            Start Activity
+                          </Button>
+                        )}
+                        {item.completed && (
+                          <div className="flex items-center gap-2">
+                            <span className="grid h-9 w-9 place-items-center rounded-pill bg-success text-white">
+                              <i className="fa-solid fa-check" aria-hidden />
+                            </span>
+                            <span className="text-[13px] font-semibold text-success">Completed!</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+    </main>
   );
 };
 
