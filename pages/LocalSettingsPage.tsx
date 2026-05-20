@@ -25,6 +25,7 @@ import { recordAudioSample, type RecordedAudioSample } from '../src/infrastructu
 import { browserProviderSettingsRepository } from '../src/infrastructure/browser/providerSettingsStorage';
 import { createInstalledNativeDeepgramFetch } from '../src/infrastructure/native/deepgramFetch';
 import { describeProviderStatus, type ProviderSettingsSnapshot } from '../src/ui/providerStatusModel';
+import { Badge, Button, Card, Field, PageHeader, cn } from '../components/ui';
 
 type DeepgramApiKeyTester = (apiKey: string) => Promise<DeepgramApiKeyTestResult>;
 type DeepgramAudioRecorder = () => Promise<RecordedAudioSample>;
@@ -334,37 +335,27 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
   }
 
   return (
-    <main className="db-dashboard db-settings" aria-label="Local settings">
-      <header className="db-dashboard-header">
-        <div>
-          <h1>Local Settings</h1>
-          <p>Provider keys, models, files, and privacy stay on this device.</p>
-        </div>
-      </header>
+    <main className="mx-auto w-full max-w-6xl px-6 py-8" aria-label="Local settings">
+      <PageHeader
+        title="Local Settings"
+        subtitle="Provider keys, models, files, and privacy stay on this device."
+      />
 
-      <form className="db-settings-grid" onSubmit={handleSave}>
-        <section className="db-panel db-settings-panel" aria-labelledby="ai-provider-heading">
+      <form onSubmit={handleSave} className="grid gap-4 md:grid-cols-2">
+        <Card title="AI Provider">
           <ProviderPanelHeader snapshot={snapshots.ai} />
-          <div className="db-settings-section-heading">
-            <h2 id="ai-provider-heading">AI Provider</h2>
-            <span>{aiStatus.detail}</span>
-          </div>
-
-          <label className="db-toggle-row">
-            <input
-              type="checkbox"
-              checked={settings.ai.enabled}
-              onChange={event =>
-                setSettings(current => ({
-                  ...current,
-                  ai: { ...current.ai, enabled: event.target.checked },
-                }))
-              }
-            />
-            <span>Enable OpenRouter</span>
-          </label>
-
-          <div className="db-field-grid">
+          <p className="mb-4 text-[12px] text-text-muted">{aiStatus.detail}</p>
+          <ToggleRow
+            label="Enable OpenRouter"
+            checked={settings.ai.enabled}
+            onChange={enabled =>
+              setSettings(current => ({
+                ...current,
+                ai: { ...current.ai, enabled },
+              }))
+            }
+          />
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
             <SecretField
               label="OpenRouter API key"
               value={apiKeyDrafts.ai}
@@ -388,33 +379,25 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
               }
             />
           </div>
-        </section>
+        </Card>
 
-        <section className="db-panel db-settings-panel" aria-labelledby="live-provider-heading">
+        <Card title="Realtime Conversation">
           <ProviderPanelHeader snapshot={snapshots.live} />
-          <div className="db-settings-section-heading">
-            <h2 id="live-provider-heading">Realtime Conversation</h2>
-            <span>{liveStatus.detail}</span>
-          </div>
-
-          <label className="db-toggle-row">
-            <input
-              type="checkbox"
-              checked={settings.live?.enabled ?? false}
-              onChange={event =>
-                setSettings(current => ({
-                  ...current,
-                  live: {
-                    ...(current.live ?? createDefaultLocalProviderSettings().live!),
-                    enabled: event.target.checked,
-                  },
-                }))
-              }
-            />
-            <span>Enable Gemini Live</span>
-          </label>
-
-          <div className="db-field-grid">
+          <p className="mb-4 text-[12px] text-text-muted">{liveStatus.detail}</p>
+          <ToggleRow
+            label="Enable Gemini Live"
+            checked={settings.live?.enabled ?? false}
+            onChange={enabled =>
+              setSettings(current => ({
+                ...current,
+                live: {
+                  ...(current.live ?? createDefaultLocalProviderSettings().live!),
+                  enabled,
+                },
+              }))
+            }
+          />
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
             <SecretField
               label="Gemini Live API key"
               value={apiKeyDrafts.live}
@@ -455,30 +438,22 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
               }
             />
           </div>
-        </section>
+        </Card>
 
-        <section className="db-panel db-settings-panel" aria-labelledby="speech-provider-heading">
+        <Card title="Speech Provider" className="md:col-span-2">
           <ProviderPanelHeader snapshot={snapshots.speech} />
-          <div className="db-settings-section-heading">
-            <h2 id="speech-provider-heading">Speech Provider</h2>
-            <span>{speechStatus.detail}</span>
-          </div>
-
-          <label className="db-toggle-row">
-            <input
-              type="checkbox"
-              checked={settings.speech.enabled}
-              onChange={event =>
-                setSettings(current => ({
-                  ...current,
-                  speech: { ...current.speech, enabled: event.target.checked },
-                }))
-              }
-            />
-            <span>Enable Deepgram</span>
-          </label>
-
-          <div className="db-field-grid">
+          <p className="mb-4 text-[12px] text-text-muted">{speechStatus.detail}</p>
+          <ToggleRow
+            label="Enable Deepgram"
+            checked={settings.speech.enabled}
+            onChange={enabled =>
+              setSettings(current => ({
+                ...current,
+                speech: { ...current.speech, enabled },
+              }))
+            }
+          />
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
             <SecretField
               label="Deepgram API key"
               value={apiKeyDrafts.speech}
@@ -491,52 +466,6 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
                 }));
               }}
             />
-            <div className="db-provider-test-row">
-              <button
-                className="db-inline-button"
-                type="button"
-                onClick={handleTestDeepgram}
-                disabled={loading || deepgramTest.state === 'testing'}
-              >
-                {deepgramTest.state === 'testing' ? 'Testing...' : 'Test key'}
-              </button>
-              <button
-                className="db-inline-button"
-                type="button"
-                onClick={handleRecordDeepgramAudio}
-                disabled={loading || deepgramAudioTest.state === 'testing'}
-              >
-                {deepgramAudioTest.state === 'testing' ? 'Recording...' : 'Record test audio'}
-              </button>
-              <button
-                className="db-inline-button"
-                type="button"
-                onClick={handlePlayDeepgramTts}
-                disabled={loading || deepgramTtsTest.state === 'testing'}
-              >
-                {deepgramTtsTest.state === 'testing' ? 'Preparing...' : 'Play test voice'}
-              </button>
-              <ProviderTestMessage state={deepgramTest.state} message={deepgramTest.message} />
-            </div>
-            {samplePlaybackUrl ? (
-              <audio
-                className="db-provider-test-audio"
-                controls
-                src={samplePlaybackUrl}
-                aria-label="Deepgram test sample playback"
-              />
-            ) : null}
-            <ProviderTestMessage state={deepgramAudioTest.state} message={deepgramAudioTest.message} />
-            {ttsPlaybackUrl ? (
-              <audio
-                className="db-provider-test-audio"
-                controls
-                autoPlay
-                src={ttsPlaybackUrl}
-                aria-label="Deepgram TTS test playback"
-              />
-            ) : null}
-            <ProviderTestMessage state={deepgramTtsTest.state} message={deepgramTtsTest.message} />
             <SelectField
               label="Deepgram model"
               value={settings.speech.model}
@@ -571,33 +500,106 @@ const LocalSettingsPage: React.FC<LocalSettingsPageProps> = ({
               }
             />
           </div>
-        </section>
 
-        <section className="db-panel db-settings-save-panel" aria-label="Settings actions">
-          <div>
-            <span className="db-section-label">Local storage</span>
-            <h2>Device only</h2>
-            <p>OpenRouter, Deepgram, and Gemini Live keys stay on this device.</p>
-          </div>
-          <div className="db-settings-actions">
-            <button
-              className="db-secondary-button"
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
               type="button"
-              onClick={handleReset}
-              disabled={loading || saveState === 'saving'}
+              onClick={handleTestDeepgram}
+              disabled={loading || deepgramTest.state === 'testing'}
             >
-              Reset
-            </button>
-            <button className="db-primary-button" type="submit" disabled={loading || saveState === 'saving'}>
-              {saveState === 'saving' ? 'Saving...' : 'Save settings'}
-            </button>
+              {deepgramTest.state === 'testing' ? 'Testing...' : 'Test key'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              onClick={handleRecordDeepgramAudio}
+              disabled={loading || deepgramAudioTest.state === 'testing'}
+            >
+              {deepgramAudioTest.state === 'testing' ? 'Recording...' : 'Record test audio'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              onClick={handlePlayDeepgramTts}
+              disabled={loading || deepgramTtsTest.state === 'testing'}
+            >
+              {deepgramTtsTest.state === 'testing' ? 'Preparing...' : 'Play test voice'}
+            </Button>
+            <ProviderTestMessage state={deepgramTest.state} message={deepgramTest.message} />
+          </div>
+
+          {samplePlaybackUrl ? (
+            <audio
+              className="mt-3 w-full"
+              controls
+              src={samplePlaybackUrl}
+              aria-label="Deepgram test sample playback"
+            />
+          ) : null}
+          <ProviderTestMessage state={deepgramAudioTest.state} message={deepgramAudioTest.message} />
+          {ttsPlaybackUrl ? (
+            <audio
+              className="mt-3 w-full"
+              controls
+              autoPlay
+              src={ttsPlaybackUrl}
+              aria-label="Deepgram TTS test playback"
+            />
+          ) : null}
+          <ProviderTestMessage state={deepgramTtsTest.state} message={deepgramTtsTest.message} />
+        </Card>
+
+        <Card className="md:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <Badge tone="neutral">Local storage</Badge>
+              <h2 className="mt-2 text-[16px] font-semibold text-text">Device only</h2>
+              <p className="mt-1 max-w-2xl text-[12px] text-text-muted">
+                OpenRouter, Deepgram, and Gemini Live keys stay on this device.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={handleReset}
+                disabled={loading || saveState === 'saving'}
+              >
+                Reset
+              </Button>
+              <Button type="submit" disabled={loading || saveState === 'saving'}>
+                {saveState === 'saving' ? 'Saving...' : 'Save settings'}
+              </Button>
+            </div>
           </div>
           <SettingsMessage state={saveState} errorMessage={errorMessage} />
-        </section>
+        </Card>
       </form>
     </main>
   );
 };
+
+interface ToggleRowProps {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}
+
+const ToggleRow: React.FC<ToggleRowProps> = ({ label, checked, onChange }) => (
+  <label className="flex items-center gap-2 text-[13px] font-semibold text-text">
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={event => onChange(event.target.checked)}
+      className="h-4 w-4 accent-brand-strong"
+    />
+    <span>{label}</span>
+  </label>
+);
 
 interface TextFieldProps {
   label: string;
@@ -609,28 +611,24 @@ interface SecretFieldProps extends TextFieldProps {
   saved: boolean;
 }
 
-const SecretField: React.FC<SecretFieldProps> = ({ label, value, saved, onChange }) => (
-  <SecretFieldBody label={label} value={value} saved={saved} onChange={onChange} />
-);
-
-const SecretFieldBody: React.FC<SecretFieldProps> = ({ label, value, saved, onChange }) => {
+const SecretField: React.FC<SecretFieldProps> = ({ label, value, saved, onChange }) => {
   const inputId = React.useId();
-  const hintId = React.useId();
 
   return (
-    <div className="db-field">
-      <label htmlFor={inputId}>{label}</label>
+    <Field label={label} htmlFor={inputId}>
       <input
         id={inputId}
         type="password"
         value={value}
         autoComplete="off"
-        aria-describedby={saved && value.length === 0 ? hintId : undefined}
         placeholder={saved ? 'Paste a new key to replace saved key' : 'Paste API key'}
         onChange={event => onChange(event.target.value)}
+        className="w-full rounded-control border border-border bg-surface px-3 py-2 text-[13px] text-text focus:border-brand focus:outline-none"
       />
-      {saved && value.length === 0 ? <em id={hintId}>Saved key hidden</em> : null}
-    </div>
+      {saved && value.length === 0 ? (
+        <em className="text-[12px] not-italic font-medium text-success">Saved key hidden</em>
+      ) : null}
+    </Field>
   );
 };
 
@@ -638,44 +636,52 @@ interface SelectFieldProps extends TextFieldProps {
   options: ProviderModelOption[];
 }
 
-const SelectField: React.FC<SelectFieldProps> = ({ label, value, options, onChange }) => (
-  <label className="db-field">
-    <span>{label}</span>
-    <select value={value} onChange={event => onChange(event.target.value)}>
-      {options.map(option => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  </label>
-);
+const SelectField: React.FC<SelectFieldProps> = ({ label, value, options, onChange }) => {
+  const selectId = React.useId();
+
+  return (
+    <Field label={label} htmlFor={selectId}>
+      <select
+        id={selectId}
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        className="w-full rounded-control border border-border bg-surface px-3 py-2 text-[13px] text-text focus:border-brand focus:outline-none"
+      >
+        {options.map(option => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+};
 
 const ProviderPanelHeader: React.FC<{ snapshot: ProviderSettingsSnapshot }> = ({ snapshot }) => {
   const status = describeProviderStatus(snapshot);
+  const tone =
+    status.state === 'configured' ? 'success' : status.state === 'error' ? 'danger' : 'neutral';
 
   return (
-    <div className="db-provider-card-heading">
-      <span className={`db-provider-state db-provider-state-${status.state}`}>
-        {formatProviderHeadline(snapshot)}
-      </span>
-      <span>{snapshot.model}</span>
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <Badge tone={tone}>{formatProviderHeadline(snapshot)}</Badge>
+      <span className="text-[12px] font-medium text-text-muted">{snapshot.model}</span>
     </div>
   );
 };
 
 const SettingsMessage: React.FC<{ state: SaveState; errorMessage: string | null }> = ({ state, errorMessage }) => {
   if (state === 'saved') {
-    return <p className="db-settings-message db-settings-message-success">Settings saved locally</p>;
+    return <p className="mt-3 text-[12px] font-semibold text-success">Settings saved locally</p>;
   }
 
   if (state === 'reset') {
-    return <p className="db-settings-message db-settings-message-success">Settings reset</p>;
+    return <p className="mt-3 text-[12px] font-semibold text-success">Settings reset</p>;
   }
 
   if (state === 'error') {
     return (
-      <p className="db-settings-message db-settings-message-error">
+      <p className="mt-3 text-[12px] font-semibold text-danger">
         {errorMessage ?? 'Settings could not be saved'}
       </p>
     );
@@ -692,7 +698,18 @@ const ProviderTestMessage: React.FC<{ state: ConnectionTestState; message: strin
     return null;
   }
 
-  return <p className={`db-provider-test-message db-provider-test-message-${state}`}>{message}</p>;
+  return (
+    <p
+      className={cn(
+        'text-[12px] font-semibold',
+        state === 'success' && 'text-success',
+        state === 'error' && 'text-danger',
+        state === 'testing' && 'text-text-muted',
+      )}
+    >
+      {message}
+    </p>
+  );
 };
 
 function formatProviderHeadline(snapshot: ProviderSettingsSnapshot): string {
