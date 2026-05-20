@@ -167,7 +167,7 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
         <ul className="space-y-2">
           {learningPlan.goals.map((goal, index) => (
             <li key={index} className="flex items-start gap-3">
-              <span className="mt-0.5 inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-pill bg-brand text-[12px] font-bold text-text">
+              <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-pill bg-brand text-[12px] font-bold text-text">
                 {index + 1}
               </span>
               <span className="text-[14px] text-text">{goal}</span>
@@ -220,7 +220,7 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
                       <div className="flex flex-1 items-start gap-3">
                         <div
                           className={cn(
-                            'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-card',
+                            'flex h-10 w-10 shrink-0 items-center justify-center rounded-card',
                             item.completed ? 'bg-success text-white' : 'bg-brand-soft text-brand-strong',
                           )}
                         >
@@ -229,7 +229,7 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
                         <div className="min-w-0 flex-1">
                           <h3
                             className={cn(
-                              'break-words text-[15px] font-semibold',
+                              'wrap-break-word text-[15px] font-semibold',
                               item.completed ? 'text-text-muted line-through' : 'text-text',
                             )}
                           >
@@ -240,7 +240,7 @@ const LearningPlanPage: React.FC<LearningPlanPageProps> = ({ learningPlan, loadi
                           </div>
                           <p
                             className={cn(
-                              'mt-2 break-words text-[13px]',
+                              'mt-2 wrap-break-word text-[13px]',
                               item.completed ? 'text-text-muted line-through' : 'text-text-muted',
                             )}
                           >
