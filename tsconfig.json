@@ -42,5 +42,10 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src-tauri"
+  ]
 }
