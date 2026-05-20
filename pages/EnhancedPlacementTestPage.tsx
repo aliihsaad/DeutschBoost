@@ -1,8 +1,21 @@
 import React, { useState } from 'react';
-import { generateReadingQuestion, generateGrammarQuestion, evaluateComprehensivePlacementTest } from '../services/geminiService';
+import {
+  generateReadingQuestion,
+  generateGrammarQuestion,
+  evaluateComprehensivePlacementTest,
+} from '../services/geminiService';
 import { CEFRLevel, TestResult } from '../types';
 import LoadingSpinner from '../src/components/LoadingSpinner';
-import Card from '../components/Card';
+import {
+  Badge,
+  Button,
+  Card,
+  Field,
+  Notice,
+  PageHeader,
+  ProgressBar,
+  cn,
+} from '../components/ui';
 import toast from 'react-hot-toast';
 import type { AiProvider } from '../src/domain/ai/aiProvider';
 import { normalizeTestResult } from '../src/domain/learning/aiResultNormalization';
@@ -21,6 +34,12 @@ interface Question {
   options: string[];
   correctOptionIndex: number;
 }
+
+const SECTION_CARDS = [
+  { key: 'Reading', label: 'Reading Comprehension', description: 'Five questions testing your understanding of short German texts.' },
+  { key: 'Grammar', label: 'Grammar', description: 'Five questions covering essential German grammar structures.' },
+  { key: 'Writing', label: 'Writing', description: 'Write a short free-form text so the AI examiner can assess production.' },
+] as const;
 
 const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
   onTestComplete,
@@ -47,26 +66,20 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
   );
   const [userWriting, setUserWriting] = useState("");
 
-  // Adaptive difficulty
-  const [currentLevel, setCurrentLevel] = useState<CEFRLevel>(CEFRLevel.A2);
-
   // Final results
   const [evaluationResult, setEvaluationResult] = useState<TestResult | null>(null);
 
-  // Start test - generate first 5 reading questions
   const startTest = async () => {
     setLoading(true);
     try {
       const questions: Question[] = [];
-      let level = CEFRLevel.A2; // Start at A2
+      let level = CEFRLevel.A2;
 
       for (let i = 0; i < 5; i++) {
         const response = await generateReadingQuestion(level, aiProvider);
         const data = JSON.parse(response.text);
         questions.push(data);
 
-        // Adaptive: if we're generating future questions, adjust level
-        // (This is a simplified version - in practice you'd adjust after each answer)
         if (i === 1) level = CEFRLevel.A2;
         if (i === 2) level = CEFRLevel.B1;
         if (i === 3) level = CEFRLevel.B1;
@@ -83,7 +96,6 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
     }
   };
 
-  // Submit reading answer and move to next
   const handleReadingSubmit = () => {
     const currentQuestion = readingQuestions[currentReadingIndex];
     const userAnswer = readingAnswers[currentReadingIndex];
@@ -93,22 +105,17 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
       return;
     }
 
-    // Check if correct
-    const isCorrect = userAnswer === currentQuestion.correctOptionIndex;
-    if (isCorrect) {
+    if (userAnswer === currentQuestion.correctOptionIndex) {
       setReadingScore(prev => prev + 1);
     }
 
-    // Move to next question or next section
     if (currentReadingIndex < 4) {
       setCurrentReadingIndex(prev => prev + 1);
     } else {
-      // Reading complete, move to grammar
       startGrammarSection();
     }
   };
 
-  // Start grammar section
   const startGrammarSection = async () => {
     setLoading(true);
     setSection('Grammar');
@@ -137,7 +144,6 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
     }
   };
 
-  // Submit grammar answer and move to next
   const handleGrammarSubmit = () => {
     const currentQuestion = grammarQuestions[currentGrammarIndex];
     const userAnswer = grammarAnswers[currentGrammarIndex];
@@ -147,20 +153,17 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
       return;
     }
 
-    const isCorrect = userAnswer === currentQuestion.correctOptionIndex;
-    if (isCorrect) {
+    if (userAnswer === currentQuestion.correctOptionIndex) {
       setGrammarScore(prev => prev + 1);
     }
 
     if (currentGrammarIndex < 4) {
       setCurrentGrammarIndex(prev => prev + 1);
     } else {
-      // Grammar complete, move to writing
       setSection('Writing');
     }
   };
 
-  // Submit writing and evaluate entire test
   const handleWritingSubmit = async () => {
     if (!userWriting.trim() || userWriting.trim().split(/\s+/).length < 20) {
       toast.error("Please write at least 20 words");
@@ -171,7 +174,6 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
     setSection('Evaluating');
 
     try {
-      // Evaluate comprehensive test
       const result = await evaluateComprehensivePlacementTest(
         readingScore,
         grammarScore,
@@ -193,208 +195,179 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
     }
   };
 
-  // Render functions
   const renderIntro = () => {
     const providerReady = Boolean(aiProvider);
 
     return (
-      <Card className="text-center">
-      <div className="mb-6">
-        <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-          <i className="fa-solid fa-clipboard-check text-white text-4xl"></i>
+      <>
+        <PageHeader
+          title="Comprehensive German Placement Test"
+          subtitle="Three short sections — reading, grammar, and a free-form writing prompt — calibrate your CEFR level in about 15–20 minutes."
+        />
+        <div className="grid gap-4 md:grid-cols-3">
+          {SECTION_CARDS.map(s => (
+            <Card key={s.key} variant="soft" title={s.label}>
+              <p className="text-[13px] leading-relaxed text-text-muted">{s.description}</p>
+            </Card>
+          ))}
         </div>
-        <h1 className="text-4xl font-bold mb-4">Comprehensive German Placement Test</h1>
-        <p className="text-gray-700 text-lg mb-4">
-          This test has three sections to accurately assess your German level:
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-blue-50 p-6 rounded-xl border-2 border-blue-200">
-          <div className="text-4xl mb-2">📖</div>
-          <h3 className="font-bold text-lg mb-2">Reading Comprehension</h3>
-          <p className="text-sm text-gray-600">5 questions testing your understanding of German texts</p>
+        <div className="mt-6 space-y-4">
+          <Notice tone="info">
+            Estimated time: 15–20 minutes. Questions adapt to your level as you answer.
+          </Notice>
+          {!providerReady ? (
+            <Notice tone="error">
+              Connect OpenRouter in Settings before starting the placement test.
+            </Notice>
+          ) : null}
+          <div>
+            <Button onClick={startTest} disabled={!providerReady || loading}>
+              {providerReady ? 'Start Test' : 'Connect OpenRouter first'}
+            </Button>
+          </div>
         </div>
-        <div className="bg-green-50 p-6 rounded-xl border-2 border-green-200">
-          <div className="text-4xl mb-2">✏️</div>
-          <h3 className="font-bold text-lg mb-2">Grammar</h3>
-          <p className="text-sm text-gray-600">5 questions covering essential German grammar</p>
-        </div>
-        <div className="bg-purple-50 p-6 rounded-xl border-2 border-purple-200">
-          <div className="text-4xl mb-2">✍️</div>
-          <h3 className="font-bold text-lg mb-2">Writing</h3>
-          <p className="text-sm text-gray-600">Write a short text to demonstrate your skills</p>
-        </div>
-      </div>
-
-      <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-4 mb-6">
-        <p className="text-sm text-gray-700">
-          <i className="fa-solid fa-clock mr-2"></i>
-          <strong>Estimated time:</strong> 15-20 minutes • <strong>Questions adapt</strong> to your level as you answer
-        </p>
-      </div>
-
-      {!providerReady ? (
-        <p role="alert" className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-6 text-sm text-red-800">
-          Connect OpenRouter in Settings before starting the placement test.
-        </p>
-      ) : null}
-
-      <button
-        onClick={startTest}
-        disabled={!providerReady || loading}
-        className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-12 py-4 rounded-xl font-bold text-xl hover:shadow-lg transition"
-      >
-        {providerReady ? 'Start Test' : 'Connect OpenRouter first'}
-      </button>
-    </Card>
+      </>
     );
   };
+
+  const renderAnswerOption = (
+    option: string,
+    index: number,
+    selectedIndex: number | null,
+    onSelect: (i: number) => void,
+  ) => (
+    <button
+      key={index}
+      type="button"
+      onClick={() => onSelect(index)}
+      aria-pressed={selectedIndex === index}
+      className={cn(
+        'flex w-full items-start gap-2 rounded-control border px-4 py-3 text-left text-[14px] transition-colors',
+        selectedIndex === index
+          ? 'border-brand bg-brand-soft text-text'
+          : 'border-border bg-surface text-text hover:border-brand',
+      )}
+    >
+      <span className="font-semibold mr-3">{String.fromCharCode(65 + index)}.</span>
+      {option}
+    </button>
+  );
 
   const renderReading = () => {
     const question = readingQuestions[currentReadingIndex];
     if (!question) return null;
+    const selected = readingAnswers[currentReadingIndex];
+    const progress = (currentReadingIndex / 5) * 100;
 
     return (
-      <Card>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">📖 Reading Comprehension</h2>
-          <span className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-semibold">
-            Question {currentReadingIndex + 1} of 5
-          </span>
+      <>
+        <PageHeader
+          title="Reading Comprehension"
+          subtitle={`Question ${currentReadingIndex + 1} of 5`}
+          actions={<Badge tone="info">Section 1 of 3</Badge>}
+        />
+        <div className="mb-4">
+          <ProgressBar value={progress} label="Reading progress" />
         </div>
-
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl mb-6 border-2 border-blue-200">
-          <p className="text-lg leading-relaxed italic">{question.text}</p>
-        </div>
-
-        <p className="font-bold text-lg mb-4">{question.question}</p>
-
-        <div className="space-y-3 mb-6">
-          {question.options.map((option, index) => (
-            <button
-              key={index}
-              onClick={() => {
-                const newAnswers = [...readingAnswers];
-                newAnswers[currentReadingIndex] = index;
-                setReadingAnswers(newAnswers);
-              }}
-              className={`block w-full text-left p-4 rounded-xl border-2 transition ${
-                readingAnswers[currentReadingIndex] === index
-                  ? 'border-blue-500 bg-blue-100'
-                  : 'border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <span className="font-semibold mr-3">{String.fromCharCode(65 + index)}.</span>
-              {option}
-            </button>
-          ))}
-        </div>
-
-        <button
-          onClick={handleReadingSubmit}
-          disabled={readingAnswers[currentReadingIndex] === null}
-          className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          {currentReadingIndex < 4 ? 'Next Question' : 'Continue to Grammar'}
-        </button>
-      </Card>
+        <Card className="mb-4">
+          <p className="text-[14px] leading-relaxed text-text">{question.text}</p>
+        </Card>
+        <Card>
+          <p className="mb-4 text-[14px] font-semibold text-text">{question.question}</p>
+          <div className="space-y-2">
+            {question.options.map((option, index) =>
+              renderAnswerOption(option, index, selected, (i) => {
+                const next = [...readingAnswers];
+                next[currentReadingIndex] = i;
+                setReadingAnswers(next);
+              }),
+            )}
+          </div>
+          <div className="mt-6">
+            <Button onClick={handleReadingSubmit} disabled={selected === null}>
+              {currentReadingIndex < 4 ? 'Next Question' : 'Continue to Grammar'}
+            </Button>
+          </div>
+        </Card>
+      </>
     );
   };
 
   const renderGrammar = () => {
     const question = grammarQuestions[currentGrammarIndex];
     if (!question) return <LoadingSpinner text="Loading grammar section..." />;
+    const selected = grammarAnswers[currentGrammarIndex];
+    const progress = (currentGrammarIndex / 5) * 100;
 
     return (
-      <Card>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">✏️ Grammar</h2>
-          <span className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full font-semibold">
-            Question {currentGrammarIndex + 1} of 5
-          </span>
+      <>
+        <PageHeader
+          title="✏️ Grammar"
+          subtitle={`Question ${currentGrammarIndex + 1} of 5`}
+          actions={<Badge tone="info">Section 2 of 3</Badge>}
+        />
+        <div className="mb-4">
+          <ProgressBar value={progress} label="Grammar progress" />
         </div>
-
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl mb-6 border-2 border-green-200">
-          <p className="text-xl font-mono">{question.sentence}</p>
-        </div>
-
-        <p className="font-semibold text-lg mb-4">{question.question}</p>
-
-        <div className="space-y-3 mb-6">
-          {question.options.map((option, index) => (
-            <button
-              key={index}
-              onClick={() => {
-                const newAnswers = [...grammarAnswers];
-                newAnswers[currentGrammarIndex] = index;
-                setGrammarAnswers(newAnswers);
-              }}
-              className={`block w-full text-left p-4 rounded-xl border-2 transition ${
-                grammarAnswers[currentGrammarIndex] === index
-                  ? 'border-green-500 bg-green-100'
-                  : 'border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <span className="font-semibold mr-3">{String.fromCharCode(65 + index)}.</span>
-              {option}
-            </button>
-          ))}
-        </div>
-
-        <button
-          onClick={handleGrammarSubmit}
-          disabled={grammarAnswers[currentGrammarIndex] === null}
-          className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          {currentGrammarIndex < 4 ? 'Next Question' : 'Continue to Writing'}
-        </button>
-      </Card>
+        <Card className="mb-4">
+          <p className="font-mono text-[16px] text-text">{question.sentence}</p>
+        </Card>
+        <Card>
+          <p className="mb-4 text-[14px] font-semibold text-text">{question.question}</p>
+          <div className="space-y-2">
+            {question.options.map((option, index) =>
+              renderAnswerOption(option, index, selected, (i) => {
+                const next = [...grammarAnswers];
+                next[currentGrammarIndex] = i;
+                setGrammarAnswers(next);
+              }),
+            )}
+          </div>
+          <div className="mt-6">
+            <Button onClick={handleGrammarSubmit} disabled={selected === null}>
+              {currentGrammarIndex < 4 ? 'Next Question' : 'Continue to Writing'}
+            </Button>
+          </div>
+        </Card>
+      </>
     );
   };
 
   const renderWriting = () => (
-    <Card>
-      <h2 className="text-2xl font-bold mb-4">✍️ Writing</h2>
-      <p className="text-gray-600 mb-6">This is the final section. Write naturally and do your best!</p>
-
-      <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-xl mb-6 border-2 border-purple-200">
-        <p className="font-semibold text-lg">{writingPrompt}</p>
-      </div>
-
-      <textarea
-        value={userWriting}
-        onChange={(e) => setUserWriting(e.target.value)}
-        className="w-full h-64 p-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
-        placeholder="Schreiben Sie hier Ihre E-Mail..."
+    <>
+      <PageHeader
+        title="Writing"
+        subtitle="The final section. Write naturally and do your best."
+        actions={<Badge tone="info">Section 3 of 3</Badge>}
       />
-
-      <div className="mt-4 flex items-center justify-between">
-        <span className="text-sm text-gray-600">
-          Words: {userWriting.trim() ? userWriting.trim().split(/\s+/).length : 0}
-        </span>
-        <button
-          onClick={handleWritingSubmit}
-          className="bg-purple-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-purple-700 transition"
-        >
-          Submit Test for Evaluation
-        </button>
-      </div>
-    </Card>
+      <Card>
+        <p className="mb-4 text-[14px] font-semibold text-text">{writingPrompt}</p>
+        <Field label="Your e-mail" htmlFor="placement-writing">
+          <textarea
+            id="placement-writing"
+            value={userWriting}
+            onChange={(e) => setUserWriting(e.target.value)}
+            className="h-64 w-full rounded-control border border-border bg-surface p-3 text-[14px] text-text focus:border-brand focus:outline-none"
+            placeholder="Schreiben Sie hier Ihre E-Mail..."
+          />
+        </Field>
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-[12px] text-text-muted">
+            Words: {userWriting.trim() ? userWriting.trim().split(/\s+/).length : 0}
+          </span>
+          <Button onClick={handleWritingSubmit}>Submit Test for Evaluation</Button>
+        </div>
+      </Card>
+    </>
   );
 
   const renderEvaluating = () => (
     <Card className="text-center">
-      <div className="mb-6">
-        <div className="w-20 h-20 mx-auto bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg animate-pulse">
-          <i className="fa-solid fa-brain text-white text-4xl"></i>
-        </div>
-        <h2 className="text-3xl font-bold mb-4">Evaluating Your Test...</h2>
-        <p className="text-gray-700 text-lg mb-8">
-          Our AI examiner is analyzing your responses across all three sections.
-        </p>
-      </div>
-      <LoadingSpinner size="lg" text="This may take 30-60 seconds..." />
+      <h2 className="mb-2 text-[20px] font-semibold text-text">Evaluating your test…</h2>
+      <p className="mb-6 text-[14px] text-text-muted">
+        The AI examiner is analyzing your responses across all three sections.
+      </p>
+      <LoadingSpinner size="lg" text="This may take 30–60 seconds…" />
     </Card>
   );
 
@@ -402,76 +375,56 @@ const EnhancedPlacementTestPage: React.FC<EnhancedPlacementTestPageProps> = ({
     if (!evaluationResult) return null;
 
     return (
-      <Card className="text-center">
-        <div className="mb-6">
-          <i className="fa-solid fa-trophy text-yellow-500 text-7xl mb-4"></i>
-          <h1 className="text-4xl font-bold mb-2">Test Complete!</h1>
-          <p className="text-gray-700 text-lg">Based on your comprehensive assessment:</p>
-        </div>
-
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl p-8 inline-block mb-8 shadow-xl">
-          <p className="text-xl mb-2">Your CEFR Level</p>
-          <p className="text-8xl font-bold">{evaluationResult.level}</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto text-left mb-8">
-          <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
-            <h3 className="font-bold text-xl mb-4 text-green-800">
-              <i className="fa-solid fa-check-circle mr-2"></i>
-              Strengths
-            </h3>
-            <ul className="space-y-2">
+      <>
+        <PageHeader
+          title="Test Complete!"
+          subtitle="Based on your comprehensive assessment, here is your CEFR level and a path forward."
+        />
+        <Card className="text-center">
+          <p className="text-[12px] font-medium uppercase tracking-wide text-text-muted">Your CEFR level</p>
+          <p className="mt-2 text-[48px] font-bold text-brand-strong">{evaluationResult.level}</p>
+        </Card>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <Card title="Strengths">
+            <ul className="space-y-2 text-[14px] text-text">
               {evaluationResult.strengths.map((s, i) => (
-                <li key={i} className="flex items-start">
-                  <span className="text-green-600 mr-2">•</span>
+                <li key={i} className="flex items-start gap-2">
+                  <span className="text-success">•</span>
                   <span>{s}</span>
                 </li>
               ))}
             </ul>
-          </div>
-
-          <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-6">
-            <h3 className="font-bold text-xl mb-4 text-orange-800">
-              <i className="fa-solid fa-lightbulb mr-2"></i>
-              Areas to Improve
-            </h3>
-            <ul className="space-y-2">
+          </Card>
+          <Card title="Areas to improve">
+            <ul className="space-y-2 text-[14px] text-text">
               {evaluationResult.weaknesses.map((w, i) => (
-                <li key={i} className="flex items-start">
-                  <span className="text-orange-600 mr-2">•</span>
+                <li key={i} className="flex items-start gap-2">
+                  <span className="text-brand-strong">•</span>
                   <span>{w}</span>
                 </li>
               ))}
             </ul>
-          </div>
+          </Card>
         </div>
-
-        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 max-w-3xl mx-auto mb-8">
-          <h3 className="font-bold text-xl mb-3 text-blue-800">
-            <i className="fa-solid fa-route mr-2"></i>
-            Your Path Forward
-          </h3>
-          <p className="text-gray-700 leading-relaxed">{evaluationResult.recommendations}</p>
-        </div>
-
-        <p className="text-gray-600 text-lg">
-          A personalized learning plan will be generated based on these results!
+        <Card className="mt-4" title="Your path forward">
+          <p className="text-[14px] leading-relaxed text-text">{evaluationResult.recommendations}</p>
+        </Card>
+        <p className="mt-4 text-[14px] text-text-muted">
+          A personalized learning plan will be generated based on these results.
         </p>
-      </Card>
+      </>
     );
   };
 
   return (
-    <div className="container mx-auto p-8 flex justify-center items-start">
-      <div className="w-full max-w-4xl">
-        {loading && section !== 'Evaluating' && section !== 'Grammar' && <LoadingSpinner />}
-        {!loading && section === 'Intro' && renderIntro()}
-        {!loading && section === 'Reading' && renderReading()}
-        {section === 'Grammar' && renderGrammar()}
-        {!loading && section === 'Writing' && renderWriting()}
-        {section === 'Evaluating' && renderEvaluating()}
-        {!loading && section === 'Complete' && renderComplete()}
-      </div>
+    <div className="mx-auto w-full max-w-4xl px-6 py-8">
+      {loading && section !== 'Evaluating' && section !== 'Grammar' && <LoadingSpinner />}
+      {!loading && section === 'Intro' && renderIntro()}
+      {!loading && section === 'Reading' && renderReading()}
+      {section === 'Grammar' && renderGrammar()}
+      {!loading && section === 'Writing' && renderWriting()}
+      {section === 'Evaluating' && renderEvaluating()}
+      {!loading && section === 'Complete' && renderComplete()}
     </div>
   );
 };
