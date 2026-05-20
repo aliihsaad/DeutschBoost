@@ -14,6 +14,7 @@ import {
   type ProfileRepository,
 } from '../src/domain/profile/profileRepository';
 import { browserProfileRepository } from '../src/infrastructure/browser/profileStorage';
+import { Badge, Button, Card, Field, PageHeader, Stat } from '../components/ui';
 
 interface ProfilePageProps {
   repository?: ProfileRepository;
@@ -117,45 +118,29 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const busy = saveState === 'loading' || saveState === 'saving';
 
   return (
-    <main className="db-dashboard db-profile" aria-label="Learner profile">
-      <header className="db-dashboard-header">
-        <div>
-          <h1>Learner Profile</h1>
-          <p>Your level, goals, voice, and study rhythm are saved on this device.</p>
-        </div>
-      </header>
+    <main className="mx-auto w-full max-w-6xl px-6 py-8" aria-label="Learner profile">
+      <PageHeader
+        title="Learner Profile"
+        subtitle="Your level, goals, voice, and study rhythm are saved on this device."
+      />
 
-      <form className="db-profile-grid" onSubmit={handleSave}>
-        <section className="db-panel db-profile-summary-panel" aria-label="Profile summary">
-          <span className="db-section-label">Local learner</span>
-          <strong>{summary.levelPath}</strong>
-          <dl>
-            <div>
-              <dt>Native language</dt>
-              <dd>{summary.nativeLanguage}</dd>
-            </div>
-            <div>
-              <dt>Focus</dt>
-              <dd>{summary.focus}</dd>
-            </div>
-            <div>
-              <dt>Exam</dt>
-              <dd>{summary.exam}</dd>
-            </div>
-            <div>
-              <dt>Daily goal</dt>
-              <dd>{summary.dailyGoal}</dd>
-            </div>
+      <form onSubmit={handleSave} className="grid gap-4 md:grid-cols-3">
+        <Card aria-label="Profile summary" className="md:col-span-1">
+          <Badge tone="brand">Local learner</Badge>
+          <p className="mt-3 text-[30px] font-extrabold leading-none text-text">{summary.levelPath}</p>
+          <dl className="mt-4 grid gap-3">
+            <SummaryRow label="Native language" value={summary.nativeLanguage} />
+            <SummaryRow label="Focus" value={summary.focus} />
+            <SummaryRow label="Exam" value={summary.exam} />
+            <SummaryRow label="Daily goal" value={summary.dailyGoal} />
           </dl>
-        </section>
+        </Card>
 
-        <section className="db-panel db-profile-panel" aria-labelledby="profile-identity-heading">
-          <div className="db-settings-section-heading">
-            <h2 id="profile-identity-heading">Learning Identity</h2>
-            <span>These choices guide German examples, explanations, and lesson difficulty.</span>
-          </div>
-
-          <div className="db-field-grid">
+        <Card title="Learning Identity" className="md:col-span-2">
+          <p className="mb-4 text-[12px] text-text-muted">
+            These choices guide German examples, explanations, and lesson difficulty.
+          </p>
+          <div className="grid gap-3 md:grid-cols-2">
             <SelectField
               label="Current level"
               value={profile.currentLevel}
@@ -181,15 +166,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               onChange={value => updateProfileField('learningFocus', value)}
             />
           </div>
-        </section>
+        </Card>
 
-        <section className="db-panel db-profile-panel" aria-labelledby="profile-system-heading">
-          <div className="db-settings-section-heading">
-            <h2 id="profile-system-heading">Study System</h2>
-            <span>Use fixed choices so the local app can tune plans without guessing from free text.</span>
-          </div>
-
-          <div className="db-field-grid">
+        <Card title="Study System" className="md:col-span-3">
+          <p className="mb-4 text-[12px] text-text-muted">
+            Use fixed choices so the local app can tune plans without guessing from free text.
+          </p>
+          <div className="grid gap-3 md:grid-cols-3">
             <SelectField
               label="Target exam"
               value={profile.targetExam}
@@ -220,40 +203,44 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               options={VOICE_PREFERENCE_OPTIONS}
               onChange={value => updateProfileField('voicePreference', value)}
             />
-            <div className="db-profile-facts" aria-label="Local progress snapshot">
-              <span>Study streak</span>
-              <strong>{profile.studyStreak} days</strong>
-              <span>Total study time</span>
-              <strong>{Math.round(profile.totalStudyTimeMinutes / 60)} hours</strong>
+            <div className="grid gap-3" aria-label="Local progress snapshot">
+              <Stat label="Study streak" value={`${profile.studyStreak} days`} />
+              <Stat label="Total study time" value={`${Math.round(profile.totalStudyTimeMinutes / 60)} hours`} />
             </div>
           </div>
-        </section>
+        </Card>
 
-        <section className="db-panel db-settings-save-panel" aria-label="Profile actions">
-          <div>
-            <span className="db-section-label">Personalization</span>
-            <h2>{summary.tutorStyle}</h2>
-            <p>Profile data stays in local storage and can be reset without touching provider keys.</p>
-          </div>
-          <div className="db-settings-actions">
-            <button
-              className="db-secondary-button"
-              type="button"
-              onClick={handleReset}
-              disabled={busy}
-            >
-              Reset
-            </button>
-            <button className="db-primary-button" type="submit" disabled={busy}>
-              {saveState === 'saving' ? 'Saving...' : 'Save profile'}
-            </button>
+        <Card aria-label="Profile actions" className="md:col-span-3">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <Badge tone="neutral">Personalization</Badge>
+              <h2 className="mt-2 text-[16px] font-semibold text-text">{summary.tutorStyle}</h2>
+              <p className="mt-1 max-w-2xl text-[12px] text-text-muted">
+                Profile data stays in local storage and can be reset without touching provider keys.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" type="button" onClick={handleReset} disabled={busy}>
+                Reset
+              </Button>
+              <Button type="submit" disabled={busy}>
+                {saveState === 'saving' ? 'Saving...' : 'Save profile'}
+              </Button>
+            </div>
           </div>
           <ProfileMessage state={saveState} errorMessage={errorMessage} />
-        </section>
+        </Card>
       </form>
     </main>
   );
 };
+
+const SummaryRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <div className="grid gap-1 border-t border-border pt-3 first:border-t-0 first:pt-0">
+    <dt className="text-[11px] font-bold uppercase tracking-wide text-text-muted">{label}</dt>
+    <dd className="m-0 text-[13px] font-bold text-text">{value}</dd>
+  </div>
+);
 
 interface SelectFieldProps<Value extends SelectValue> {
   label: string;
@@ -267,37 +254,42 @@ const SelectField = <Value extends SelectValue>({
   value,
   options,
   onChange,
-}: SelectFieldProps<Value>) => (
-  <label className="db-field">
-    <span>{label}</span>
-    <select
-      value={String(value)}
-      onChange={event => onChange(coerceSelectValue(event.target.value, options))}
-    >
-      {options.map(option => (
-        <option key={String(option.value)} value={String(option.value)}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  </label>
-);
+}: SelectFieldProps<Value>) => {
+  const selectId = React.useId();
+
+  return (
+    <Field label={label} htmlFor={selectId}>
+      <select
+        id={selectId}
+        value={String(value)}
+        onChange={event => onChange(coerceSelectValue(event.target.value, options))}
+        className="w-full rounded-control border border-border bg-surface px-3 py-2 text-[13px] text-text focus:border-brand focus:outline-none"
+      >
+        {options.map(option => (
+          <option key={String(option.value)} value={String(option.value)}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+};
 
 const ProfileMessage: React.FC<{ state: SaveState; errorMessage: string | null }> = ({
   state,
   errorMessage,
 }) => {
   if (state === 'saved') {
-    return <p className="db-settings-message db-settings-message-success">Profile saved locally</p>;
+    return <p className="mt-3 text-[12px] font-semibold text-success">Profile saved locally</p>;
   }
 
   if (state === 'reset') {
-    return <p className="db-settings-message db-settings-message-success">Profile reset</p>;
+    return <p className="mt-3 text-[12px] font-semibold text-success">Profile reset</p>;
   }
 
   if (state === 'error') {
     return (
-      <p className="db-settings-message db-settings-message-error">
+      <p className="mt-3 text-[12px] font-semibold text-danger">
         {errorMessage ?? 'Profile could not be saved'}
       </p>
     );
