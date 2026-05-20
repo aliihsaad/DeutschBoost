@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "mcp__vault-memory__vault_save_memory",
-      "mcp__vault-memory__vault_resolve_loop"
-    ]
-  }
-}
