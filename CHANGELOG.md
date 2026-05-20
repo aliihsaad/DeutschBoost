@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.1.0 - 2026-05-20
+
+Minor release: app-wide UI system overhaul. Every page now renders from one token-driven shared component kit, replacing the two competing styling systems that previously lived side by side. Behavior is unchanged; the entire 316-test Vitest suite stays green and the production build is clean.
+
+- Unified design tokens via Tailwind v4 `@theme` in `src/index.css` (one warm-amber brand palette, soft cards with subtle depth, consistent skill/status accents, no gradient-soup).
+- New shared kit under `components/ui/`: Button, Card, PageHeader, Stat, Field, Badge, Notice, ProgressBar, Ring, EmptyState, OptionCard, SegmentedControl plus `cn` and token helpers, each covered by its own kit test.
+- Converted every page onto the kit: AppShell, Dashboard, Activity, Conversation, Exam, Placement, Settings, Profile, Plan, Practice, and the four placeholder workspaces (/review, /writing, /mistakes, /library).
+- Settings now ships clickable provider help links with one-line instructions for OpenRouter, Gemini Live, and Deepgram, so first-time users can get keys without leaving the app.
+- Deleted the legacy `components/Card.tsx` and the two dead pages (`HomePage.tsx`, `PlacementTestPage.tsx`) that depended on it.
+- Final purge: `src/index.css` went from 2324 lines to 45 — every `.db-*` rule and the legacy `:root --db-*` alias block removed. `git grep` for `.db-*` in CSS and JSX returns zero matches.
+- Build hygiene: installed `@types/react` and `@types/react-dom` (previously missing, masking latent type errors) and added an `exclude` for `node_modules`/`dist`/`src-tauri` to `tsconfig.json` so `tsc --noEmit` no longer trips on packaged Tauri build artifacts.
+
+Release validation target:
+
+- Full Vitest suite passes (316 tests).
+- Production Vite build passes.
+- User smoke test on the installed desktop build: every page renders with the new shared kit, provider key links open externally, and existing learning/exam/conversation flows behave the same.
+
 ## v0.0.10 - 2026-05-19
 
 Desktop pre-release fixing Gemini Live audio quality and the live transcript, found in the v0.0.9 smoke test.

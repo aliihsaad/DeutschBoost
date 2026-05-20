@@ -889,7 +889,7 @@ dependencies = [
 
 [[package]]
 name = "deutschboost"
-version = "0.0.10"
+version = "0.1.0"
 dependencies = [
  "log",
  "reqwest 0.12.28",
